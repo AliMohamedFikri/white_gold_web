@@ -650,6 +650,35 @@
             window.print();
         }
 
+        async function shareBill() {
+            if (!appState.currentBill) return;
+
+            const bill = appState.currentBill;
+            const text = `فاتورة من ${appState.companySettings.name}\n` +
+                `رقم الفاتورة: ${bill.billNumber}\n` +
+                `التاريخ: ${new Date(bill.billDate).toLocaleDateString('ar-SA')}\n` +
+                `القيمة الإجمالية: ${bill.billTotal.toFixed(2)} جنية\n\n` +
+                `${bill.items.map(item => `- ${item.category} (${item.size}): ${item.quantity} x ${item.unitPrice} = ${item.total}`).join('\n')}`;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `فاتورة ${bill.billNumber}`,
+                        text: text,
+                    });
+                } catch (err) {
+                    console.error('Share failed:', err);
+                }
+            } else {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    showToast('تم نسخ تفاصيل الفاتورة', 'success');
+                } catch (err) {
+                    showToast('المتصفح لا يدعم المشاركة', 'error');
+                }
+            }
+        }
+
         async function deleteBill(bill) {
             const confirmDelete = document.getElementById(`confirm-bill-${bill.__backendId}`);
 
@@ -961,16 +990,16 @@
         <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color || defaultConfig.background_color};">
           
           <!-- Mobile Header -->
-          <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+          <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+             <button onclick="toggleSidebar()" class="text-white text-2xl">
+                 ${appState.isSidebarOpen ? '✕' : '☰'}
+             </button>
              <div class="flex items-center gap-2">
                 <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
                   <span class="text-sm" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
                 </div>
                 <span class="text-white font-bold text-lg">${appState.companySettings.name}</span>
              </div>
-             <button onclick="toggleSidebar()" class="text-white text-2xl">
-                 ${appState.isSidebarOpen ? '✕' : '☰'}
-             </button>
           </div>
 
           <!-- Mobile Overlay -->
@@ -1241,10 +1270,10 @@
           <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">إدارة الأسعار</h1>
           
           <div class="card-shadow rounded-xl p-4 md:p-6 bg-white mb-8">
-            <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">إنشاء نموذج تسعير جديد</h2>
-            <form onsubmit="createPricingModel(event);" class="flex gap-3">
+            <h2 class="text-xl md:text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">إنشاء نموذج تسعير جديد</h2>
+            <form onsubmit="createPricingModel(event);" class="flex flex-col md:flex-row gap-3">
               <input type="text" id="modelName" required placeholder="اسم النموذج (مثال: تسعير الصيف 2024)" class="flex-1 px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+              <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
                 ${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}
                 <span>إنشاء</span>
               </button>
@@ -1265,42 +1294,41 @@
 
                 return `
               <div class="card-shadow rounded-xl p-4 md:p-6 bg-white hover-scale">
-                <div class="flex justify-between items-center mb-4">
-                  <div class="flex-1">
-                    <h3 class="text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">${model.pricingModelName}</h3>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                  <div class="flex-1 w-full">
+                    <h3 class="text-xl md:text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">${model.pricingModelName}</h3>
                     <div class="flex items-center gap-4">
                       <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs">
                         <div class="h-2 rounded-full transition-all" style="width: ${percentComplete}%; background-color: ${config.accent_color || defaultConfig.accent_color};"></div>
                       </div>
-                      <span class="text-sm font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${totalPrices}/${totalPossible} (${percentComplete}%)</span>
+                      <span class="text-xs md:text-sm font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${totalPrices}/${totalPossible} (${percentComplete}%)</span>
                     </div>
                   </div>
-                  <div class="flex gap-3">
-                    <button onclick="viewModelDetails('${model.__backendId}');" class="px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300 transition-colors" style="color: ${config.text_color || defaultConfig.text_color};">
+                  <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <button onclick="viewModelDetails('${model.__backendId}');" class="flex-1 md:flex-none px-3 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300 transition-colors text-sm" style="color: ${config.text_color || defaultConfig.text_color};">
                       عرض
                     </button>
-                    <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                    <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" class="flex-1 md:flex-none px-3 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity text-sm" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
                       تعديل
                     </button>
-                    <button onclick="duplicateModel('${model.__backendId}');" class="px-4 py-2 bg-blue-500 rounded-lg font-semibold text-white hover:bg-blue-600 transition-colors">
+                    <button onclick="duplicateModel('${model.__backendId}');" class="flex-1 md:flex-none px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white hover:bg-blue-600 transition-colors text-sm">
                       نسخ
                     </button>
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
                       <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" 
                               id="delete-${model.__backendId}"
                               ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} 
-                              class="px-4 py-2 bg-red-500 rounded-lg font-semibold text-white hover:bg-red-600 transition-colors flex items-center gap-2">
+                              class="flex-1 md:flex-none px-3 py-2 bg-red-500 rounded-lg font-semibold text-white hover:bg-red-600 transition-colors flex items-center justify-center gap-2 text-sm">
                         ${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}
                         <span>حذف</span>
                       </button>
                       <button id="confirm-${model.__backendId}" 
                               onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" 
                               style="display: none;" 
-                              class="px-4 py-2 bg-red-700 rounded-lg font-semibold text-white hover:bg-red-800 transition-colors">
-                        تأكيد الحذف
+                              class="flex-1 md:flex-none px-3 py-2 bg-red-700 rounded-lg font-semibold text-white hover:bg-red-800 transition-colors text-sm">
+                        تأكيد
                       </button>
                     </div>
-</button>
                   </div>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1310,14 +1338,14 @@
                     <div class="p-3 rounded-lg" style="background-color: ${config.background_color || defaultConfig.background_color};">
                       <div class="flex items-center gap-2 mb-1">
                         <span>${getCategoryIcon(category.name)}</span>
-                        <p class="font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${category.name}</p>
+                        <p class="font-semibold text-sm" style="color: ${config.text_color || defaultConfig.text_color};">${category.name}</p>
                       </div>
-                      <p class="text-sm opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">${priced}/${SIZES.length} مقاسات مسعرة</p>
+                      <p class="text-xs opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">${priced}/${SIZES.length} مقاسات مسعرة</p>
                     </div>
                   `}).join('')}
                   ${model.data.length > 4 ? `
                     <div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color || defaultConfig.background_color};">
-                      <p class="font-semibold" style="color: ${config.primary_color || defaultConfig.primary_color};">+${model.data.length - 4} فئات</p>
+                      <p class="font-semibold text-sm" style="color: ${config.primary_color || defaultConfig.primary_color};">+${model.data.length - 4} فئات</p>
                     </div>
                   ` : ''}
                 </div>
@@ -1562,51 +1590,59 @@
 
             return `
         <div class="fade-in">
-          <div class="flex justify-between items-center mb-8 no-print">
-            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عرض الفاتورة</h1>
-            <div class="flex gap-3">
-              <button onclick="appState.currentView = 'bills'; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4 no-print">
+            <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عرض الفاتورة</h1>
+            <div class="flex gap-3 w-full md:w-auto">
+              <button onclick="appState.currentView = 'bills'; render();" class="flex-1 md:flex-none px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
                 رجوع
               </button>
-              <button onclick="printBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+              <button onclick="printBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
                 <span>🖨️</span>
                 <span>طباعة</span>
+              </button>
+              <button onclick="shareBill();" class="flex-1 md:flex-none px-6 py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors">
+                <span>🔗</span>
+                <span>مشاركة</span>
               </button>
             </div>
           </div>
           
-          <div class="card-shadow rounded-xl p-12 bg-white max-w-4xl mx-auto">
+          <div class="card-shadow rounded-xl p-4 md:p-12 bg-white max-w-4xl mx-auto">
             <!-- Invoice Header -->
             <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              <div class="flex justify-between items-start mb-6">
+              <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-6">
                 <div>
                   <div class="flex items-center gap-3 mb-2">
-                    <div class="w-16 h-16 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
-                      <span class="text-3xl">👔</span>
+                    <div class="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+                      <span class="text-2xl md:text-3xl">👔</span>
                     </div>
                     <div>
-                      <h2 class="text-3xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${appState.companySettings.name}</h2>
-                      <p class="opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">فاتورة مبيعات</p>
+                      <h2 class="text-2xl md:text-3xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${appState.companySettings.name}</h2>
+                      <p class="opacity-75 text-sm md:text-base" style="color: ${config.text_color || defaultConfig.text_color};">فاتورة مبيعات</p>
                     </div>
                   </div>
-                  <div class="space-y-1" style="color: ${config.text_color || defaultConfig.text_color};">
+                  <div class="space-y-1 text-sm md:text-base" style="color: ${config.text_color || defaultConfig.text_color};">
                     <p>📞 ${appState.companySettings.phone}</p>
                     <p>📍 ${appState.companySettings.address}</p>
                   </div>
                 </div>
                 
-                <div class="text-left">
-                  <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</p>
-                  <p class="text-2xl font-bold mb-4" style="color: ${config.primary_color || defaultConfig.primary_color};">${bill.billNumber}</p>
-                  <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</p>
-                  <p class="font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <div class="text-left w-full md:w-auto bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg md:rounded-none">
+                  <div class="flex md:block justify-between items-center mb-2 md:mb-0">
+                    <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</p>
+                    <p class="text-xl md:text-2xl font-bold md:mb-4" style="color: ${config.primary_color || defaultConfig.primary_color};">${bill.billNumber}</p>
+                  </div>
+                  <div class="flex md:block justify-between items-center">
+                    <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</p>
+                    <p class="font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
                 </div>
               </div>
             </div>
             
             <!-- Invoice Items -->
-            <div class="mb-8">
-              <table class="w-full">
+            <div class="mb-8 overflow-x-auto">
+              <table class="w-full min-w-[600px]">
                 <thead>
                   <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
                     <th class="text-right py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
@@ -1632,14 +1668,14 @@
             
             <!-- Total -->
             <div class="border-t-2 pt-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              <div class="flex justify-between items-center">
-                <span class="text-2xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي الكلي</span>
-                <span class="text-4xl font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
+              <div class="flex justify-between items-center bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg md:rounded-none">
+                <span class="text-xl md:text-2xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي الكلي</span>
+                <span class="text-2xl md:text-4xl font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
               </div>
             </div>
             
             <!-- Footer -->
-            <div class="mt-12 pt-6 border-t text-center opacity-75" style="border-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color};">
+            <div class="mt-8 md:mt-12 pt-6 border-t text-center opacity-75 text-sm md:text-base" style="border-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color};">
               <p>${appState.companySettings.footer}</p>
             </div>
           </div>
