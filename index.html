@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام إدارة مصنع الملابس</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/_sdk/data_sdk.js"></script>
     <script src="/_sdk/element_sdk.js"></script>
     <style>
@@ -105,6 +106,25 @@
             body {
                 background: white;
             }
+
+            /* Fix for single page printing in SPAs */
+            html, body, #app, .h-full, .min-h-screen {
+                height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+            }
+
+            /* Ensure content expands */
+            .flex-1, .overflow-auto, .overflow-hidden {
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+            }
+            
+            /* Hide sidebar wrappers */
+            .fixed.inset-y-0 {
+                display: none !important; 
+            }
         }
     </style>
     <style>
@@ -168,7 +188,8 @@
                                 name: "طقم دفاية",
                                 data: [
                                     createCategory("كلسون", { 28: 25, 30: 30, 32: 35, 34: 40, 36: 45, 38: 50, 40: 55, 42: 60, 44: 65, 46: 85, 48: 90, 50: 95, 52: 100, 54: 105, 56: 110 }),
-                                    createCategory("كم", { 28: 35, 30: 40, 32: 45, 34: 50, 36: 55, 38: 60, 40: 65, 42: 70, 44: 75, 46: 95, 48: 100, 50: 105, 52: 110, 54: 115, 56: 120 })
+                                    createCategory("كم", { 28: 35, 30: 40, 32: 45, 34: 50, 36: 55, 38: 60, 40: 65, 42: 70, 44: 75, 46: 95, 48: 100, 50: 105, 52: 110, 54: 115, 56: 120 }),
+                                    createCategory("المجموع", { 28: 60, 30: 70, 32: 80, 34: 90, 36: 100, 38: 110, 40: 120, 42: 130, 44: 140, 46: 180, 48: 190, 50: 200, 52: 210, 54: 220, 56: 230 })
                                 ]
                             }
                         ];
@@ -262,7 +283,8 @@
                 "شورت",
                 "سبور",
                 "كلسون",
-                "كم"
+                "كم",
+                "المجموع"
             ],
             selectedModel: null,
             editingModel: null,
@@ -558,6 +580,24 @@
             appState.currentView = 'newBill';
             appState.billItems = [];
             appState.selectedModel = null;
+            appState.editingBillId = null; // Clear editing state
+            render();
+        }
+
+        function editBill() {
+            if (!appState.currentBill) return;
+            
+            const bill = appState.currentBill;
+            appState.editingBillId = bill.__backendId;
+            appState.billItems = JSON.parse(JSON.stringify(bill.items)); // Deep copy
+            appState.currentView = 'newBill';
+            
+            // Find and set the model
+            const model = appState.pricingModels.find(m => m.__backendId === bill.billModelId);
+            if (model) {
+                appState.selectedModel = model;
+            }
+            
             render();
         }
 
@@ -616,23 +656,40 @@
             setLoading('saveBill', true);
 
             const billTotal = appState.billItems.reduce((sum, item) => sum + item.total, 0);
-            const billNumber = `INV-${Date.now()}`;
-
-            const result = await window.dataSdk.create({
-                type: 'bill',
-                billNumber: billNumber,
-                billDate: new Date().toISOString(),
-                billModelId: appState.selectedModel.__backendId,
-                billItems: JSON.stringify(appState.billItems),
-                billTotal: billTotal,
-                createdAt: new Date().toISOString()
-            });
+            
+            let result;
+            
+            if (appState.editingBillId) {
+                // Update existing bill
+                const originalBill = appState.bills.find(b => b.__backendId === appState.editingBillId);
+                
+                result = await window.dataSdk.update({
+                    ...originalBill,
+                    billItems: JSON.stringify(appState.billItems),
+                    billTotal: billTotal,
+                    // Keep original bill number and date
+                });
+            } else {
+                // Create new bill
+                const billNumber = `INV-${Date.now()}`;
+                
+                result = await window.dataSdk.create({
+                    type: 'bill',
+                    billNumber: billNumber,
+                    billDate: new Date().toISOString(),
+                    billModelId: appState.selectedModel.__backendId,
+                    billItems: JSON.stringify(appState.billItems),
+                    billTotal: billTotal,
+                    createdAt: new Date().toISOString()
+                });
+            }
 
             if (result.isOk) {
-                showToast('تم حفظ الفاتورة بنجاح', 'success');
+                showToast(appState.editingBillId ? 'تم تحديث الفاتورة بنجاح' : 'تم حفظ الفاتورة بنجاح', 'success');
                 appState.currentView = 'bills';
                 appState.billItems = [];
                 appState.selectedModel = null;
+                appState.editingBillId = null;
             } else {
                 showToast('حدث خطأ أثناء الحفظ', 'error');
             }
@@ -653,30 +710,38 @@
         async function shareBill() {
             if (!appState.currentBill) return;
 
-            const bill = appState.currentBill;
-            const text = `فاتورة من ${appState.companySettings.name}\n` +
-                `رقم الفاتورة: ${bill.billNumber}\n` +
-                `التاريخ: ${new Date(bill.billDate).toLocaleDateString('ar-SA')}\n` +
-                `القيمة الإجمالية: ${bill.billTotal.toFixed(2)} جنية\n\n` +
-                `${bill.items.map(item => `- ${item.category} (${item.size}): ${item.quantity} x ${item.unitPrice} = ${item.total}`).join('\n')}`;
+            setLoading('sharing', true);
 
-            if (navigator.share) {
-                try {
+            try {
+                const element = document.getElementById('printable-bill');
+                const opt = {
+                    margin: 10,
+                    filename: `Invoice-${appState.currentBill.billNumber}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, logging: false },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                const worker = html2pdf().set(opt).from(element).output('blob');
+                const blob = await worker;
+                const file = new File([blob], opt.filename, { type: 'application/pdf' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
-                        title: `فاتورة ${bill.billNumber}`,
-                        text: text,
+                        files: [file],
+                        title: `فاتورة ${appState.currentBill.billNumber}`,
+                        text: `فاتورة من ${appState.companySettings.name}`,
                     });
-                } catch (err) {
-                    console.error('Share failed:', err);
+                } else {
+                    html2pdf().set(opt).from(element).save();
+                    showToast('تم تحميل الفاتورة كملف PDF', 'success');
                 }
-            } else {
-                try {
-                    await navigator.clipboard.writeText(text);
-                    showToast('تم نسخ تفاصيل الفاتورة', 'success');
-                } catch (err) {
-                    showToast('المتصفح لا يدعم المشاركة', 'error');
-                }
+            } catch (err) {
+                console.error('Share failed:', err);
+                showToast('حدث خطأ أثناء إنشاء PDF', 'error');
             }
+
+            setLoading('sharing', false);
         }
 
         async function deleteBill(bill) {
@@ -1468,12 +1533,13 @@
         function renderNewBill() {
             const config = window.elementSdk?.config || defaultConfig;
             const lastInput = appState.lastBillInput || {};
+            const isEditing = !!appState.editingBillId;
 
             return `
         <div class="fade-in">
           <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">إنشاء فاتورة جديدة</h1>
-            <button onclick="appState.currentView = 'bills'; appState.lastBillInput = null; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${isEditing ? 'تعديل الفاتورة' : 'إنشاء فاتورة جديدة'}</h1>
+            <button onclick="appState.currentView = 'bills'; appState.lastBillInput = null; appState.editingBillId = null; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
               إلغاء
             </button>
           </div>
@@ -1596,18 +1662,22 @@
               <button onclick="appState.currentView = 'bills'; render();" class="flex-1 md:flex-none px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
                 رجوع
               </button>
+              <button onclick="editBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
+                <span>✏️</span>
+                <span>تعديل</span>
+              </button>
               <button onclick="printBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
                 <span>🖨️</span>
                 <span>طباعة</span>
               </button>
-              <button onclick="shareBill();" class="flex-1 md:flex-none px-6 py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors">
-                <span>🔗</span>
-                <span>مشاركة</span>
+              <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="flex-1 md:flex-none px-6 py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors">
+                ${isLoading('sharing') ? '<div class="loading-spinner"></div>' : '<span>📄</span>'}
+                <span>${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</span>
               </button>
             </div>
           </div>
           
-          <div class="card-shadow rounded-xl p-4 md:p-12 bg-white max-w-4xl mx-auto">
+          <div id="printable-bill" class="card-shadow rounded-xl p-4 md:p-12 bg-white max-w-4xl mx-auto">
             <!-- Invoice Header -->
             <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
               <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-6">
