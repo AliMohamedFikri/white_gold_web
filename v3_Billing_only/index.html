@@ -1,0 +1,1870 @@
+﻿<!doctype system>
+<html lang="ar" dir="rtl" class="h-full">
+
+<head>
+    <!-- Basic Meta Tags -->
+    <meta charset="UTF-8"> <!-- Defines character encoding -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"> <!-- IE Compatibility -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0"> <!-- Mobile responsiveness -->
+    
+    <!-- SEO Meta Tags -->
+    <title>نظام إدارة مصنع الملابس | الذهب الأبيض</title>
+    <meta name="description" content="نظام متكامل لإدارة مصانع الملابس، فواتير محترفة، تسعير دقيق، وإدارة مخزون شاملة. مصنع الذهب الأبيض للملابس الجاهزة.">
+    <meta name="keywords" content="مصنع ملابس, فواتير, إدارة مخزون, ملابس جاهزة, الذهب الأبيض, نظام محاسبي, ERP">
+    <meta name="author" content="White Gold Factory">
+    <meta name="robots" content="index, follow">
+
+    <!-- Social Media (Open Graph) -->
+    <meta property="og:title" content="نظام إدارة مصنع الملابس | الذهب الأبيض">
+    <meta property="og:description" content="النظام الذكي لإدارة مصانع الملابس. فواتير، تقارير، وإدارة شاملة.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://placehold.co/1200x630/667eea/ffffff.png?text=White+Gold+System">
+    <meta property="og:locale" content="ar_SA">
+    
+    <!-- Mobile & PWA -->
+    <meta name="theme-color" content="#667eea"> <!-- Mobile toolbar color -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="White Gold">
+
+    <!-- Favicon (Dynamic SVG) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👔</text></svg>">
+
+    <!-- Fonts (Optimized Loading) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="/_sdk/data_sdk.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+
+        /* Font imported via link tag for better performance */
+
+        * {
+            font-family: 'Cairo', sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-shadow {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .hover-scale {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .hover-scale:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .size-badge {
+            transition: all 0.2s ease;
+        }
+
+        .size-badge:hover {
+            transform: scale(1.1);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .print-only {
+            display: none;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            .print-only {
+                display: block !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            /* Fix for single page printing in SPAs */
+            html, body, #app, .h-full, .min-h-screen {
+                height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+            }
+
+            /* Ensure content expands */
+            .flex-1, .overflow-auto, .overflow-hidden {
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+            }
+            
+            /* Hide sidebar wrappers */
+            .fixed.inset-y-0 {
+                display: none !important; 
+            }
+        }
+    </style>
+    <style>
+        @view-transition {
+            navigation: auto;
+        }
+    </style>
+</head>
+
+<body class="h-full w-full">
+    <div id="app" class="h-full w-full overflow-auto"></div>
+    <script>
+        // Mock SDK for local development
+        if (!window.dataSdk) {
+            window.dataSdk = {
+                init: async (handler) => {
+                    window._dataHandler = handler;
+                    let data = JSON.parse(localStorage.getItem('app_data') || '[]');
+
+                    // Seed initial data if empty
+                    if (!data.some(d => d.type === 'pricingModel')) {
+                        const SIZES = []; for (let i = 22; i <= 56; i += 2) SIZES.push(i);
+                        // Map CSV sizes that are not in default generation (like 22, 24, etc.)
+                        const createCategory = (name, priceMap) => ({ 
+                            name, 
+                            prices: SIZES.map(s => ({ 
+                                size: s, 
+                                price: priceMap[s] || 0 
+                            })) 
+                        });
+
+                        const seedModels = [
+                            {
+                                name: "A",
+                                data: [
+                                    createCategory("سليب", { 26: 150, 28: 170, 30: 190, 32: 210, 34: 230, 36: 250, 38: 270, 40: 295, 42: 325, 44: 355, 46: 390, 48: 425, 50: 460, 52: 495, 54: 530, 56: 565 }),
+                                    createCategory("نصف كم", { 22: 205, 24: 235, 26: 265, 28: 295, 30: 325, 32: 355, 34: 385, 36: 415, 38: 445, 40: 480, 42: 515, 44: 550, 46: 600, 48: 650, 50: 700, 52: 750, 54: 800, 56: 850 }),
+                                    createCategory("شورت", { 26: 190, 28: 220, 30: 250, 32: 280, 34: 310, 36: 340, 38: 370, 40: 400, 42: 450, 44: 495, 46: 535, 48: 580, 50: 625, 52: 670, 54: 715, 56: 760 }),
+                                    createCategory("سبور", { 22: 185, 24: 206, 26: 229, 28: 252, 30: 271, 32: 293, 34: 315, 36: 337, 38: 359, 40: 381, 42: 403, 44: 425, 46: 460, 48: 500, 50: 540, 52: 580, 54: 620, 56: 660 })
+                                ]
+                            },
+                            {
+                                name: "B",
+                                data: [
+                                    createCategory("سليب", { 44: 335, 46: 370, 48: 405, 50: 440, 52: 475, 54: 510, 56: 545 }),
+                                    createCategory("نصف كم", { 44: 535, 46: 575, 48: 625, 50: 680, 52: 730, 54: 780, 56: 830 }),
+                                    createCategory("شورت", { 44: 470, 46: 515, 48: 560, 50: 605, 52: 650, 54: 695, 56: 740 }),
+                                    createCategory("سبور", { 44: 415, 46: 440, 48: 480, 50: 520, 52: 560, 54: 600, 56: 640 })
+                                ]
+                            },
+                            {
+                                name: "C",
+                                data: [
+                                    createCategory("سليب", { 26: 136, 28: 158, 30: 180, 32: 203, 34: 225, 36: 247, 38: 269, 40: 291, 42: 313, 44: 335, 46: 370, 48: 405, 50: 440, 52: 475, 54: 510, 56: 545 }),
+                                    createCategory("نصف كم", { 22: 191, 24: 222, 26: 253, 28: 284, 30: 315, 32: 346, 34: 377, 36: 408, 38: 439, 40: 471, 42: 503, 44: 535, 46: 575, 48: 625, 50: 680, 52: 730, 54: 780, 56: 830 }),
+                                    createCategory("شورت", { 26: 183, 28: 214, 30: 245, 32: 276, 34: 305, 36: 334, 38: 363, 40: 392, 42: 421, 44: 470, 46: 515, 48: 560, 50: 605, 52: 650, 54: 695, 56: 740 }),
+                                    createCategory("سبور", { 22: 170, 24: 191, 26: 214, 28: 237, 30: 260, 32: 283, 34: 305, 36: 327, 38: 349, 40: 371, 42: 393, 44: 415, 46: 440, 48: 480, 50: 520, 52: 560, 54: 600, 56: 640 })
+                                ]
+                            },
+                            {
+                                name: "طقم دفاية",
+                                data: [
+                                    createCategory("كلسون", { 28: 25, 30: 30, 32: 35, 34: 40, 36: 45, 38: 50, 40: 55, 42: 60, 44: 65, 46: 85, 48: 90, 50: 95, 52: 100, 54: 105, 56: 110 }),
+                                    createCategory("كم", { 28: 35, 30: 40, 32: 45, 34: 50, 36: 55, 38: 60, 40: 65, 42: 70, 44: 75, 46: 95, 48: 100, 50: 105, 52: 110, 54: 115, 56: 120 }),
+                                    createCategory("المجموع", { 28: 60, 30: 70, 32: 80, 34: 90, 36: 100, 38: 110, 40: 120, 42: 130, 44: 140, 46: 180, 48: 190, 50: 200, 52: 210, 54: 220, 56: 230 })
+                                ]
+                            }
+                        ];
+
+                        data = [...data, ...seedModels.map((m, i) => ({
+                            type: 'pricingModel',
+                            pricingModelName: m.name,
+                            pricingModelData: JSON.stringify(m.data),
+                            createdAt: new Date().toISOString(),
+                            __backendId: 'seed_' + i
+                        }))];
+                        localStorage.setItem('app_data', JSON.stringify(data));
+                    }
+
+                    handler.onDataChanged(data);
+                    return { isOk: true };
+                },
+                create: async (item) => {
+                    const data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    const newItem = { ...item, __backendId: Date.now().toString() };
+                    data.push(newItem);
+                    localStorage.setItem('app_data', JSON.stringify(data));
+                    if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                    return { isOk: true, id: newItem.__backendId };
+                },
+                update: async (item) => {
+                    const data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    const index = data.findIndex(d => d.__backendId === item.__backendId);
+                    if (index >= 0) {
+                        data[index] = item;
+                        localStorage.setItem('app_data', JSON.stringify(data));
+                        if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                        return { isOk: true };
+                    }
+                    return { isOk: false };
+                },
+                delete: async (item) => {
+                    let data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    data = data.filter(d => d.__backendId !== item.__backendId);
+                    localStorage.setItem('app_data', JSON.stringify(data));
+                    if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                    return { isOk: true };
+                }
+            };
+        }
+
+        // Configuration
+        const defaultConfig = {
+            company_name: "مصنع الذهب الأبيض للملابس",
+            tagline: "جودة عالية وأسعار منافسة",
+            hero_title: "أفضل مصنع لتصنيع الملابس",
+            hero_subtitle: "نقدم لكم أجود أنواع الملابس بأحدث التصاميم",
+            cta_button: "تواصل معنا",
+            primary_color: "#667eea",
+            secondary_color: "#764ba2",
+            accent_color: "#48bb78",
+            background_color: "#f7fafc",
+            text_color: "#2d3748",
+            font_family: "Cairo",
+            font_size: 16
+        };
+
+        // App State
+        let appState = {
+          currentView: 'dashboard',
+            isSidebarOpen: false,
+            isMobileMenuOpen: false,
+            currentUser: null,
+            users: [], // Add this
+            settings: null, // Add this
+            companySettings: {
+                name: "مصنع الذهب الأبيض للملابس",
+                phone: "+201212813475",
+                address: "العاشر من رمضان، الشرقية",
+                footer: "شكراً لتعاملكم معنا"
+            },
+            pricingModels: [],
+            bills: [],
+            categories: [
+                "سليب",
+                "نصف كم",
+                "شورت",
+                "سبور",
+                "كلسون",
+                "كم",
+                "المجموع"
+            ],
+            selectedModel: null,
+            editingModel: null,
+            viewingModel: null, // Add this
+            billItems: [],
+            currentBill: null,
+            loadingStates: {}
+        };
+
+        // Size generation (22 to 56, step 2)
+        function generateSizes() {
+            const sizes = [];
+            for (let i = 22; i <= 56; i += 2) {
+                sizes.push(i);
+            }
+            return sizes;
+        }
+
+        const SIZES = generateSizes();
+
+        // Data Handler
+        const dataHandler = {
+            onDataChanged(data) {
+                // Organize data by type
+                appState.users = data.filter(d => d.type === 'user');
+
+                if (appState.users.length > 0 && !appState.currentUser) {
+                    appState.currentUser = appState.users[0];
+                }
+
+                const settings = data.find(d => d.type === 'settings');
+                if (settings) {
+                    appState.settings = settings;
+                    appState.companySettings = {
+                        name: settings.companyName || appState.companySettings.name,
+                        phone: settings.companyPhone || appState.companySettings.phone,
+                        address: settings.companyAddress || appState.companySettings.address,
+                        footer: settings.companyFooter || appState.companySettings.footer
+                    };
+                }
+
+                appState.pricingModels = data.filter(d => d.type === 'pricingModel').map(m => ({
+                    ...m,
+                    data: JSON.parse(m.pricingModelData)
+                }));
+
+                appState.bills = data.filter(d => d.type === 'bill').map(b => ({
+                    ...b,
+                    items: JSON.parse(b.billItems)
+                }));
+
+                render();
+            }
+        };
+        // Authentication removed — management views are public
+
+        // Pricing Model Management
+        async function createPricingModel(e) {
+            e.preventDefault();
+            const name = document.getElementById('modelName').value;
+
+            if (!name.trim()) {
+                showToast('الرجاء إدخال اسم النموذج', 'error');
+                return;
+            }
+
+            setLoading('createModel', true);
+
+            const modelData = appState.categories.map(category => ({
+                name: category,
+                prices: SIZES.map(size => ({ size, price: 0 }))
+            }));
+
+            const result = await window.dataSdk.create({
+                type: 'pricingModel',
+                pricingModelName: name,
+                pricingModelData: JSON.stringify(modelData),
+                createdAt: new Date().toISOString()
+            });
+
+            if (result.isOk) {
+                document.getElementById('modelName').value = '';
+                showToast('تم إنشاء النموذج بنجاح', 'success');
+            } else {
+                const errorMsg = result.error?.message || 'خطأ غير معروف';
+                showToast('حدث خطأ أثناء الإنشاء: ' + errorMsg, 'error');
+                console.error('Create model error:', result.error);
+            }
+
+            setLoading('createModel', false);
+        }
+
+        async function updatePricingModel(model) {
+            setLoading('updateModel', true);
+
+            const result = await window.dataSdk.update({
+                ...model,
+                pricingModelData: JSON.stringify(model.data)
+            });
+
+            if (result.isOk) {
+                appState.editingModel = null;
+                showToast('تم تحديث النموذج بنجاح', 'success');
+            } else {
+                showToast('حدث خطأ أثناء التحديث', 'error');
+            }
+
+            setLoading('updateModel', false);
+        }
+
+        async function deletePricingModel(model) {
+            const modelId = model.__backendId;
+            const confirmBtn = document.getElementById(`confirm-${modelId}`);
+
+            // If confirmation button is visible, proceed with deletion
+            if (confirmBtn && confirmBtn.style.display !== 'none') {
+                setLoading(`delete-${modelId}`, true);
+
+                const result = await window.dataSdk.delete(model);
+
+                if (result.isOk) {
+                    showToast('تم حذف النموذج بنجاح', 'success');
+                    // Remove from local state immediately
+                    appState.pricingModels = appState.pricingModels.filter(m => m.__backendId !== modelId);
+                    render();
+                } else {
+                    showToast('حدث خطأ أثناء الحذف', 'error');
+                }
+
+                setLoading(`delete-${modelId}`, false);
+            } else {
+                // Show confirmation button
+                const deleteBtn = document.getElementById(`delete-${modelId}`);
+                if (deleteBtn) {
+                    deleteBtn.style.display = 'none';
+                }
+                if (confirmBtn) {
+                    confirmBtn.style.display = 'inline-flex';
+                    // Auto-hide after 5 seconds
+                    setTimeout(() => {
+                        confirmBtn.style.display = 'none';
+                        if (deleteBtn) {
+                            deleteBtn.style.display = 'inline-flex';
+                        }
+                    }, 5000);
+                }
+            }
+        }
+
+        function editModel(model) {
+            appState.editingModel = JSON.parse(JSON.stringify(model));
+            render();
+        }
+
+        function updatePrice(categoryIndex, sizeIndex, price) {
+            if (appState.editingModel) {
+                appState.editingModel.data[categoryIndex].prices[sizeIndex].price = parseFloat(price) || 0;
+            }
+        }
+
+        async function saveModelEdits() {
+            if (appState.editingModel) {
+                await updatePricingModel(appState.editingModel);
+            }
+        }
+
+        function cancelEdit() {
+            appState.editingModel = null;
+            render();
+        }
+
+        function fillAllPrices() {
+            const price = parseFloat(document.getElementById('quickFillPrice').value);
+            if (!price || price <= 0) {
+                showToast('الرجاء إدخال سعر صحيح', 'error');
+                return;
+            }
+
+            if (appState.editingModel) {
+                appState.editingModel.data.forEach(category => {
+                    category.prices.forEach(priceData => {
+                        priceData.price = price;
+                    });
+                });
+                render();
+            }
+        }
+
+        function clearAllPrices() {
+            if (appState.editingModel) {
+                appState.editingModel.data.forEach(category => {
+                    category.prices.forEach(priceData => {
+                        priceData.price = 0;
+                    });
+                });
+                render();
+            }
+        }
+
+        async function duplicateModel(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+
+            setLoading('duplicateModel', true);
+
+            const newName = `${model.pricingModelName} (نسخة)`;
+            const result = await window.dataSdk.create({
+                type: 'pricingModel',
+                pricingModelName: newName,
+                pricingModelData: model.pricingModelData,
+                createdAt: new Date().toISOString()
+            });
+
+            if (result.isOk) {
+                showToast('تم نسخ النموذج بنجاح', 'success');
+            } else {
+                showToast('حدث خطأ أثناء النسخ', 'error');
+            }
+
+            setLoading('duplicateModel', false);
+        }
+
+        function viewModelDetails(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+
+            appState.viewingModel = model;
+            appState.currentView = 'viewModel';
+            render();
+        }
+
+        // Billing
+        function startNewBill() {
+            appState.currentView = 'newBill';
+            appState.billItems = [];
+            appState.selectedModel = null;
+            appState.editingBillId = null; // Clear editing state
+            render();
+        }
+
+        function editBill() {
+            if (!appState.currentBill) return;
+            
+            const bill = appState.currentBill;
+            appState.editingBillId = bill.__backendId;
+            appState.billItems = JSON.parse(JSON.stringify(bill.items)); // Deep copy
+            appState.currentView = 'newBill';
+            
+            // Find and set the model
+            const model = appState.pricingModels.find(m => m.__backendId === bill.billModelId);
+            if (model) {
+                appState.selectedModel = model;
+            }
+            
+            render();
+        }
+
+        function selectModelForBill(modelId) {
+            appState.selectedModel = appState.pricingModels.find(m => m.__backendId === modelId);
+            render();
+        }
+
+        function addBillItem() {
+            const category = document.getElementById('billCategory').value;
+            const size = parseInt(document.getElementById('billSize').value);
+            const quantity = parseInt(document.getElementById('billQuantity').value);
+
+            if (!category || !size || !quantity) {
+                showToast('الرجاء تعبئة جميع الحقول', 'error');
+                return;
+            }
+
+            const categoryData = appState.selectedModel.data.find(c => c.name === category);
+            const priceData = categoryData.prices.find(p => p.size === size);
+            const unitPrice = priceData.price;
+            const total = unitPrice * quantity;
+
+            appState.billItems.push({
+                category,
+                size,
+                quantity,
+                unitPrice,
+                total
+            });
+
+            // Auto-increment size and keep other values
+            const nextSize = size + 2;
+            const finalSize = nextSize <= 56 ? nextSize : size;
+            
+            appState.lastBillInput = {
+                category: category,
+                size: finalSize,
+                quantity: quantity
+            };
+
+            render();
+        }
+
+        function removeBillItem(index) {
+            appState.billItems.splice(index, 1);
+            render();
+        }
+
+        async function saveBill() {
+            if (appState.billItems.length === 0) {
+                showToast('الرجاء إضافة عناصر للفاتورة', 'error');
+                return;
+            }
+
+            setLoading('saveBill', true);
+
+            const billTotal = appState.billItems.reduce((sum, item) => sum + item.total, 0);
+            
+            let result;
+            
+            if (appState.editingBillId) {
+                // Update existing bill
+                const originalBill = appState.bills.find(b => b.__backendId === appState.editingBillId);
+                
+                result = await window.dataSdk.update({
+                    ...originalBill,
+                    billItems: JSON.stringify(appState.billItems),
+                    billTotal: billTotal,
+                    // Keep original bill number and date
+                });
+            } else {
+                // Create new bill
+                const billNumber = `INV-${Date.now()}`;
+                
+                result = await window.dataSdk.create({
+                    type: 'bill',
+                    billNumber: billNumber,
+                    billDate: new Date().toISOString(),
+                    billModelId: appState.selectedModel.__backendId,
+                    billItems: JSON.stringify(appState.billItems),
+                    billTotal: billTotal,
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            if (result.isOk) {
+                showToast(appState.editingBillId ? 'تم تحديث الفاتورة بنجاح' : 'تم حفظ الفاتورة بنجاح', 'success');
+                appState.currentView = 'bills';
+                appState.billItems = [];
+                appState.selectedModel = null;
+                appState.editingBillId = null;
+            } else {
+                showToast('حدث خطأ أثناء الحفظ', 'error');
+            }
+
+            setLoading('saveBill', false);
+        }
+
+        function viewBill(bill) {
+            appState.currentBill = bill;
+            appState.currentView = 'viewBill';
+            render();
+        }
+
+        function printBill() {
+            window.print();
+        }
+
+        async function shareBill() {
+            if (!appState.currentBill) return;
+
+            setLoading('sharing', true);
+
+            try {
+                const element = document.getElementById('printable-bill');
+                const opt = {
+                    margin: 10,
+                    filename: `Invoice-${appState.currentBill.billNumber}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, logging: false },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                const worker = html2pdf().set(opt).from(element).output('blob');
+                const blob = await worker;
+                const file = new File([blob], opt.filename, { type: 'application/pdf' });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: `فاتورة ${appState.currentBill.billNumber}`,
+                        text: `فاتورة من ${appState.companySettings.name}`,
+                    });
+                } else {
+                    html2pdf().set(opt).from(element).save();
+                    showToast('تم تحميل الفاتورة كملف PDF', 'success');
+                }
+            } catch (err) {
+                console.error('Share failed:', err);
+                showToast('حدث خطأ أثناء إنشاء PDF', 'error');
+            }
+
+            setLoading('sharing', false);
+        }
+
+        async function deleteBill(bill) {
+            const confirmDelete = document.getElementById(`confirm-bill-${bill.__backendId}`);
+
+            if (confirmDelete && confirmDelete.style.display === 'inline-flex') {
+                setLoading(`delete-bill-${bill.__backendId}`, true);
+
+                const result = await window.dataSdk.delete(bill);
+
+                if (result.isOk) {
+                    showToast('تم حذف الفاتورة بنجاح', 'success');
+                    appState.currentView = 'bills';
+                } else {
+                    showToast('حدث خطأ أثناء الحذف', 'error');
+                }
+
+                setLoading(`delete-bill-${bill.__backendId}`, false);
+            } else {
+                if (confirmDelete) {
+                    confirmDelete.style.display = 'inline-flex';
+                    setTimeout(() => {
+                        confirmDelete.style.display = 'none';
+                    }, 3000);
+                }
+            }
+        }
+
+        // Settings
+        async function saveSettings(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('settingsName').value;
+            const phone = document.getElementById('settingsPhone').value;
+            const address = document.getElementById('settingsAddress').value;
+            const footer = document.getElementById('settingsFooter').value;
+
+            setLoading('saveSettings', true);
+
+            const settingsData = {
+                type: 'settings',
+                companyName: name,
+                companyPhone: phone,
+                companyAddress: address,
+                companyFooter: footer,
+                createdAt: appState.settings ? appState.settings.createdAt : new Date().toISOString()
+            };
+
+            let result;
+            if (appState.settings && appState.settings.__backendId) {
+                // Update existing
+                result = await window.dataSdk.update({
+                    ...appState.settings,
+                    ...settingsData
+                });
+            } else {
+                // Create new
+                result = await window.dataSdk.create(settingsData);
+            }
+
+            if (result.isOk) {
+                showToast('تم حفظ الإعدادات بنجاح', 'success');
+            } else {
+                const errorMsg = result.error?.message || 'خطأ غير معروف';
+                showToast('حدث خطأ أثناء الحفظ: ' + errorMsg, 'error');
+            }
+
+            setLoading('saveSettings', false);
+        }
+
+        // UI Helpers
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function setLoading(key, isLoading) {
+            appState.loadingStates[key] = isLoading;
+            render();
+        }
+
+        function isLoading(key) {
+            return appState.loadingStates[key] || false;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-white z-50 fade-in ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                }`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function toggleSidebar() {
+            appState.isSidebarOpen = !appState.isSidebarOpen;
+            render();
+        }
+
+        function toggleMobileMenu() {
+            appState.isMobileMenuOpen = !appState.isMobileMenuOpen;
+            render();
+        }
+
+        // Render Functions
+        function render() {
+          const app = document.getElementById('app');
+
+          // If the landing view is selected, show the public landing page.
+          if (appState.currentView === 'landing') {
+            app.innerHTML = renderLanding();
+          } else {
+            // All other views render the management UI by default.
+            app.innerHTML = renderDashboardLayout();
+            attachEventListeners();
+          }
+        }
+
+        function renderLanding() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const companyName = config.company_name || defaultConfig.company_name;
+            const heroTitle = config.hero_title || defaultConfig.hero_title;
+            const heroSubtitle = config.hero_subtitle || defaultConfig.hero_subtitle;
+            const ctaButton = config.cta_button || defaultConfig.cta_button;
+
+            return `
+        <div class="min-h-screen w-full relative" style="background-color: ${config.background_color || defaultConfig.background_color};">
+          <!-- Navigation -->
+          <nav class="w-full py-4 px-4 md:py-6 md:px-8 relative z-50 shadow-sm" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center" style="background-color: white;">
+                  <span class="text-xl md:text-2xl" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
+                </div>
+                <div>
+                  <h1 class="text-xl md:text-2xl font-bold text-white">${escapeHtml(companyName)}</h1>
+                  <p class="text-xs md:text-sm text-white opacity-90 hidden md:block">${escapeHtml(config.tagline || defaultConfig.tagline)}</p>
+                </div>
+              </div>
+              
+              <!-- Desktop Menu -->
+              <div class="hidden md:flex gap-6 items-center">
+                <a href="#" onclick="event.preventDefault(); appState.currentView = 'landing'; render();" class="text-white font-semibold hover:opacity-80 transition-opacity">الرئيسية</a>
+                <a href="#" onclick="event.preventDefault(); scrollToProducts();" class="text-white font-semibold hover:opacity-80 transition-opacity">المنتجات</a>
+                <a href="#" onclick="event.preventDefault(); scrollToAbout();" class="text-white font-semibold hover:opacity-80 transition-opacity">من نحن</a>
+                <a href="#" onclick="event.preventDefault(); scrollToContact();" class="text-white font-semibold hover:opacity-80 transition-opacity">تواصل معنا</a>
+                <button onclick="appState.currentView = 'login'; render();" class="px-6 py-2 bg-white rounded-lg font-semibold hover:shadow-lg transition-all" style="color: ${config.primary_color || defaultConfig.primary_color};">
+                  دخول الإدارة
+                </button>
+              </div>
+
+               <!-- Mobile Menu Button -->
+              <button onclick="toggleMobileMenu()" class="md:hidden text-white text-2xl">
+                 ${appState.isMobileMenuOpen ? '✕' : '☰'}
+              </button>
+            </div>
+
+            <!-- Mobile Menu Dropdown -->
+            ${appState.isMobileMenuOpen ? `
+            <div class="absolute top-full left-0 w-full bg-white shadow-xl md:hidden z-50 flex flex-col fade-in border-t border-gray-100">
+                <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); appState.currentView = 'landing'; render();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">الرئيسية</a>
+                <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToProducts();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">المنتجات</a>
+                <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToAbout();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</a>
+                <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToContact();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">تواصل معنا</a>
+                <div class="p-4">
+                    <button onclick="toggleMobileMenu(); appState.currentView = 'login'; render();" class="w-full py-3 rounded-lg font-bold text-white shadow-md" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+                    دخول الإدارة
+                    </button>
+                </div>
+            </div>
+            ` : ''}
+          </nav>
+
+          <!-- Hero Section -->
+          <section class="w-full py-16 md:py-24 px-4 md:px-8">
+            <div class="max-w-7xl mx-auto text-center">
+              <h2 class="text-4xl md:text-6xl font-bold mb-6 fade-in leading-tight" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(heroTitle)}</h2>
+              <p class="text-xl md:text-2xl mb-12 opacity-75 fade-in leading-relaxed" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(heroSubtitle)}</p>
+              <button onclick="scrollToContact();" class="btn-primary text-white px-8 md:px-10 py-3 md:py-4 rounded-lg text-lg md:text-xl font-bold shadow-lg hover:shadow-xl transition-shadow">
+                ${escapeHtml(ctaButton)}
+              </button>
+            </div>
+          </section>
+
+          <!-- Products Section -->
+          <section id="products" class="w-full py-12 md:py-20 px-4 md:px-8" style="background-color: white;">
+            <div class="max-w-7xl mx-auto">
+              <h2 class="text-3xl md:text-5xl font-bold text-center mb-10 md:mb-16" style="color: ${config.text_color || defaultConfig.text_color};">منتجاتنا</h2>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+                ${appState.categories.map(category => `
+                  <div class="card-shadow rounded-xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                    <div class="text-5xl md:text-6xl text-center mb-4 transform hover:scale-110 transition-transform">
+                      ${getCategoryIcon(category)}
+                    </div>
+                    <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${category}</h3>
+                    <div class="mb-4">
+                      <p class="text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">المقاسات المتوفرة:</p>
+                      <div class="flex flex-wrap gap-2">
+                        ${SIZES.slice(0, 8).map(size => `
+                          <span class="size-badge px-3 py-1 rounded-full text-xs md:text-sm font-semibold shadow-sm" style="background-color: ${config.primary_color || defaultConfig.primary_color}; color: white;">
+                            ${size}
+                          </span>
+                        `).join('')}
+                        ${SIZES.length > 8 ? `<span class="px-3 py-1 text-xs md:text-sm font-semibold" style="color: ${config.primary_color || defaultConfig.primary_color};">+${SIZES.length - 8}</span>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </section>
+
+          <!-- About Section -->
+          <section id="about" class="w-full py-12 md:py-20 px-4 md:px-8">
+            <div class="max-w-4xl mx-auto text-center">
+              <h2 class="text-3xl md:text-5xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</h2>
+              <p class="text-lg md:text-xl leading-relaxed mb-6" style="color: ${config.text_color || defaultConfig.text_color};">
+                ${escapeHtml(companyName)} الذهب الأبيض هو مصنع رائد في تصنيع الملابس عالية الجودة. نفخر بتقديم أفضل المنتجات التي تجمع بين الجودة والأسعار المنافسة.
+              </p>
+              <p class="text-lg md:text-xl leading-relaxed" style="color: ${config.text_color || defaultConfig.text_color};">
+                نستخدم أحدث التقنيات وأفضل المواد لضمان رضا عملائنا الكرام. فريقنا من المحترفين ذوي الخبرة الطويلة في هذا المجال يعمل على تلبية جميع احتياجاتكم.
+              </p>
+            </div>
+          </section>
+
+          <!-- Contact Section -->
+          <section id="contact" class="w-full py-12 md:py-20 px-4 md:px-8" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+            <div class="max-w-4xl mx-auto text-center text-white">
+              <h2 class="text-3xl md:text-5xl font-bold mb-12">تواصل معنا</h2>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12">
+                <div class="bg-white bg-opacity-20 rounded-xl p-6 md:p-8 hover-scale">
+                  <div class="text-5xl mb-4">📞</div>
+                  <h3 class="text-2xl font-bold mb-2">الهاتف</h3>
+                  <p class="text-xl">${escapeHtml(appState.companySettings.phone)}</p>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded-xl p-6 md:p-8 hover-scale">
+                  <div class="text-5xl mb-4">💬</div>
+                  <h3 class="text-2xl font-bold mb-2">واتساب</h3>
+                  <a href="https://wa.me/${appState.companySettings.phone.replace(/[^0-9]/g, '')}" target="_blank" rel="noopener noreferrer" class="text-xl hover:underline">
+                    تواصل عبر واتساب
+                  </a>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded-xl p-6 md:p-8 hover-scale">
+                  <div class="text-5xl mb-4">📍</div>
+                  <h3 class="text-2xl font-bold mb-2">الموقع</h3>
+                  <p class="text-xl">${escapeHtml(appState.companySettings.address)}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Footer -->
+          <footer class="w-full py-8 px-4 md:px-8" style="background-color: ${config.text_color || defaultConfig.text_color};">
+            <div class="max-w-7xl mx-auto text-center text-white">
+              <p class="text-base md:text-lg">${escapeHtml(appState.companySettings.footer)}</p>
+              <p class="text-xs md:text-sm mt-4 opacity-75">© 2026 ${escapeHtml(companyName)}. جميع الحقوق محفوظة.</p>
+            </div>
+          </footer>
+        </div>
+      `;
+        }
+
+        function renderLogin() {
+            // Login UI removed — provide a link to the dashboard instead
+            return `
+        <div class="min-h-screen w-full flex items-center justify-center" style="background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);">
+          <div class="bg-white rounded-2xl shadow-2xl p-12 w-full max-w-md text-center">
+            <h2 class="text-2xl font-bold mb-4">وصول الإدارة مفتوح</h2>
+            <p class="opacity-75 mb-6">تم إزالة صفحة تسجيل الدخول. اضغط للانتقال إلى لوحة الإدارة.</p>
+            <button onclick="appState.currentView='dashboard'; render();" class="px-6 py-3 rounded-lg font-semibold" style="background-color:#10b981;color:white">اذهب للوحة الإدارة</button>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderDashboardLayout() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const sidebarClasses = appState.isSidebarOpen 
+                ? "translate-x-0" 
+                : "translate-x-full md:translate-x-0";
+
+            return `
+        <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color || defaultConfig.background_color};">
+          
+          <!-- Mobile Header -->
+          <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+             <button onclick="toggleSidebar()" class="text-white text-2xl">
+                 ${appState.isSidebarOpen ? '✕' : '☰'}
+             </button>
+             <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                  <span class="text-sm" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
+                </div>
+                <span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span>
+             </div>
+          </div>
+
+          <!-- Mobile Overlay -->
+          ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
+
+          <!-- Sidebar -->
+          <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+            <div class="p-6 h-full overflow-y-auto">
+              <!-- Sidebar Header -->
+              <div class="flex items-center justify-between gap-3 mb-8">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                    <span class="text-2xl" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
+                    </div>
+                    <div class="text-white">
+                    <h2 class="font-bold text-lg">لوحة الإدارة</h2>
+                    <p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p>
+                    </div>
+                </div>
+                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
+              </div>
+              
+              <nav class="space-y-2">
+                <button onclick="appState.currentView = 'dashboard'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'dashboard' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'dashboard' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
+                  📊 لوحة التحكم
+                </button>
+                <button onclick="appState.currentView = 'pricing'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'pricing' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'pricing' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
+                  💰 إدارة الأسعار
+                </button>
+                <button onclick="appState.currentView = 'bills'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'bills' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'bills' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
+                  📄 الفواتير
+                </button>
+                <button onclick="appState.currentView = 'settings'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'settings' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'settings' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
+                  ⚙️ الإعدادات
+                </button>
+              </nav>
+              
+              <div class="mt-8 pt-8 border-t border-white border-opacity-30">
+                <div class="text-white text-sm opacity-90">وصول الإدارة مفتوح</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Main Content -->
+          <div class="flex-1 h-full overflow-hidden flex flex-col">
+            <div class="flex-1 overflow-auto p-4 md:p-8">
+              ${renderCurrentView()}
+            </div>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderCurrentView() {
+            switch (appState.currentView) {
+                case 'dashboard':
+                    return renderDashboard();
+                case 'pricing':
+                    return renderPricing();
+                case 'viewModel':
+                    return renderViewModel();
+                case 'bills':
+                    return renderBills();
+                case 'newBill':
+                    return renderNewBill();
+                case 'viewBill':
+                    return renderViewBill();
+                case 'settings':
+                    return renderSettings();
+                default:
+                    return renderDashboard();
+            }
+        }
+
+        function renderDashboard() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const recentBills = appState.bills.slice(-5).reverse();
+
+            return `
+        <div class="fade-in">
+          <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">لوحة التحكم</h1>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+              <div class="text-white">
+                <div class="text-4xl mb-2">💰</div>
+                <h3 class="text-lg font-semibold opacity-90 mb-1">نماذج التسعير</h3>
+                <p class="text-4xl font-bold">${appState.pricingModels.length}</p>
+              </div>
+            </div>
+            
+            <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, ${config.accent_color || defaultConfig.accent_color}, #38a169);">
+              <div class="text-white">
+                <div class="text-4xl mb-2">📄</div>
+                <h3 class="text-lg font-semibold opacity-90 mb-1">إجمالي الفواتير</h3>
+                <p class="text-4xl font-bold">${appState.bills.length}</p>
+              </div>
+            </div>
+            
+            <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale bg-white">
+              <button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group">
+                <div class="text-5xl group-hover:scale-110 transition-transform">➕</div>
+                <span class="text-xl font-bold" style="color: ${config.primary_color || defaultConfig.primary_color};">إنشاء فاتورة جديدة</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="card-shadow rounded-xl p-6 bg-white">
+            <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">الفواتير الأخيرة</h2>
+            ${recentBills.length === 0 ? `
+              <div class="text-center py-12 opacity-50">
+                <div class="text-6xl mb-4">📄</div>
+                <p class="text-xl" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد فواتير بعد</p>
+              </div>
+            ` : `
+              <div class="overflow-x-auto">
+                <table class="w-full">
+                  <thead>
+                    <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</th>
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</th>
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المبلغ الإجمالي</th>
+                      <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${recentBills.map(bill => `
+                      <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
+                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${bill.billNumber}</td>
+                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td>
+                        <td class="py-3 px-4 font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</td>
+                        <td class="py-3 px-4 text-center">
+                          <button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold hover:opacity-80 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color}; color: white;">
+                            عرض
+                          </button>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+        }
+
+        function renderViewModel() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const model = appState.viewingModel;
+
+            if (!model) {
+                appState.currentView = 'pricing';
+                render();
+                return '';
+            }
+
+            return `
+        <div class="fade-in">
+          <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1>
+            <button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+              رجوع
+            </button>
+          </div>
+
+          <div class="card-shadow rounded-xl p-4 md:p-6 bg-white overflow-x-auto">
+            <table class="w-full border-collapse">
+              <thead>
+                <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                  <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
+                  ${SIZES.map(size => `
+                    <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${size}</th>
+                  `).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${model.data.map((category) => `
+                  <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
+                    <td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">
+                      <div class="flex items-center gap-2">
+                        ${getCategoryIcon(category.name)}
+                        <span>${category.name}</span>
+                      </div>
+                    </td>
+                    ${SIZES.map(size => {
+                        const priceData = category.prices.find(p => p.size === size);
+                        const price = priceData ? priceData.price : 0;
+                        return `
+                      <td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color || defaultConfig.accent_color : config.text_color || defaultConfig.text_color};">
+                        ${price > 0 ? price.toFixed(2) : '-'}
+                      </td>
+                    `}).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderPricing() {
+            const config = window.elementSdk?.config || defaultConfig;
+
+            if (appState.editingModel) {
+                return `
+          <div class="fade-in">
+            <div class="flex justify-between items-center mb-8">
+              <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">تعديل نموذج: ${appState.editingModel.pricingModelName}</h1>
+              <div class="flex gap-3">
+                <button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+                  إلغاء
+                </button>
+                <button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
+                  ${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}
+                  <span>حفظ التعديلات</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="card-shadow rounded-xl p-4 md:p-6 bg-white overflow-x-auto">
+              <div class="mb-4 flex flex-col md:flex-row gap-3">
+                <button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                  تعبئة سريعة
+                </button>
+                <button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white hover:bg-gray-600 transition-colors">
+                  مسح الكل
+                </button>
+                <input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32 focus:outline-none" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              </div>
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                    <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
+                    ${SIZES.map(size => `
+                      <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${size}</th>
+                    `).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${appState.editingModel.data.map((category, catIndex) => `
+                    <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
+                      <td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">
+                        <div class="flex items-center gap-2">
+                          ${getCategoryIcon(category.name)}
+                          <span>${category.name}</span>
+                        </div>
+                      </td>
+                      ${category.prices.map((priceData, sizeIndex) => `
+                        <td class="py-3 px-4">
+                          <input type="number" min="0" step="0.01" value="${priceData.price}" onchange="updatePrice(${catIndex}, ${sizeIndex}, this.value);" class="w-20 px-2 py-1 border rounded text-center focus:outline-none transition-all hover:border-opacity-100" style="border-color: ${config.primary_color || defaultConfig.primary_color}; border-opacity: 0.5;">
+                        </td>
+                      `).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+            }
+
+            return `
+        <div class="fade-in">
+          <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">إدارة الأسعار</h1>
+          
+          <div class="card-shadow rounded-xl p-4 md:p-6 bg-white mb-8">
+            <h2 class="text-xl md:text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">إنشاء نموذج تسعير جديد</h2>
+            <form onsubmit="createPricingModel(event);" class="flex flex-col md:flex-row gap-3">
+              <input type="text" id="modelName" required placeholder="اسم النموذج (مثال: تسعير الصيف 2024)" class="flex-1 px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                ${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}
+                <span>إنشاء</span>
+              </button>
+            </form>
+          </div>
+          
+          <div class="space-y-6">
+            ${appState.pricingModels.length === 0 ? `
+              <div class="card-shadow rounded-xl p-12 bg-white text-center">
+                <div class="text-6xl mb-4">💰</div>
+                <h3 class="text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد نماذج تسعير</h3>
+                <p class="text-lg opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">قم بإنشاء نموذج التسعير الأول الخاص بك</p>
+              </div>
+            ` : appState.pricingModels.map(model => {
+                const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
+                const totalPossible = model.data.length * SIZES.length;
+                const percentComplete = Math.round((totalPrices / totalPossible) * 100);
+
+                return `
+              <div class="card-shadow rounded-xl p-4 md:p-6 bg-white hover-scale">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                  <div class="flex-1 w-full">
+                    <h3 class="text-xl md:text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">${model.pricingModelName}</h3>
+                    <div class="flex items-center gap-4">
+                      <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs">
+                        <div class="h-2 rounded-full transition-all" style="width: ${percentComplete}%; background-color: ${config.accent_color || defaultConfig.accent_color};"></div>
+                      </div>
+                      <span class="text-xs md:text-sm font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${totalPrices}/${totalPossible} (${percentComplete}%)</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <button onclick="viewModelDetails('${model.__backendId}');" class="flex-1 md:flex-none px-3 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300 transition-colors text-sm" style="color: ${config.text_color || defaultConfig.text_color};">
+                      عرض
+                    </button>
+                    <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" class="flex-1 md:flex-none px-3 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity text-sm" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                      تعديل
+                    </button>
+                    <button onclick="duplicateModel('${model.__backendId}');" class="flex-1 md:flex-none px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white hover:bg-blue-600 transition-colors text-sm">
+                      نسخ
+                    </button>
+                    <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                      <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" 
+                              id="delete-${model.__backendId}"
+                              ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} 
+                              class="flex-1 md:flex-none px-3 py-2 bg-red-500 rounded-lg font-semibold text-white hover:bg-red-600 transition-colors flex items-center justify-center gap-2 text-sm">
+                        ${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}
+                        <span>حذف</span>
+                      </button>
+                      <button id="confirm-${model.__backendId}" 
+                              onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" 
+                              style="display: none;" 
+                              class="flex-1 md:flex-none px-3 py-2 bg-red-700 rounded-lg font-semibold text-white hover:bg-red-800 transition-colors text-sm">
+                        تأكيد
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  ${model.data.slice(0, 4).map(category => {
+                    const priced = category.prices.filter(p => p.price > 0).length;
+                    return `
+                    <div class="p-3 rounded-lg" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span>${getCategoryIcon(category.name)}</span>
+                        <p class="font-semibold text-sm" style="color: ${config.text_color || defaultConfig.text_color};">${category.name}</p>
+                      </div>
+                      <p class="text-xs opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">${priced}/${SIZES.length} مقاسات مسعرة</p>
+                    </div>
+                  `}).join('')}
+                  ${model.data.length > 4 ? `
+                    <div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                      <p class="font-semibold text-sm" style="color: ${config.primary_color || defaultConfig.primary_color};">+${model.data.length - 4} فئات</p>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `}).join('')}
+          </div>
+        </div>
+      `;
+        }
+
+        function renderBills() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const sortedBills = [...appState.bills].sort((a, b) => new Date(b.billDate) - new Date(a.billDate));
+
+            return `
+        <div class="fade-in">
+          <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفواتير</h1>
+            <button onclick="startNewBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+              <span class="text-2xl">➕</span>
+              <span>فاتورة جديدة</span>
+            </button>
+          </div>
+          
+          ${appState.bills.length === 0 ? `
+            <div class="card-shadow rounded-xl p-12 bg-white text-center">
+              <div class="text-6xl mb-4">📄</div>
+              <h3 class="text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد فواتير</h3>
+              <p class="text-lg opacity-75 mb-6" style="color: ${config.text_color || defaultConfig.text_color};">قم بإنشاء أول فاتورة لك</p>
+              <button onclick="startNewBill();" class="px-8 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                إنشاء فاتورة
+              </button>
+            </div>
+          ` : `
+            <div class="mb-6">
+              <input type="text" id="billSearch" onkeyup="filterBills();" placeholder="بحث برقم الفاتورة..." class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div class="card-shadow rounded-xl p-6" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                <div class="text-white">
+                  <p class="text-sm opacity-90 mb-1">إجمالي الفواتير</p>
+                  <p class="text-3xl font-bold">${appState.bills.length}</p>
+                </div>
+              </div>
+              <div class="card-shadow rounded-xl p-6" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
+                <div class="text-white">
+                  <p class="text-sm opacity-90 mb-1">إجمالي المبيعات</p>
+                  <p class="text-3xl font-bold">${appState.bills.reduce((sum, b) => sum + b.billTotal, 0).toFixed(2)} جنية</p>
+                </div>
+              </div>
+              <div class="card-shadow rounded-xl p-6 bg-white">
+                <div style="color: ${config.text_color || defaultConfig.text_color};">
+                  <p class="text-sm opacity-75 mb-1">متوسط قيمة الفاتورة</p>
+                  <p class="text-3xl font-bold" style="color: ${config.primary_color || defaultConfig.primary_color};">
+                    ${(appState.bills.reduce((sum, b) => sum + b.billTotal, 0) / appState.bills.length).toFixed(2)} جنية
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div id="billsList" class="card-shadow rounded-xl p-6 bg-white">
+              <div class="overflow-x-auto">
+                <table class="w-full">
+                  <thead>
+                    <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</th>
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</th>
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عدد العناصر</th>
+                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المبلغ الإجمالي</th>
+                      <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${sortedBills.map(bill => `
+                      <tr class="bill-row border-b hover:bg-opacity-50 transition-colors" data-bill-number="${bill.billNumber}" style="border-color: ${config.background_color || defaultConfig.background_color};">
+                        <td class="py-3 px-4 font-semibold" style="color: ${config.primary_color || defaultConfig.primary_color};">${bill.billNumber}</td>
+                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td>
+                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${bill.items.length}</td>
+                        <td class="py-3 px-4 font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</td>
+                        <td class="py-3 px-4 text-center">
+                          <div class="flex gap-2 justify-center">
+                            <button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                              عرض
+                            </button>
+                            <button onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" ${isLoading(`delete-bill-${bill.__backendId}`) ? 'disabled' : ''} class="px-4 py-2 bg-red-500 rounded-lg font-semibold text-white hover:bg-red-600 transition-colors flex items-center gap-2">
+                              ${isLoading(`delete-bill-${bill.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}
+                              <span>حذف</span>
+                            </button>
+                            <button id="confirm-bill-${bill.__backendId}" onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" style="display: none;" class="px-4 py-2 bg-red-700 rounded-lg font-semibold text-white hover:bg-red-800 transition-colors">
+                              تأكيد
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+        }
+
+        function filterBills() {
+            const searchTerm = document.getElementById('billSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('.bill-row');
+
+            rows.forEach(row => {
+                const billNumber = row.getAttribute('data-bill-number').toLowerCase();
+                if (billNumber.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function renderNewBill() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const lastInput = appState.lastBillInput || {};
+            const isEditing = !!appState.editingBillId;
+
+            return `
+        <div class="fade-in">
+          <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${isEditing ? 'تعديل الفاتورة' : 'إنشاء فاتورة جديدة'}</h1>
+            <button onclick="appState.currentView = 'bills'; appState.lastBillInput = null; appState.editingBillId = null; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+              إلغاء
+            </button>
+          </div>
+          
+          ${!appState.selectedModel ? `
+            <div class="card-shadow rounded-xl p-6 bg-white">
+              <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">اختر نموذج التسعير</h2>
+              ${appState.pricingModels.length === 0 ? `
+                <div class="text-center py-12">
+                  <div class="text-6xl mb-4">💰</div>
+                  <p class="text-xl mb-4" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد نماذج تسعير متاحة</p>
+                  <button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                    إنشاء نموذج تسعير
+                  </button>
+                </div>
+              ` : `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  ${appState.pricingModels.map(model => `
+                    <button onclick="selectModelForBill('${model.__backendId}');" class="card-shadow rounded-lg p-6 text-right hover-scale bg-white border-2 transition-all hover:border-opacity-100" style="border-color: ${config.primary_color || defaultConfig.primary_color}; border-opacity: 0.3;">
+                      <h3 class="text-xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(model.pricingModelName)}</h3>
+                      <p class="text-sm opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">${model.data.length} فئات متاحة</p>
+                    </button>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          ` : `
+            <div class="space-y-6">
+              <div class="card-shadow rounded-xl p-6 bg-white">
+                <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">إضافة عنصر</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <select id="billCategory" class="px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                    <option value="">اختر الفئة</option>
+                    ${appState.selectedModel.data.map(cat => `
+                      <option value="${cat.name}" ${lastInput.category === cat.name ? 'selected' : ''}>${cat.name}</option>
+                    `).join('')}
+                  </select>
+                  
+                  <select id="billSize" class="px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                    <option value="">اختر المقاس</option>
+                    ${SIZES.map(size => `
+                      <option value="${size}" ${lastInput.size === size ? 'selected' : ''}>${size}</option>
+                    `).join('')}
+                  </select>
+                  
+                  <input type="number" id="billQuantity" min="1" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                  
+                  <button onclick="addBillItem();" class="px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
+                    إضافة
+                  </button>
+                </div>
+              </div>
+              
+              ${appState.billItems.length > 0 ? `
+                <div class="card-shadow rounded-xl p-6 bg-white">
+                  <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">عناصر الفاتورة</h2>
+                  <div class="overflow-x-auto">
+                    <table class="w-full">
+                      <thead>
+                        <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                          <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
+                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المقاس</th>
+                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الكمية</th>
+                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">السعر</th>
+                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الاجمالي</th>
+                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">إجراء</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${appState.billItems.map((item, index) => `
+                          <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
+                            <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${item.category}</td>
+                            <td class="py-3 px-4 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.size}</td>
+                            <td class="py-3 px-4 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.quantity}</td>
+                            <td class="py-3 px-4 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.unitPrice.toFixed(2)}</td>
+                            <td class="py-3 px-4 text-center font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${item.total.toFixed(2)}</td>
+                            <td class="py-3 px-4 text-center">
+                              <button onclick="removeBillItem(${index});" class="px-3 py-1 bg-red-500 rounded text-white text-sm hover:bg-red-600 transition-colors">
+                                حذف
+                              </button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                      <tfoot>
+                        <tr class="border-t-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                          <td colspan="4" class="py-4 px-4 text-left font-bold text-xl" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي الكلي:</td>
+                          <td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color || defaultConfig.accent_color};">
+                            ${appState.billItems.reduce((sum, item) => sum + item.total, 0).toFixed(2)} جنية
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  
+                  <div class="mt-6 flex justify-end">
+                    <button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                      ${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}
+                      <span>حفظ الفاتورة</span>
+                    </button>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          `}
+        </div>
+      `;
+        }
+
+        function renderViewBill() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const bill = appState.currentBill;
+
+            return `
+        <div class="fade-in">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4 no-print">
+            <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عرض الفاتورة</h1>
+            <div class="flex gap-3 w-full md:w-auto">
+              <button onclick="appState.currentView = 'bills'; render();" class="flex-1 md:flex-none px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
+                رجوع
+              </button>
+              <button onclick="editBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
+                <span>✏️</span>
+                <span>تعديل</span>
+              </button>
+              <button onclick="printBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                <span>🖨️</span>
+                <span>طباعة</span>
+              </button>
+              <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="flex-1 md:flex-none px-6 py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors">
+                ${isLoading('sharing') ? '<div class="loading-spinner"></div>' : '<span>📄</span>'}
+                <span>${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</span>
+              </button>
+            </div>
+          </div>
+          
+          <div id="printable-bill" class="card-shadow rounded-xl p-4 md:p-12 bg-white max-w-4xl mx-auto">
+            <!-- Invoice Header -->
+            <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-6">
+                <div>
+                  <div class="flex items-center gap-3 mb-2">
+                    <div class="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+                      <span class="text-2xl md:text-3xl">👔</span>
+                    </div>
+                    <div>
+                      <h2 class="text-2xl md:text-3xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
+                      <p class="opacity-75 text-sm md:text-base" style="color: ${config.text_color || defaultConfig.text_color};">فاتورة مبيعات</p>
+                    </div>
+                  </div>
+                  <div class="space-y-1 text-sm md:text-base" style="color: ${config.text_color || defaultConfig.text_color};">
+                    <p>📞 ${escapeHtml(appState.companySettings.phone)}</p>
+                    <p>📍 ${escapeHtml(appState.companySettings.address)}</p>
+                  </div>
+                </div>
+                
+                <div class="text-left w-full md:w-auto bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg md:rounded-none">
+                  <div class="flex md:block justify-between items-center mb-2 md:mb-0">
+                    <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</p>
+                    <p class="text-xl md:text-2xl font-bold md:mb-4" style="color: ${config.primary_color || defaultConfig.primary_color};">${bill.billNumber}</p>
+                  </div>
+                  <div class="flex md:block justify-between items-center">
+                    <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</p>
+                    <p class="font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Invoice Items -->
+            <div class="mb-8 overflow-x-auto">
+              <table class="w-full min-w-[600px]">
+                <thead>
+                  <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+                    <th class="text-right py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
+                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المقاس</th>
+                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الكمية</th>
+                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">سعر الوحدة</th>
+                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${bill.items.map(item => `
+                    <tr class="border-b" style="border-color: ${config.background_color || defaultConfig.background_color};">
+                      <td class="py-3 px-2" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(item.category)}</td>
+                      <td class="py-3 px-2 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.size}</td>
+                      <td class="py-3 px-2 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.quantity}</td>
+                      <td class="py-3 px-2 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.unitPrice.toFixed(2)}</td>
+                      <td class="py-3 px-2 text-center font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${item.total.toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- Total -->
+            <div class="border-t-2 pt-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              <div class="flex justify-between items-center bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg md:rounded-none">
+                <span class="text-xl md:text-2xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي الكلي</span>
+                <span class="text-2xl md:text-4xl font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
+              </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="mt-8 md:mt-12 pt-6 border-t text-center opacity-75 text-sm md:text-base" style="border-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color};">
+              <p>${escapeHtml(appState.companySettings.footer)}</p>
+            </div>
+          </div>
+        </div>
+      `;
+        }
+
+        function renderSettings() {
+            const config = window.elementSdk?.config || defaultConfig;
+
+            return `
+        <div class="fade-in">
+          <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">الإعدادات</h1>
+          
+          <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl">
+            <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">معلومات الشركة</h2>
+            
+            <form onsubmit="saveSettings(event);" class="space-y-6">
+              <div>
+                <label for="settingsName" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">اسم الشركة</label>
+                <input type="text" id="settingsName" value="${escapeHtml(appState.companySettings.name)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              </div>
+              
+              <div>
+                <label for="settingsPhone" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">رقم الهاتف</label>
+                <input type="text" id="settingsPhone" value="${escapeHtml(appState.companySettings.phone)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              </div>
+              
+              <div>
+                <label for="settingsAddress" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">العنوان</label>
+                <input type="text" id="settingsAddress" value="${escapeHtml(appState.companySettings.address)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              </div>
+              
+              <div>
+                <label for="settingsFooter" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">نص التذييل</label>
+                <input type="text" id="settingsFooter" value="${escapeHtml(appState.companySettings.footer)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
+              </div>
+              
+              <button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
+                ${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}
+                <span>حفظ الإعدادات</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+        }
+
+        function getCategoryIcon(category) {
+            const icons = {
+                'ثوب رجالي': '🧥',
+                'قميص': '👔',
+                'بنطلون': '👖',
+                'جاكيت': '🧥',
+                'عباية نسائية': '👗',
+                'فستان': '👗',
+                'تنورة': '👗',
+                'بلوزة': '👚',
+                'سليب': '🩲',
+                'نصف كم': '👕',
+                'شورت': '🩳',
+                'سبور': '🏃',
+                'كلسون': '🩲',
+                'كم': '👕'
+            };
+            return icons[category] || '👔';
+        }
+
+        function scrollToProducts() {
+            document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToAbout() {
+            document.getElementById('about').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToContact() {
+            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function attachEventListeners() {
+            // Event listeners are attached via onclick attributes in HTML
+        }
+
+        // Element SDK Implementation
+        async function onConfigChange(config) {
+            // Update all elements that use config values
+            render();
+        }
+
+        const element = {
+            defaultConfig: defaultConfig,
+            onConfigChange: onConfigChange,
+            mapToCapabilities: (config) => ({
+                recolorables: [
+                    {
+                        get: () => config.primary_color || defaultConfig.primary_color,
+                        set: (value) => {
+                            config.primary_color = value;
+                            window.elementSdk.setConfig({ primary_color: value });
+                        }
+                    },
+                    {
+                        get: () => config.secondary_color || defaultConfig.secondary_color,
+                        set: (value) => {
+                            config.secondary_color = value;
+                            window.elementSdk.setConfig({ secondary_color: value });
+                        }
+                    },
+                    {
+                        get: () => config.accent_color || defaultConfig.accent_color,
+                        set: (value) => {
+                            config.accent_color = value;
+                            window.elementSdk.setConfig({ accent_color: value });
+                        }
+                    },
+                    {
+                        get: () => config.background_color || defaultConfig.background_color,
+                        set: (value) => {
+                            config.background_color = value;
+                            window.elementSdk.setConfig({ background_color: value });
+                        }
+                    },
+                    {
+                        get: () => config.text_color || defaultConfig.text_color,
+                        set: (value) => {
+                            config.text_color = value;
+                            window.elementSdk.setConfig({ text_color: value });
+                        }
+                    }
+                ],
+                borderables: [],
+                fontEditable: {
+                    get: () => config.font_family || defaultConfig.font_family,
+                    set: (value) => {
+                        config.font_family = value;
+                        window.elementSdk.setConfig({ font_family: value });
+                    }
+                },
+                fontSizeable: {
+                    get: () => config.font_size || defaultConfig.font_size,
+                    set: (value) => {
+                        config.font_size = value;
+                        window.elementSdk.setConfig({ font_size: value });
+                    }
+                }
+            }),
+            mapToEditPanelValues: (config) => new Map([
+                ["company_name", config.company_name || defaultConfig.company_name],
+                ["tagline", config.tagline || defaultConfig.tagline],
+                ["hero_title", config.hero_title || defaultConfig.hero_title],
+                ["hero_subtitle", config.hero_subtitle || defaultConfig.hero_subtitle],
+                ["cta_button", config.cta_button || defaultConfig.cta_button]
+            ])
+        };
+
+        // Initialize
+        async function init() {
+            if (window.elementSdk) {
+                await window.elementSdk.init(element);
+            }
+
+            if (window.dataSdk) {
+                const result = await window.dataSdk.init(dataHandler);
+                if (!result.isOk) {
+                    console.error("Failed to initialize data SDK");
+                }
+            }
+
+            render();
+        }
+
+        init();
+    </script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9ba841782304e191',t:'MTc2NzgzOTI0Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+</body>
+
+</html>
