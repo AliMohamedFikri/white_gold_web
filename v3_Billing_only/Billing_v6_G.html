@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>نظام إدارة مصنع الملابس | الذهب الأبيض (سحابي)</title>
+    <meta name="description" content="نظام متكامل لإدارة مصانع الملابس، فواتير محترفة، تسعير دقيق، وإدارة مخزون شاملة مع مزامنة سحابية.">
+    <meta name="theme-color" content="#667eea">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👔</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); }
+        .hover-scale { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .hover-scale:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15); }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: all 0.3s ease; }
+        .btn-primary:hover { transform: scale(1.05); box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4); }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .loading-spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-top: 3px solid white; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .print-only { display: none; }
+        .print-header-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
+        @media (min-width: 768px) { .print-header-grid { grid-template-columns: 1fr 1fr; gap: 1rem; } }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .print-header-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; align-items: start !important; }
+            .print-company { text-align: right !important; margin: 0 !important; padding: 0 !important; }
+            .print-invoice { text-align: left !important; margin: 0 !important; padding: 0 !important; }
+            #printable-bill { display: block !important; height: auto !important; overflow: visible !important; position: static !important; background: white !important; }
+            body { background: white; }
+            html, body, #app, .h-full, .min-h-screen { height: auto !important; overflow: visible !important; position: static !important; }
+            .flex-1, .overflow-auto, .overflow-hidden { overflow: visible !important; height: auto !important; display: block !important; }
+            .fixed.inset-y-0 { display: none !important; }
+        }
+        .pdf-capture-mode .print-header-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; align-items: start !important; }
+        .pdf-capture-mode .print-company { text-align: right !important; margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode .print-invoice { text-align: left !important; margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode { height: auto !important; overflow: visible !important; display: block !important; }
+        #global-loader { position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.3s ease; }
+    </style>
+</head>
+<body class="h-full w-full">
+    
+    <div id="global-loader">
+        <div class="loading-spinner mb-4" style="border-color: #667eea; border-top-color: transparent; width: 40px; height: 40px; border-width: 4px;"></div>
+        <h2 class="text-xl font-bold" style="color: #667eea;">جاري التحميل والمزامنة...</h2>
+    </div>
+
+    <div id="app" class="h-full w-full overflow-auto"></div>
+
+    <script>
+        // === Core State and Configuration ===
+        const defaultConfig = {
+            company_name: "مصنع الذهب الأبيض للملابس", tagline: "جودة عالية وأسعار منافسة",
+            primary_color: "#667eea", secondary_color: "#764ba2", accent_color: "#48bb78",
+            background_color: "#f7fafc", text_color: "#2d3748", font_family: "Cairo", font_size: 16
+        };
+
+        const SIZES = (() => { const s = []; for (let i = 22; i <= 56; i += 2) s.push(i); return s; })();
+
+        let appState = {
+            currentView: 'dashboard', isSidebarOpen: false,
+            companySettings: { name: "مصنع الذهب الأبيض", phone: "+201212813475", address: "العاشر من رمضان، الشرقية", footer: "شكراً لتعاملكم معنا" },
+            pricingModels: [], bills: [], customers: [], categories: ["سليب", "نصف كم", "شورت", "حماله", "كلسون", "كم", "المجموع"],
+            selectedModel: null, editingModel: null, viewingModel: null, billItems: [], currentBill: null, editingBillId: null, lastBillInput: null,
+            currentBillClientName: '', billStep: 'selectModel', loadingStates: {}, settings: null, isSeeded: false
+        };
+
+        // Global Firebase Variables
+        let db, auth, userId, appId;
+        let unsubscribes = [];
+
+        // === Utility Functions ===
+        function escapeHtml(text) { if (text === null || text === undefined) return ''; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+        function setLoading(key, isLoading) { appState.loadingStates[key] = isLoading; render(); }
+        window.isLoading = function(key) { return appState.loadingStates[key] || false; }
+        
+        window.showToast = function(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-white z-50 fade-in ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+            toast.textContent = message; document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        
+        window.toggleSidebar = function() { appState.isSidebarOpen = !appState.isSidebarOpen; render(); }
+        function getCategoryIcon(category) { const icons = { 'سليب': '🩲', 'نصف كم': '👕', 'شورت': '🩳', 'حماله': '🏃', 'كلسون': '🩲', 'كم': '👕', 'المجموع': '🧮' }; return icons[category] || '👔'; }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('customerDropdown');
+            if (dropdown && !e.target.closest('#billClientName') && !e.target.closest('#customerDropdown')) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // === Firebase Integration ===
+        async function initFirebase() {
+            try {
+                const fbApp = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js');
+                const fbAuth = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js');
+                const fbFirestore = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+                window.fbFirestore = fbFirestore; 
+
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { projectId: 'demo-project' };
+                const app = fbApp.initializeApp(firebaseConfig);
+                auth = fbAuth.getAuth(app);
+                db = fbFirestore.getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                // RULE 3: Auth First
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await fbAuth.signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await fbAuth.signInAnonymously(auth);
+                }
+
+                fbAuth.onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        setupSnapshots();
+                    } else {
+                        userId = null;
+                        const loader = document.getElementById('global-loader');
+                        if (loader) loader.style.display = 'none';
+                    }
+                });
+            } catch (err) {
+                console.error("Firebase init failed:", err);
+                showToast("حدث خطأ في الاتصال بقاعدة البيانات. تأكد من إعداداتك.", "error");
+                const loader = document.getElementById('global-loader');
+                if (loader) loader.style.display = 'none';
+            }
+        }
+
+        function setupSnapshots() {
+            if (!userId || !db || !window.fbFirestore) return;
+            unsubscribes.forEach(u => u());
+            unsubscribes = [];
+
+            const fb = window.fbFirestore;
+
+            // 1. Settings Snapshot
+            unsubscribes.push(fb.onSnapshot(fb.collection(db, 'artifacts', appId, 'users', userId, 'settings'), (snap) => {
+                snap.forEach(doc => {
+                    if (doc.id === 'company') {
+                        appState.settings = doc.data();
+                        appState.companySettings = {
+                            name: appState.settings.companyName || "مصنع الذهب الأبيض",
+                            phone: appState.settings.companyPhone || "",
+                            address: appState.settings.companyAddress || "",
+                            footer: appState.settings.companyFooter || ""
+                        };
+                    }
+                });
+                render();
+            }));
+
+            // 2. Customers Snapshot
+            unsubscribes.push(fb.onSnapshot(fb.collection(db, 'artifacts', appId, 'users', userId, 'customers'), (snap) => {
+                const customers = [];
+                snap.forEach(doc => customers.push({ ...doc.data(), __backendId: doc.id }));
+                appState.customers = customers;
+                render();
+            }));
+
+            // 3. Pricing Models Snapshot
+            unsubscribes.push(fb.onSnapshot(fb.collection(db, 'artifacts', appId, 'users', userId, 'pricingModels'), (snap) => {
+                const models = [];
+                snap.forEach(doc => models.push({ ...doc.data(), __backendId: doc.id }));
+                appState.pricingModels = models.map(m => {
+                    try { m.data = JSON.parse(m.pricingModelData); } catch(e) { m.data = []; }
+                    return m;
+                });
+                
+                // Seed models if completely empty and not seeded yet
+                if (models.length === 0 && !appState.isSeeded) {
+                    appState.isSeeded = true;
+                    seedInitialModels();
+                }
+                render();
+                
+                // Hide loader after fetching main data - ADDED NULL CHECK
+                const loader = document.getElementById('global-loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => { 
+                        const lateLoader = document.getElementById('global-loader');
+                        if(lateLoader) lateLoader.style.display = 'none'; 
+                    }, 300);
+                }
+            }));
+
+            // 4. Bills Snapshot
+            unsubscribes.push(fb.onSnapshot(fb.collection(db, 'artifacts', appId, 'users', userId, 'bills'), (snap) => {
+                const bills = [];
+                snap.forEach(doc => bills.push({ ...doc.data(), __backendId: doc.id }));
+                appState.bills = bills.map(b => {
+                    try { b.items = typeof b.billItems === 'string' ? JSON.parse(b.billItems) : b.billItems; } catch(e) { b.items = []; }
+                    return b;
+                });
+                render();
+            }));
+        }
+
+        // --- Database Helpers ---
+        async function dbCreate(collName, data, explicitId = null) {
+            if (!userId || !db || !window.fbFirestore) return { isOk: false };
+            try {
+                const docId = explicitId || `ID_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                const docRef = window.fbFirestore.doc(db, 'artifacts', appId, 'users', userId, collName, docId);
+                await window.fbFirestore.setDoc(docRef, { ...data, __backendId: docId });
+                return { isOk: true, id: docId };
+            } catch (error) { console.error("dbCreate error", error); return { isOk: false }; }
+        }
+
+        async function dbUpdate(collName, docId, data) {
+            if (!userId || !db || !window.fbFirestore) return { isOk: false };
+            try {
+                const docRef = window.fbFirestore.doc(db, 'artifacts', appId, 'users', userId, collName, docId);
+                await window.fbFirestore.updateDoc(docRef, data);
+                return { isOk: true };
+            } catch (error) { console.error("dbUpdate error", error); return { isOk: false }; }
+        }
+
+        async function dbDelete(collName, docId) {
+            if (!userId || !db || !window.fbFirestore) return { isOk: false };
+            try {
+                const docRef = window.fbFirestore.doc(db, 'artifacts', appId, 'users', userId, collName, docId);
+                await window.fbFirestore.deleteDoc(docRef);
+                return { isOk: true };
+            } catch (error) { console.error("dbDelete error", error); return { isOk: false }; }
+        }
+
+        // --- Seeding Default Data ---
+        async function seedInitialModels() {
+            const createCategory = (name, priceMap) => ({ name, prices: SIZES.map(s => ({ size: s, price: priceMap[s] || 0 })) });
+            const seedModels = [
+                { name: "نموذج A", data: [createCategory("سليب", { 26: 160, 28: 180, 30: 200, 32: 225 }), createCategory("نصف كم", { 22: 220, 24: 250 })] },
+                { name: "نموذج B", data: [createCategory("سليب", { 44: 365, 46: 400 }), createCategory("نصف كم", { 44: 580 })] }
+            ];
+            for (let m of seedModels) {
+                await dbCreate('pricingModels', { pricingModelName: m.name, pricingModelData: JSON.stringify(m.data), createdAt: new Date().toISOString() });
+            }
+        }
+
+        // === Application Logic & UI Handlers ===
+
+        window.triggerFileInput = function() { document.getElementById('excelFileInput').click(); }
+        window.importFromExcel = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            setLoading('importExcel', true);
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                if (rows.length < 2) throw new Error('الملف فارغ أو لا يحتوي على بيانات');
+                let headerRowIndex = -1, sizeColIndex = -1;
+                const categoryMap = new Map();
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row) continue;
+                    const sizeIdx = row.findIndex(cell => cell && cell.toString().trim() === 'المقاس');
+                    if (sizeIdx !== -1) {
+                        headerRowIndex = i; sizeColIndex = sizeIdx;
+                        for (let j = 0; j < row.length; j++) {
+                            if (j === sizeIdx) continue;
+                            let catName = row[j]?.toString().trim();
+                            if (!catName) continue;
+                            if (catName === 'نصفكم') catName = 'نصف كم';
+                            if (catName === 'سبور') catName = 'حماله';
+                            categoryMap.set(j, catName);
+                        }
+                        break;
+                    }
+                }
+                if (headerRowIndex === -1) throw new Error('لم يتم العثور على صف الرأس');
+                const modelData = [];
+                const categoryNames = Array.from(categoryMap.values());
+                for (let catName of categoryNames) modelData.push({ name: catName, prices: SIZES.map(s => ({ size: s, price: 0 })) });
+                
+                for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+                    const size = parseInt(row[sizeColIndex]);
+                    if (isNaN(size) || !SIZES.includes(size)) continue;
+                    for (let [colIdx, catName] of categoryMap.entries()) {
+                        const price = parseFloat(row[colIdx]);
+                        if (isNaN(price)) continue;
+                        const catData = modelData.find(c => c.name === catName);
+                        if (catData) { const priceEntry = catData.prices.find(p => p.size === size); if (priceEntry) priceEntry.price = price; }
+                    }
+                }
+                let modelName = file.name.replace(/\.[^/.]+$/, "");
+                modelName = prompt("أدخل اسم النموذج:", modelName);
+                if (!modelName || !modelName.trim()) { setLoading('importExcel', false); return; }
+                
+                const result = await dbCreate('pricingModels', { pricingModelName: modelName.trim(), pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+                showToast(result.isOk ? 'تم استيراد النموذج بنجاح' : 'حدث خطأ أثناء الحفظ', result.isOk ? 'success' : 'error');
+            } catch (err) { console.error(err); showToast('خطأ: ' + err.message, 'error'); } 
+            finally { setLoading('importExcel', false); event.target.value = ''; }
+        }
+
+        window.createPricingModel = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('modelName').value;
+            if (!name.trim()) return showToast('الرجاء إدخال اسم النموذج', 'error');
+            setLoading('createModel', true);
+            const modelData = appState.categories.map(category => ({ name: category, prices: SIZES.map(size => ({ size, price: 0 })) }));
+            const result = await dbCreate('pricingModels', { pricingModelName: name, pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+            if (result.isOk) { document.getElementById('modelName').value = ''; showToast('تم إنشاء النموذج', 'success'); }
+            else { showToast('خطأ أثناء الإنشاء', 'error'); }
+            setLoading('createModel', false);
+        }
+
+        window.updatePricingModelObj = async function(model) {
+            setLoading('updateModel', true);
+            const result = await dbUpdate('pricingModels', model.__backendId, { pricingModelData: JSON.stringify(model.data), pricingModelName: model.pricingModelName });
+            if (result.isOk) { appState.editingModel = null; showToast('تم التحديث بنجاح', 'success'); }
+            else { showToast('خطأ أثناء التحديث', 'error'); }
+            setLoading('updateModel', false);
+        }
+
+        window.deletePricingModel = async function(modelId) {
+            const confirmBtn = document.getElementById(`confirm-${modelId}`);
+            if (confirmBtn && confirmBtn.style.display !== 'none') {
+                setLoading(`delete-${modelId}`, true);
+                const result = await dbDelete('pricingModels', modelId);
+                if (result.isOk) showToast('تم الحذف بنجاح', 'success'); else showToast('خطأ أثناء الحذف', 'error');
+                setLoading(`delete-${modelId}`, false);
+            } else {
+                const delBtn = document.getElementById(`delete-${modelId}`);
+                if (delBtn) delBtn.style.display = 'none';
+                if (confirmBtn) {
+                    confirmBtn.style.display = 'inline-flex';
+                    setTimeout(() => { 
+                        if (confirmBtn) confirmBtn.style.display = 'none'; 
+                        if (delBtn) delBtn.style.display = 'inline-flex'; 
+                    }, 3000);
+                }
+            }
+        }
+
+        window.editModel = function(modelId) { appState.editingModel = JSON.parse(JSON.stringify(appState.pricingModels.find(m => m.__backendId === modelId))); render(); }
+        window.updatePrice = function(cIdx, sIdx, price) { if (appState.editingModel) appState.editingModel.data[cIdx].prices[sIdx].price = parseFloat(price) || 0; }
+        window.saveModelEdits = function() { if (appState.editingModel) updatePricingModelObj(appState.editingModel); }
+        window.cancelEdit = function() { appState.editingModel = null; render(); }
+        window.fillAllPrices = function() {
+            const price = parseFloat(document.getElementById('quickFillPrice').value);
+            if (!price || price <= 0) return showToast('الرجاء إدخال سعر صحيح', 'error');
+            if (appState.editingModel) { appState.editingModel.data.forEach(cat => cat.prices.forEach(p => p.price = price)); render(); }
+        }
+        window.clearAllPrices = function() { if (appState.editingModel) { appState.editingModel.data.forEach(cat => cat.prices.forEach(p => p.price = 0)); render(); } }
+        
+        window.duplicateModel = async function(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+            setLoading('duplicateModel', true);
+            const result = await dbCreate('pricingModels', { pricingModelName: `${model.pricingModelName} (نسخة)`, pricingModelData: model.pricingModelData, createdAt: new Date().toISOString() });
+            showToast(result.isOk ? 'تم النسخ' : 'خطأ أثناء النسخ', result.isOk ? 'success' : 'error');
+            setLoading('duplicateModel', false);
+        }
+        
+        window.viewModelDetails = function(modelId) {
+            appState.viewingModel = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (appState.viewingModel) { appState.currentView = 'viewModel'; render(); }
+        }
+
+        // --- Bill Logic ---
+        window.startNewBill = function() {
+            appState.currentView = 'newBill'; appState.billItems = []; appState.selectedModel = null; appState.editingBillId = null; appState.lastBillInput = null; appState.currentBillClientName = ''; appState.billStep = 'selectModel';
+            render();
+        }
+        window.selectModelForBill = function(modelId) { appState.selectedModel = appState.pricingModels.find(m => m.__backendId === modelId); appState.billStep = 'clientName'; render(); }
+        
+        // Customer Auto-complete logic
+        window.filterCustomers = function(val) {
+            const dropdown = document.getElementById('customerDropdown');
+            if (!dropdown) return;
+            const term = val.toLowerCase().trim();
+            let matches = appState.customers.filter(c => c.name.toLowerCase().includes(term));
+            
+            if (matches.length === 0 && term === '') matches = appState.customers; 
+
+            if (matches.length > 0) {
+                dropdown.innerHTML = matches.map(c => `<div onclick="selectCustomer('${escapeHtml(c.name)}')" class="p-3 hover:bg-gray-100 cursor-pointer border-b text-gray-800">${escapeHtml(c.name)}</div>`).join('');
+                dropdown.classList.remove('hidden');
+            } else if (term !== '') {
+                dropdown.innerHTML = `<div class="p-3 text-gray-500 text-sm">عميل جديد: سيتم إضافته للسجل تلقائياً</div>`;
+                dropdown.classList.remove('hidden');
+            } else {
+                dropdown.classList.add('hidden');
+            }
+        };
+
+        window.selectCustomer = function(name) {
+            const input = document.getElementById('billClientName');
+            if (input) input.value = name;
+            document.getElementById('customerDropdown')?.classList.add('hidden');
+        };
+
+        window.confirmClientName = function() {
+            const input = document.getElementById('billClientName');
+            appState.currentBillClientName = input ? input.value.trim() : '';
+            appState.billStep = 'items';
+            render();
+        }
+
+        window.backToModelSelect = function() { appState.selectedModel = null; appState.billStep = 'selectModel'; render(); }
+        window.backToClientName = function() { appState.billStep = 'clientName'; render(); }
+        window.cancelNewBill = function() { appState.currentView = 'bills'; appState.editingBillId = null; render(); }
+        
+        window.editBill = function() {
+            if (!appState.currentBill) return;
+            const bill = appState.currentBill;
+            appState.editingBillId = bill.__backendId;
+            appState.billItems = JSON.parse(JSON.stringify(bill.items));
+            appState.currentBillClientName = bill.billClientName || '';
+            appState.currentView = 'newBill';
+            appState.selectedModel = appState.pricingModels.find(m => m.__backendId === bill.billModelId) || appState.pricingModels[0];
+            appState.billStep = 'items';
+            render();
+        }
+
+        window.addBillItem = function() {
+            const category = document.getElementById('billCategory').value, size = parseInt(document.getElementById('billSize').value), quantity = parseFloat(document.getElementById('billQuantity').value);
+            if (!category || !size || !quantity) return showToast('الرجاء تعبئة جميع الحقول', 'error');
+            const categoryData = appState.selectedModel.data.find(c => c.name === category);
+            const priceData = categoryData.prices.find(p => p.size === size);
+            appState.billItems.push({ category, size, quantity, unitPrice: priceData.price, total: priceData.price * quantity });
+            appState.lastBillInput = { category, size: size + 2 <= 56 ? size + 2 : size, quantity };
+            render();
+        }
+
+        window.removeBillItem = function(index) { appState.billItems.splice(index, 1); render(); }
+
+        window.saveBill = async function() {
+            if (appState.billItems.length === 0) return showToast('الرجاء إضافة عناصر للفاتورة', 'error');
+            setLoading('saveBill', true);
+            
+            const billTotal = appState.billItems.reduce((sum, item) => sum + item.total, 0);
+            const clientName = appState.currentBillClientName.trim();
+            
+            // Manage Customer Directory automatically
+            if (clientName) {
+                const existingCustomer = appState.customers.find(c => c.name.toLowerCase() === clientName.toLowerCase());
+                if (!existingCustomer) {
+                    await dbCreate('customers', { name: clientName, phone: '', address: '', createdAt: new Date().toISOString() });
+                }
+            }
+
+            let result;
+            if (appState.editingBillId) {
+                result = await dbUpdate('bills', appState.editingBillId, { billItems: JSON.stringify(appState.billItems), billTotal, billClientName: clientName });
+            } else {
+                result = await dbCreate('bills', { billNumber: `INV-${Date.now()}`, billDate: new Date().toISOString(), billModelId: appState.selectedModel.__backendId, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: clientName, createdAt: new Date().toISOString() });
+            }
+            
+            if (result.isOk) { showToast(appState.editingBillId ? 'تم تحديث الفاتورة' : 'تم حفظ الفاتورة بنجاح', 'success'); cancelNewBill(); } 
+            else { showToast('خطأ أثناء الحفظ', 'error'); }
+            setLoading('saveBill', false);
+        }
+
+        window.viewBill = function(billId) { appState.currentBill = appState.bills.find(b => b.__backendId === billId); appState.currentView = 'viewBill'; render(); }
+        window.printBill = function() { window.print(); }
+        
+        window.shareBill = async function() {
+            const element = document.getElementById('printable-bill');
+            setLoading('sharing', true);
+            document.getElementById('view-bill-container').classList.add('pdf-capture-mode');
+            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            try {
+                const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], opt.filename, { type: 'application/pdf' })] })) {
+                    await navigator.share({ title: `فاتورة`, files: [new File([pdfBlob], opt.filename, { type: 'application/pdf' })] });
+                } else {
+                    const url = URL.createObjectURL(pdfBlob); const a = document.createElement('a'); a.href = url; a.download = opt.filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    showToast('المشاركة غير مدعومة، تم التنزيل', 'info');
+                }
+            } catch (error) { console.error(error); } finally { document.getElementById('view-bill-container').classList.remove('pdf-capture-mode'); setLoading('sharing', false); }
+        }
+
+        window.downloadBillPDF = async function() {
+            const element = document.getElementById('printable-bill');
+            setLoading('downloading', true);
+            document.getElementById('view-bill-container').classList.add('pdf-capture-mode');
+            try {
+                await html2pdf().set({ margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save();
+                showToast('تم التنزيل بنجاح', 'success');
+            } catch (e) { console.error(e); } finally { document.getElementById('view-bill-container').classList.remove('pdf-capture-mode'); setLoading('downloading', false); }
+        }
+
+        window.deleteBill = async function(billId) {
+            const confirmBtn = document.getElementById(`confirm-bill-${billId}`);
+            if (confirmBtn && confirmBtn.style.display === 'inline-flex') {
+                setLoading(`delete-bill-${billId}`, true);
+                const result = await dbDelete('bills', billId);
+                if (result.isOk) { showToast('تم الحذف', 'success'); appState.currentView = 'bills'; } else showToast('خطأ', 'error');
+                setLoading(`delete-bill-${billId}`, false);
+            } else { if (confirmBtn) { confirmBtn.style.display = 'inline-flex'; setTimeout(() => { if(confirmBtn) confirmBtn.style.display = 'none'; }, 3000); } }
+        }
+
+        // --- Settings & Customers ---
+        window.saveSettings = async function(e) {
+            e.preventDefault();
+            setLoading('saveSettings', true);
+            const data = { companyName: document.getElementById('settingsName').value, companyPhone: document.getElementById('settingsPhone').value, companyAddress: document.getElementById('settingsAddress').value, companyFooter: document.getElementById('settingsFooter').value, updatedAt: new Date().toISOString() };
+            const result = await dbCreate('settings', data, 'company');
+            showToast(result.isOk ? 'تم الحفظ' : 'خطأ', result.isOk ? 'success' : 'error');
+            setLoading('saveSettings', false);
+        }
+
+        window.createNewCustomer = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('newCustomerName').value.trim();
+            const phone = document.getElementById('newCustomerPhone').value.trim();
+            if (!name) return;
+            const result = await dbCreate('customers', { name, phone, address: '', createdAt: new Date().toISOString() });
+            if(result.isOk) {
+                showToast('تم إضافة العميل بنجاح', 'success');
+                document.getElementById('newCustomerName').value = '';
+                document.getElementById('newCustomerPhone').value = '';
+            } else {
+                showToast('حدث خطأ', 'error');
+            }
+        }
+
+        window.deleteCustomer = async function(id) {
+            if(confirm('هل أنت متأكد من حذف هذا العميل؟')) {
+                const res = await dbDelete('customers', id);
+                if(res.isOk) showToast('تم الحذف', 'success');
+            }
+        }
+
+        window.filterBills = function() {
+            const searchTerm = document.getElementById('billSearch').value.toLowerCase();
+            document.querySelectorAll('.bill-row').forEach(row => { row.style.display = row.getAttribute('data-search').toLowerCase().includes(searchTerm) ? '' : 'none'; });
+        }
+        
+        window.filterCustomersView = function() {
+            const searchTerm = document.getElementById('customerSearch').value.toLowerCase();
+            document.querySelectorAll('.customer-row').forEach(row => { row.style.display = row.getAttribute('data-search').toLowerCase().includes(searchTerm) ? '' : 'none'; });
+        }
+
+        // === View Rendering ===
+        function render() { 
+            const appEl = document.getElementById('app');
+            if (appEl) appEl.innerHTML = renderDashboardLayout(); 
+        }
+
+        function renderDashboardLayout() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const sidebarClasses = appState.isSidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0";
+            return `
+                <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color};">
+                    <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                        <button onclick="toggleSidebar()" class="text-white text-2xl">${appState.isSidebarOpen ? '✕' : '☰'}</button>
+                        <div class="flex items-center gap-2"><div class="w-8 h-8 bg-white rounded-full flex items-center justify-center"><span class="text-sm" style="color: ${config.primary_color};">👔</span></div><span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span></div>
+                    </div>
+                    ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
+                    <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block flex flex-col ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                        <div class="p-6 flex-1 overflow-y-auto">
+                            <div class="flex items-center justify-between gap-3 mb-8">
+                                <div class="flex items-center gap-3"><div class="w-12 h-12 bg-white rounded-full flex items-center justify-center"><span class="text-2xl" style="color: ${config.primary_color};">👔</span></div><div class="text-white"><h2 class="font-bold text-lg">لوحة الإدارة</h2><p class="text-sm opacity-90 truncate max-w-[120px]">${escapeHtml(appState.companySettings.name)}</p></div></div>
+                                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
+                            </div>
+                            <nav class="space-y-2">
+                                ${[{id:'dashboard', icon:'📊', name:'لوحة التحكم'}, {id:'pricing', icon:'💰', name:'إدارة الأسعار'}, {id:'bills', icon:'📄', name:'الفواتير'}, {id:'customers', icon:'👥', name:'دليل العملاء'}, {id:'settings', icon:'⚙️', name:'الإعدادات'}].map(view => `
+                                    <button onclick="appState.currentView = '${view.id}'; appState.isSidebarOpen = false; render();" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === view.id ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === view.id ? `color: ${config.primary_color}` : ''}">
+                                        <span class="text-xl">${view.icon}</span> <span>${view.name}</span>
+                                    </button>
+                                `).join('')}
+                            </nav>
+                        </div>
+                        <div class="p-4 border-t border-white border-opacity-20">
+                            <div class="text-white text-sm flex items-center justify-center gap-2"><span class="w-2 h-2 rounded-full bg-green-400"></span> <span>متصل بالسحابة</span></div>
+                        </div>
+                    </div>
+                    <div class="flex-1 h-full overflow-hidden flex flex-col"><div class="flex-1 overflow-auto p-4 md:p-8">${renderCurrentView()}</div></div>
+                </div>`;
+        }
+
+        function renderCurrentView() {
+            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, customers: renderCustomers, settings: renderSettings };
+            return (views[appState.currentView] || renderDashboard)();
+        }
+
+        function renderDashboard() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const recentBills = appState.bills.slice().sort((a,b)=> new Date(b.billDate) - new Date(a.billDate)).slice(0, 5);
+            return `
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">لوحة التحكم السحابية</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        <div class="card-shadow rounded-xl p-6 hover-scale text-white" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});"><div class="text-3xl mb-2">💰</div><h3 class="text-lg font-semibold opacity-90 mb-1">نماذج التسعير</h3><p class="text-4xl font-bold">${appState.pricingModels.length}</p></div>
+                        <div class="card-shadow rounded-xl p-6 hover-scale text-white" style="background: linear-gradient(135deg, ${config.accent_color}, #38a169);"><div class="text-3xl mb-2">📄</div><h3 class="text-lg font-semibold opacity-90 mb-1">إجمالي الفواتير</h3><p class="text-4xl font-bold">${appState.bills.length}</p></div>
+                        <div class="card-shadow rounded-xl p-6 hover-scale text-white" style="background: linear-gradient(135deg, #f6ad55, #ed8936);"><div class="text-3xl mb-2">👥</div><h3 class="text-lg font-semibold opacity-90 mb-1">قاعدة العملاء</h3><p class="text-4xl font-bold">${appState.customers.length}</p></div>
+                        <div class="card-shadow rounded-xl p-6 hover-scale bg-white"><button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group"><div class="text-5xl group-hover:scale-110 transition-transform">➕</div><span class="text-lg font-bold" style="color: ${config.primary_color};">إنشاء فاتورة</span></button></div>
+                    </div>
+                    <div class="card-shadow rounded-xl p-6 bg-white">
+                        <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">الفواتير الأخيرة</h2>
+                        ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">📄</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
+                            <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
+                            <tbody>${recentBills.map(bill => `<tr class="border-b"><td class="py-3 px-4">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center"><button onclick="viewBill('${bill.__backendId}');" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>`}
+                    </div>
+                </div>`;
+        }
+
+        function renderCustomers() {
+            const config = window.elementSdk?.config || defaultConfig;
+            
+            // Dynamically calculate stats for each customer based on bills
+            const customerStats = appState.customers.map(c => {
+                const bills = appState.bills.filter(b => b.billClientName && b.billClientName.toLowerCase() === c.name.toLowerCase());
+                const total = bills.reduce((sum, b) => sum + b.billTotal, 0);
+                const lastBill = bills.length > 0 ? Math.max(...bills.map(b => new Date(b.billDate).getTime())) : null;
+                return { ...c, billsCount: bills.length, totalSpent: total, lastBill };
+            }).sort((a,b) => b.totalSpent - a.totalSpent);
+
+            return `
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">دليل العملاء</h1>
+                    
+                    <div class="card-shadow rounded-xl p-6 bg-white mb-6">
+                        <h2 class="text-xl font-bold mb-4" style="color: ${config.text_color};">إضافة عميل جديد يدوياً</h2>
+                        <form onsubmit="createNewCustomer(event)" class="flex flex-col md:flex-row gap-4">
+                            <input type="text" id="newCustomerName" required placeholder="اسم العميل" class="flex-1 px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                            <input type="text" id="newCustomerPhone" placeholder="رقم الهاتف (اختياري)" class="flex-1 px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                            <button type="submit" class="px-8 py-3 rounded-lg font-bold text-white whitespace-nowrap" style="background-color: ${config.primary_color};">إضافة عميل</button>
+                        </form>
+                    </div>
+
+                    <div class="card-shadow rounded-xl p-6 bg-white">
+                        <div class="mb-6"><input type="text" id="customerSearch" onkeyup="filterCustomersView();" placeholder="ابحث باسم العميل..." class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                        
+                        ${customerStats.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">👥</div><p class="text-xl">لا يوجد عملاء مسجلين</p></div>` : `
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead><tr class="border-b-2" style="border-color: ${config.primary_color};">
+                                    <th class="text-right py-3 px-4">اسم العميل</th>
+                                    <th class="text-right py-3 px-4">رقم الهاتف</th>
+                                    <th class="text-center py-3 px-4">عدد الفواتير</th>
+                                    <th class="text-center py-3 px-4">إجمالي المشتريات</th>
+                                    <th class="text-center py-3 px-4">تاريخ آخر فاتورة</th>
+                                    <th class="text-center py-3 px-4">إجراءات</th>
+                                </tr></thead>
+                                <tbody>
+                                    ${customerStats.map(c => `
+                                        <tr class="customer-row border-b hover:bg-gray-50" data-search="${escapeHtml(c.name)}">
+                                            <td class="py-3 px-4 font-bold" style="color: ${config.primary_color};">${escapeHtml(c.name)}</td>
+                                            <td class="py-3 px-4 dir-ltr text-right">${escapeHtml(c.phone) || '-'}</td>
+                                            <td class="py-3 px-4 text-center"><span class="bg-gray-200 px-3 py-1 rounded-full text-sm font-bold">${c.billsCount}</span></td>
+                                            <td class="py-3 px-4 text-center font-bold" style="color: ${config.accent_color};">${c.totalSpent.toFixed(2)} جنية</td>
+                                            <td class="py-3 px-4 text-center text-sm">${c.lastBill ? new Date(c.lastBill).toLocaleDateString('ar-SA') : '-'}</td>
+                                            <td class="py-3 px-4 text-center">
+                                                <button onclick="deleteCustomer('${c.__backendId}')" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors">🗑️ حذف</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettings() {
+            const config = window.elementSdk?.config || defaultConfig;
+            return `
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">الإعدادات السحابية</h1>
+                    <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl">
+                        <form onsubmit="saveSettings(event);" class="space-y-6">
+                            <div><label class="block text-sm font-semibold mb-2">اسم الشركة</label><input type="text" id="settingsName" value="${escapeHtml(appState.companySettings.name)}" required class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">رقم الهاتف</label><input type="text" id="settingsPhone" value="${escapeHtml(appState.companySettings.phone)}" class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">العنوان</label><input type="text" id="settingsAddress" value="${escapeHtml(appState.companySettings.address)}" class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">نص التذييل (أسفل الفاتورة)</label><input type="text" id="settingsFooter" value="${escapeHtml(appState.companySettings.footer)}" class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الإعدادات سحابياً</span></button>
+                        </form>
+                    </div>
+                </div>`;
+        }
+
+        function renderPricing() {
+            const config = window.elementSdk?.config || defaultConfig;
+            if (appState.editingModel) {
+                return `
+                    <div class="fade-in">
+                        <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج: ${appState.editingModel.pricingModelName}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ</span></button></div></div>
+                        <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
+                            <div class="mb-4 flex gap-3"><button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعبئة سريعة</button><button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white">مسح الكل</button><input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32"></div>
+                            <table class="w-full border-collapse">
+                                <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
+                                <tbody>${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${cat.prices.map((p, sizeIdx) => `<td class="py-3 px-4"><input type="number" min="0" step="0.01" value="${p.price}" onchange="updatePrice(${catIdx}, ${sizeIdx}, this.value);" class="w-20 px-2 py-1 border rounded text-center"></td>`).join('')}</tr>`).join('')}</tbody>
+                            </table>
+                        </div>
+                    </div>`;
+            }
+            return `
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">إدارة الأسعار</h1>
+                    <div class="card-shadow rounded-xl p-6 bg-white mb-8">
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <form onsubmit="createPricingModel(event);" class="flex-1 flex flex-col md:flex-row gap-3">
+                                <input type="text" id="modelName" required placeholder="اسم النموذج الجديد" class="flex-1 px-4 py-3 border-2 rounded-lg">
+                                <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}<span>إنشاء</span></button>
+                            </form>
+                            <div class="flex gap-2">
+                                <input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="importFromExcel(event)" class="hidden">
+                                <button onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : '📊'}<span>استيراد Excel</span></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        ${appState.pricingModels.map(model => {
+                            const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
+                            const totalPossible = model.data.length * SIZES.length;
+                            const percent = Math.round((totalPrices / totalPossible) * 100);
+                            return `
+                                <div class="card-shadow rounded-xl p-6 bg-white hover-scale">
+                                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                                        <div class="flex-1"><h3 class="text-2xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><div class="flex items-center gap-4"><div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs"><div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${config.accent_color};"></div></div><span class="text-sm font-semibold">${totalPrices}/${totalPossible}</span></div></div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button onclick="viewModelDetails('${model.__backendId}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold">عرض</button>
+                                            <button onclick="editModel('${model.__backendId}');" class="px-3 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعديل</button>
+                                            <button onclick="duplicateModel('${model.__backendId}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white">نسخ</button>
+                                            <button id="delete-${model.__backendId}" onclick="deletePricingModel('${model.__backendId}');" class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white">حذف</button>
+                                            <button id="confirm-${model.__backendId}" onclick="deletePricingModel('${model.__backendId}');" style="display: none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button>
+                                        </div>
+                                    </div>
+                                </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+        }
+
+        function renderBills() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const sortedBills = [...appState.bills].sort((a, b) => new Date(b.billDate) - new Date(a.billDate));
+            return `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">الفواتير</h1><button onclick="startNewBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.primary_color};"><span class="text-2xl">➕</span><span>فاتورة جديدة</span></button></div>
+                    ${appState.bills.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">📄</div><h3 class="text-2xl font-bold mb-2">لا توجد فواتير</h3></div>` : `
+                        <div class="mb-6"><input type="text" id="billSearch" onkeyup="filterBills();" placeholder="بحث برقم الفاتورة أو العميل..." class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                        <div id="billsList" class="card-shadow rounded-xl p-6 bg-white">
+                            <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">الإجمالي</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
+                            <tbody>${sortedBills.map(bill => `<tr class="bill-row border-b" data-search="${bill.billNumber} ${bill.billClientName}"><td class="py-3 px-4 font-semibold text-blue-600">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold text-green-600">${bill.billTotal.toFixed(2)}</td><td class="py-3 px-4 text-center"><div class="flex gap-2 justify-center"><button onclick="viewBill('${bill.__backendId}');" class="px-4 py-2 rounded-lg font-semibold text-white bg-blue-500">عرض</button><button id="confirm-bill-${bill.__backendId}" onclick="deleteBill('${bill.__backendId}');" style="display: none;" class="px-4 py-2 bg-red-700 rounded-lg text-white font-semibold">تأكيد</button><button onclick="deleteBill('${bill.__backendId}')" class="px-4 py-2 bg-red-500 text-white rounded-lg">حذف</button></div></td></tr>`).join('')}</tbody></table></div>
+                        </div>`}
+                </div>`;
+        }
+
+        function renderNewBill() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const lastInput = appState.lastBillInput || {};
+            
+            let content = '';
+            if (appState.billStep === 'selectModel') {
+                content = `
+                    <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-6">اختر نموذج التسعير</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${appState.pricingModels.map(model => `<button onclick="selectModelForBill('${model.__backendId}');" class="card-shadow rounded-lg p-6 text-right hover-scale border-2" style="border-color: ${config.primary_color}; border-opacity: 0.3;"><h3 class="text-xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3></button>`).join('')}</div>
+                    </div>`;
+            } else if (appState.billStep === 'clientName') {
+                content = `
+                    <div class="card-shadow rounded-xl p-6 bg-white max-w-lg mx-auto overflow-visible">
+                        <div class="text-center mb-6">
+                            <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gray-100"><span class="text-4xl">👤</span></div>
+                            <h2 class="text-2xl font-bold mb-2">اسم العميل</h2>
+                            <p class="opacity-75 mb-2">اختر من سجل العملاء أو أدخل اسماً جديداً</p>
+                        </div>
+                        <div class="mb-6 relative">
+                            <label class="block text-sm font-semibold mb-2">العميل</label>
+                            <input type="text" id="billClientName" value="${escapeHtml(appState.currentBillClientName)}" onkeyup="filterCustomers(this.value)" onfocus="filterCustomers(this.value)" placeholder="ابحث أو أدخل اسم العميل (اختياري)..." autocomplete="off" class="w-full px-4 py-4 border-2 rounded-lg text-lg" style="border-color: ${config.primary_color};">
+                            <div id="customerDropdown" class="absolute w-full bg-white border border-gray-200 mt-1 rounded-lg shadow-xl hidden z-[100] max-h-48 overflow-y-auto"></div>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="backToModelSelect();" class="flex-1 px-6 py-3 bg-gray-300 rounded-lg font-semibold">رجوع</button>
+                            <button onclick="confirmClientName();" class="flex-1 px-6 py-3 rounded-lg font-semibold text-white text-lg" style="background-color: ${config.primary_color};">متابعة</button>
+                        </div>
+                    </div>`;
+            } else if (appState.billStep === 'items') {
+                content = `
+                    <div class="space-y-6">
+                        <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">إضافة عنصر</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <select id="billCategory" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${appState.selectedModel.data.map(cat => `<option value="${cat.name}" ${lastInput.category === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}</select>
+                                <select id="billSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+                                <input type="number" id="billQuantity" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                <button onclick="addBillItem();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.accent_color};">إضافة</button>
+                            </div>
+                        </div>
+                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2"><th class="text-center py-3 px-4">الإجراء</th><th class="text-center py-3 px-4">الإجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-right py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b"><td class="text-center"><button onclick="removeBillItem(${idx});" class="text-red-500 font-bold">حذف</button></td><td class="text-center font-bold text-green-600">${item.total.toFixed(2)}</td><td class="text-center">${item.unitPrice.toFixed(2)}</td><td class="text-center">${item.quantity.toFixed(2)}</td><td class="text-center">${item.size}</td><td>${item.category}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="5" class="py-4 font-bold text-xl">الإجمالي:</td><td class="py-4 text-center font-bold text-2xl text-green-600">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)}</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة سحابياً</span></button></div></div>` : ''}
+                    </div>`;
+            }
+
+            return `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-4">
+                        <h1 class="text-3xl font-bold">${appState.editingBillId ? 'تعديل الفاتورة' : 'إنشاء فاتورة جديدة'}</h1>
+                        <button onclick="cancelNewBill();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold">إلغاء</button>
+                    </div>
+                    ${content}
+                </div>`;
+        }
+
+        function renderViewBill() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const bill = appState.currentBill;
+            return `
+                <div class="fade-in">
+                    <div class="flex flex-wrap justify-between items-center mb-8 gap-4 no-print">
+                        <h1 class="text-3xl font-bold">عرض الفاتورة</h1>
+                        <div class="flex gap-2">
+                            <button onclick="appState.currentView = 'bills'; render();" class="px-4 py-2 bg-gray-300 rounded-lg font-semibold">رجوع</button>
+                            <button onclick="editBill();" class="px-4 py-2 bg-yellow-500 text-white rounded-lg font-semibold">تعديل</button>
+                            <button onclick="printBill();" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold">طباعة</button>
+                            <button onclick="shareBill();" class="px-4 py-2 bg-indigo-500 text-white rounded-lg font-semibold">مشاركة</button>
+                            <button onclick="downloadBillPDF();" class="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">تنزيل PDF</button>
+                        </div>
+                    </div>
+                    
+                    <div id="view-bill-container" class="w-full">
+                        <div id="printable-bill" class="card-shadow rounded-xl p-8 bg-white max-w-4xl mx-auto">
+                            <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color};">
+                                <div class="print-header-grid">
+                                    <div class="text-right">
+                                        <h2 class="text-3xl font-bold mb-2">${escapeHtml(appState.companySettings.name)}</h2>
+                                        <p class="text-sm opacity-75 mb-4">فاتورة مبيعات</p>
+                                        <p>📞 ${escapeHtml(appState.companySettings.phone)}</p>
+                                        <p>📍 ${escapeHtml(appState.companySettings.address)}</p>
+                                        ${bill.billClientName ? `<div class="mt-4"><p class="text-xs opacity-60">العميل</p><p class="text-2xl font-bold text-blue-600">أ/ ${escapeHtml(bill.billClientName)}</p></div>` : ''}
+                                    </div>
+                                    <div class="text-left">
+                                        <div class="mb-4"><p class="text-sm opacity-75">رقم الفاتورة</p><p class="text-3xl font-bold text-blue-600">${bill.billNumber}</p></div>
+                                        <div><p class="text-sm opacity-75">التاريخ</p><p class="text-lg font-semibold">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</p></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <table class="w-full mb-8">
+                                <thead><tr class="border-b-2 border-gray-300"><th class="py-2 text-center">الإجمالي</th><th class="py-2 text-center">الكمية</th><th class="py-2 text-center">السعر</th><th class="py-2 text-center">الفئة</th><th class="py-2 text-center">المقاس</th></tr></thead>
+                                <tbody>${bill.items.map(item => `<tr class="border-b"><td class="py-2 text-center font-bold">${item.total.toFixed(2)}</td><td class="py-2 text-center">${item.quantity.toFixed(2)}</td><td class="py-2 text-center">${item.unitPrice.toFixed(2)}</td><td class="py-2 text-center">${item.category}</td><td class="py-2 text-center">${item.size}</td></tr>`).join('')}</tbody>
+                            </table>
+                            <div class="border-t-2 pt-6 flex justify-between items-center"><span class="text-2xl font-bold">الإجمالي الكلي</span><span class="text-4xl font-bold text-green-600">${bill.billTotal.toFixed(2)} جنية</span></div>
+                            <div class="mt-8 text-center opacity-75">${escapeHtml(appState.companySettings.footer)}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function renderViewModel() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const model = appState.viewingModel;
+            if (!model) return '';
+            return `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 bg-gray-300 rounded-lg">رجوع</button></div>
+                    <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
+                        <table class="w-full">
+                            <thead><tr class="border-b-2"><th class="text-right py-3 px-4 sticky right-0 bg-white">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4">${s}</th>`).join('')}</tr></thead>
+                            <tbody>${model.data.map(cat => `<tr class="border-b"><td class="py-3 px-4 font-bold sticky right-0 bg-white">${cat.name}</td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center font-semibold ${price > 0 ? 'text-green-600' : 'opacity-30'}">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}</tr>`).join('')}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        // --- SDK & Bootstrapping ---
+        const element = {
+            defaultConfig,
+            onConfigChange: () => render(),
+            mapToCapabilities: (config) => ({
+                recolorables: [
+                    { get: () => config.primary_color || defaultConfig.primary_color, set: (v) => { config.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); } },
+                    { get: () => config.secondary_color || defaultConfig.secondary_color, set: (v) => { config.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); } },
+                    { get: () => config.accent_color || defaultConfig.accent_color, set: (v) => { config.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); } },
+                    { get: () => config.background_color || defaultConfig.background_color, set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
+                    { get: () => config.text_color || defaultConfig.text_color, set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); } }
+                ],
+                fontEditable: { get: () => config.font_family || defaultConfig.font_family, set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); } },
+                fontSizeable: { get: () => config.font_size || defaultConfig.font_size, set: (v) => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); } }
+            })
+        };
+
+        async function init() {
+            if (window.elementSdk) await window.elementSdk.init(element);
+            render(); // Render once early to ensure #app is populated
+            await initFirebase();
+        }
+        
+        init();
+    </script>
+</body>
+</html>

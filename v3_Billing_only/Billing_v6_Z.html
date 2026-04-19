@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>نظام إدارة مصنع الملابس | الذهب الأبيض</title>
+    <meta name="description" content="نظام متكامل لإدارة مصانع الملابس، فواتير محترفة، تسعير دقيق، وإدارة مخزون شاملة مع دليل عملاء ومزامنة سحابية.">
+    <meta name="theme-color" content="#667eea">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👔</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="/_sdk/data_sdk.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); }
+        .hover-scale { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .hover-scale:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15); }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: all 0.3s ease; }
+        .btn-primary:hover { transform: scale(1.05); box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4); }
+        .size-badge { transition: all 0.2s ease; }
+        .size-badge:hover { transform: scale(1.1); }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .loading-spinner { border: 3px solid rgba(255, 255, 255, 0.3); border-top: 3px solid white; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .sync-pulse { animation: syncPulse 2s ease-in-out infinite; }
+        @keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .customer-item { transition: all 0.15s ease; }
+        .customer-item:hover, .customer-item:active { transform: scale(0.98); }
+        .customer-item.selected { ring: 3px; }
+        .dropdown-enter { animation: dropIn 0.2s ease-out; }
+        @keyframes dropIn { from { opacity: 0; transform: translateY(-8px) scaleY(0.95); } to { opacity: 1; transform: translateY(0) scaleY(1); } }
+        .print-only { display: none; }
+        .print-header-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
+        @media (min-width: 768px) { .print-header-grid { grid-template-columns: 1fr 1fr; gap: 1rem; } }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .print-header-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; align-items: start !important; }
+            .print-company { text-align: right !important; margin: 0 !important; padding: 0 !important; }
+            .print-invoice { text-align: left !important; margin: 0 !important; padding: 0 !important; }
+            .print-company div, .print-invoice div { margin: 0 !important; padding: 0 !important; }
+            #printable-bill { display: block !important; height: auto !important; overflow: visible !important; position: static !important; background: white !important; }
+            body { background: white; }
+            html, body, #app, .h-full, .min-h-screen { height: auto !important; overflow: visible !important; position: static !important; }
+            .flex-1, .overflow-auto, .overflow-hidden { overflow: visible !important; height: auto !important; display: block !important; }
+            .fixed.inset-y-0 { display: none !important; }
+        }
+        .pdf-capture-mode .print-header-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; align-items: start !important; }
+        .pdf-capture-mode .print-company { text-align: right !important; margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode .print-invoice { text-align: left !important; margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode .print-company div, .pdf-capture-mode .print-invoice div { margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode { height: auto !important; overflow: visible !important; display: block !important; }
+        @view-transition { navigation: auto; }
+        .avatar-circle { display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; color: white; flex-shrink: 0; }
+        .overlay-bg { background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+        /* قائمة العملاء القابلة للتمرير */
+        .customer-list-scroll { max-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .customer-list-scroll::-webkit-scrollbar { width: 4px; }
+        .customer-list-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full w-full">
+    <div id="app" class="h-full w-full overflow-auto"></div>
+    <script>
+        /* === طبقة تجريد المزامنة السحابية === */
+        if (!window.dataSdk) {
+            window.dataSdk = {
+                _pendingOps: [],
+                _syncInterval: null,
+                _isCloudBackend: false,
+                init: async (handler) => {
+                    window._dataHandler = handler;
+                    let data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    if (!data.some(d => d.type === 'pricingModel')) {
+                        const SIZES = []; for (let i = 22; i <= 56; i += 2) SIZES.push(i);
+                        const createCategory = (name, priceMap) => ({ name, prices: SIZES.map(s => ({ size: s, price: priceMap[s] || 0 })) });
+                        const seedModels = [
+                            { name: "A", data: [createCategory("سليب", { 26: 160, 28: 180, 30: 200, 32: 225, 34: 250, 36: 275, 38: 300, 40: 325, 42: 355, 44: 385, 46: 420, 48: 460, 50: 500, 52: 540, 54: 580, 56: 620 }), createCategory("نصف كم", { 22: 220, 24: 250, 26: 280, 28: 315, 30: 350, 32: 385, 34: 420, 36: 455, 38: 490, 40: 525, 42: 560, 44: 600, 46: 650, 48: 700, 50: 755, 52: 810, 54: 865, 56: 920 }), createCategory("شورت", { 26: 205, 28: 235, 30: 265, 32: 300, 34: 335, 36: 370, 38: 405, 40: 440, 42: 485, 44: 530, 46: 575, 48: 625, 50: 675, 52: 725, 54: 775, 56: 825 }), createCategory("حماله", { 22: 200, 24: 220, 26: 245, 28: 270, 30: 295, 32: 320, 34: 345, 36: 370, 38: 395, 40: 420, 42: 445, 44: 470, 46: 500, 48: 540, 50: 580, 52: 625, 54: 670, 56: 715 })] },
+                            { name: "B", data: [createCategory("سليب", { 44: 365, 46: 400, 48: 435, 50: 475, 52: 515, 54: 555, 56: 595 }), createCategory("نصف كم", { 44: 580, 46: 625, 48: 675, 50: 730, 52: 785, 54: 845, 56: 905 }), createCategory("شورت", { 44: 505, 46: 555, 48: 605, 50: 655, 52: 705, 54: 755, 56: 805 }), createCategory("حماله", { 44: 450, 46: 480, 48: 520, 50: 560, 52: 605, 54: 650, 56: 695 })] },
+                            { name: "C", data: [createCategory("سليب", { 26: 150, 28: 170, 30: 195, 32: 220, 34: 245, 36: 270, 38: 295, 40: 320, 42: 345, 44: 370, 46: 400, 48: 435, 50: 475, 52: 515, 54: 555, 56: 595 }), createCategory("نصف كم", { 22: 210, 24: 240, 26: 270, 28: 305, 30: 340, 32: 375, 34: 410, 36: 445, 38: 480, 40: 515, 42: 550, 44: 585, 46: 625, 48: 680, 50: 735, 52: 790, 54: 845, 56: 900 }), createCategory("شورت", { 26: 210, 28: 240, 30: 270, 32: 300, 34: 330, 36: 360, 38: 390, 40: 420, 42: 450, 44: 500, 46: 550, 48: 600, 50: 650, 52: 700, 54: 750, 56: 800 }), createCategory("حماله", { 22: 185, 24: 205, 26: 230, 28: 255, 30: 280, 32: 305, 34: 330, 36: 355, 38: 380, 40: 405, 42: 430, 44: 455, 46: 480, 48: 520, 50: 560, 52: 600, 54: 645, 56: 690 })] },
+                            { name: "D", data: [createCategory("كلسون", { 22: 205, 24: 235, 26: 265, 28: 295, 30: 325, 32: 355, 34: 390, 36: 425, 38: 460 }), createCategory("كم", { 22: 260, 24: 285, 26: 315, 28: 345, 30: 390, 32: 435, 34: 480, 36: 530, 38: 580 })] },
+                            { name: "طقم دفاية", data: [createCategory("المجموع", { 28: 60, 30: 70, 32: 80, 34: 90, 36: 100, 38: 110, 40: 120, 42: 130, 44: 140, 46: 180, 48: 190, 50: 200, 52: 210, 54: 220, 56: 230 }), createCategory("كلسون", { 28: 25, 30: 30, 32: 35, 34: 40, 36: 45, 38: 50, 40: 55, 42: 60, 44: 65, 46: 85, 48: 90, 50: 95, 52: 100, 54: 105, 56: 110 }), createCategory("كم", { 28: 35, 30: 40, 32: 45, 34: 50, 36: 55, 38: 60, 40: 65, 42: 70, 44: 75, 46: 95, 48: 100, 50: 105, 52: 110, 54: 115, 56: 120 })] }
+                        ];
+                        data = [...data, ...seedModels.map((m, i) => ({ type: 'pricingModel', pricingModelName: m.name, pricingModelData: JSON.stringify(m.data), createdAt: new Date().toISOString(), __backendId: 'seed_' + i }))];
+                        localStorage.setItem('app_data', JSON.stringify(data));
+                    }
+                    // بدء المزامنة الدورية في الخلفية
+                    this._startBackgroundSync(handler);
+                    handler.onDataChanged(data);
+                    return { isOk: true };
+                },
+                _startBackgroundSync: function(handler) {
+                    // فحص حالة الاتصال كل 30 ثانية
+                    this._syncInterval = setInterval(() => {
+                        const isOnline = navigator.onLine;
+                        if (isOnline && this._pendingOps.length > 0) {
+                            this._flushPending(handler);
+                        }
+                        if (window._dataHandler && window._dataHandler.onSyncStatusChanged) {
+                            window._dataHandler.onSyncStatusChanged(isOnline ? (this._isCloudBackend ? 'synced' : 'local') : 'offline');
+                        }
+                    }, 30000);
+                    // فحص فوري
+                    window.addEventListener('online', () => {
+                        if (this._pendingOps.length > 0) this._flushPending(handler);
+                        if (window._dataHandler && window._dataHandler.onSyncStatusChanged) {
+                            window._dataHandler.onSyncStatusChanged(this._isCloudBackend ? 'synced' : 'local');
+                        }
+                    });
+                    window.addEventListener('offline', () => {
+                        if (window._dataHandler && window._dataHandler.onSyncStatusChanged) {
+                            window._dataHandler.onSyncStatusChanged('offline');
+                        }
+                    });
+                },
+                _flushPending: function(handler) {
+                    // في وضع التخزين المحلي، لا توجد عمليات معلقة حقيقية
+                    // هذه النقطة هي حيث يتم إرسال البيانات إلى Firebase/Supabase في الإنتاج
+                    this._pendingOps = [];
+                },
+                _queueOp: function(op) {
+                    this._pendingOps.push({ ...op, timestamp: Date.now() });
+                    localStorage.setItem('pending_ops', JSON.stringify(this._pendingOps));
+                },
+                create: async (item) => {
+                    this._queueOp({ action: 'create', item });
+                    const data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    const newItem = { ...item, __backendId: Date.now().toString() };
+                    data.push(newItem);
+                    localStorage.setItem('app_data', JSON.stringify(data));
+                    if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                    return { isOk: true, id: newItem.__backendId };
+                },
+                update: async (item) => {
+                    this._queueOp({ action: 'update', item });
+                    const data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    const index = data.findIndex(d => d.__backendId === item.__backendId);
+                    if (index >= 0) { data[index] = item; localStorage.setItem('app_data', JSON.stringify(data)); if (window._dataHandler) window._dataHandler.onDataChanged(data); return { isOk: true }; }
+                    return { isOk: false };
+                },
+                delete: async (item) => {
+                    this._queueOp({ action: 'delete', item });
+                    let data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    data = data.filter(d => d.__backendId !== item.__backendId);
+                    localStorage.setItem('app_data', JSON.stringify(data));
+                    if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                    return { isOk: true };
+                }
+            };
+        }
+
+        const defaultConfig = {
+            company_name: "مصنع الذهب الأبيض للملابس", tagline: "جودة عالية وأسعار منافسة",
+            primary_color: "#667eea", secondary_color: "#764ba2", accent_color: "#48bb78",
+            background_color: "#f7fafc", text_color: "#2d3748", font_family: "Cairo", font_size: 16
+        };
+
+        /* === حالة التطبيق === */
+        let appState = {
+            currentView: 'dashboard', isSidebarOpen: false,
+            companySettings: { name: "مصنع الذهب الأبيض للملابس", phone: "+201212813475", address: "العاشر من رمضان، الشرقية", footer: "شكراً لتعاملكم معنا" },
+            pricingModels: [], bills: [], customers: [],
+            categories: ["سليب", "نصف كم", "شورت", "حماله", "كلسون", "كم", "المجموع"],
+            selectedModel: null, editingModel: null, viewingModel: null,
+            billItems: [], currentBill: null, editingBillId: null, lastBillInput: null,
+            currentBillClientName: '', billStep: 'selectModel',
+            loadingStates: {}, settings: null,
+            // === حقول دليل العملاء الجديدة ===
+            customerSearchTerm: '', selectedCustomerId: null,
+            editingCustomer: null, viewingCustomerId: null,
+            showNewCustomerInline: false, newCustomerInlineName: '', newCustomerInlinePhone: '',
+            customerDirSearch: '', customerDirSort: 'recent',
+            syncStatus: navigator.onLine ? 'local' : 'offline',
+            pendingOpsCount: 0
+        };
+
+        const SIZES = (() => { const s = []; for (let i = 22; i <= 56; i += 2) s.push(i); return s; })();
+
+        // ألوان الأفاتار للعملاء
+        const AVATAR_COLORS = ['#667eea','#764ba2','#48bb78','#ed8936','#e53e3e','#38b2ac','#d69e2e','#9f7aea','#fc8181','#63b3ed'];
+        function getAvatarColor(name) { let hash = 0; for (let i = 0; i < (name||'').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash); return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]; }
+        function getInitials(name) { if (!name) return '؟'; const parts = name.trim().split(/\s+/); return parts.length >= 2 ? (parts[0][0] + parts[1][0]) : name.slice(0, 2); }
+
+        /* === معالج البيانات مع دعم العملاء === */
+        const dataHandler = {
+            onDataChanged(data) {
+                const settings = data.find(d => d.type === 'settings');
+                if (settings) { appState.settings = settings; appState.companySettings = { name: settings.companyName || appState.companySettings.name, phone: settings.companyPhone || appState.companySettings.phone, address: settings.companyAddress || appState.companySettings.address, footer: settings.companyFooter || appState.companySettings.footer }; }
+                appState.pricingModels = data.filter(d => d.type === 'pricingModel').map(m => ({ ...m, data: JSON.parse(m.pricingModelData) }));
+                appState.customers = data.filter(d => d.type === 'customer').map(c => ({ ...c }));
+                appState.bills = data.filter(d => d.type === 'bill').map(b => {
+                    const bill = { ...b, items: JSON.parse(b.billItems) };
+                    if (!bill.hasOwnProperty('billClientName')) bill.billClientName = '';
+                    if (!bill.hasOwnProperty('billCustomerId')) bill.billCustomerId = null;
+                    return bill;
+                });
+                // تحديث عدد العمليات المعلقة
+                const pending = JSON.parse(localStorage.getItem('pending_ops') || '[]');
+                appState.pendingOpsCount = pending.length;
+                render();
+            },
+            onSyncStatusChanged(status) {
+                appState.syncStatus = status;
+                const pending = JSON.parse(localStorage.getItem('pending_ops') || '[]');
+                appState.pendingOpsCount = pending.length;
+                // تحديث مؤشر المزامنة فقط بدون إعادة عرض كاملة
+                const syncEl = document.getElementById('sync-indicator');
+                if (syncEl) syncEl.outerHTML = renderSyncIndicator();
+            }
+        };
+
+        function escapeHtml(text) { if (text === null || text === undefined) return ''; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+        function setLoading(key, isLoading) { appState.loadingStates[key] = isLoading; render(); }
+        function isLoading(key) { return appState.loadingStates[key] || false; }
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-white z-[100] fade-in text-sm md:text-base max-w-[90vw] text-center ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+            toast.textContent = message; document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+        function toggleSidebar() { appState.isSidebarOpen = !appState.isSidebarOpen; render(); }
+        function getCategoryIcon(category) { const icons = { 'سليب': '🩲', 'نصف كم': '👕', 'شورت': '🩳', 'حماله': '🏃', 'كلسون': '🩲', 'كم': '👕', 'المجموع': '🧮' }; return icons[category] || '👔'; }
+
+        /* === مؤشر حالة المزامنة === */
+        function renderSyncIndicator() {
+            const statusMap = {
+                'synced': { icon: '●', color: '#48bb78', label: 'متزامن', pulse: false },
+                'local': { icon: '●', color: '#d69e2e', label: 'تخزين محلي', pulse: false },
+                'offline': { icon: '●', color: '#e53e3e', label: 'غير متصل', pulse: true },
+                'syncing': { icon: '●', color: '#667eea', label: 'جاري المزامنة...', pulse: true }
+            };
+            const s = statusMap[appState.syncStatus] || statusMap['local'];
+            const pendingHtml = appState.pendingOpsCount > 0 ? `<span class="bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center absolute -top-1 -left-1">${appState.pendingOpsCount}</span>` : '';
+            return `<div id="sync-indicator" class="relative flex items-center gap-2 text-sm ${s.pulse ? 'sync-pulse' : ''}" style="color: ${s.color};"><span style="font-size: 8px;">${s.icon}</span><span class="opacity-90">${s.label}</span>${pendingHtml}</div>`;
+        }
+
+        /* === عمليات العملاء CRUD === */
+        function getCustomerById(id) { return appState.customers.find(c => c.__backendId === id); }
+        function getCustomerName(customerId) {
+            if (!customerId) return '';
+            const c = getCustomerById(customerId);
+            return c ? c.customerName : '';
+        }
+        function getCustomerBills(customerId) { return appState.bills.filter(b => b.billCustomerId === customerId); }
+        function getCustomerTotalSpent(customerId) { return getCustomerBills(customerId).reduce((s, b) => s + b.billTotal, 0); }
+
+        // العملاء الأكثر استخداماً (لعرضهم أولاً في القائمة المنسدلة)
+        function getRecentCustomerIds(limit = 8) {
+            const withCustomer = appState.bills.filter(b => b.billCustomerId).sort((a, b) => new Date(b.billDate) - new Date(a.billDate));
+            const seen = new Set(); const result = [];
+            for (const bill of withCustomer) {
+                if (!seen.has(bill.billCustomerId)) { seen.add(bill.billCustomerId); result.push(bill.billCustomerId); if (result.length >= limit) break; }
+            }
+            return result;
+        }
+
+        function getFilteredCustomersForDropdown() {
+            const term = appState.customerSearchTerm.toLowerCase().trim();
+            const recentIds = getRecentCustomerIds(8);
+            let customers = [...appState.customers];
+
+            if (term) {
+                customers = customers.filter(c =>
+                    c.customerName.toLowerCase().includes(term) ||
+                    (c.customerPhone && c.customerPhone.includes(term))
+                );
+                return customers;
+            }
+
+            // بدون بحث: العملاء الأخيرون أولاً، ثم البقية
+            const recent = recentIds.map(id => customers.find(c => c.__backendId === id)).filter(Boolean);
+            const rest = customers.filter(c => !recentIds.includes(c.__backendId));
+            // ترتيب البقية حسب تاريخ الإنشاء
+            rest.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return [...recent, ...rest];
+        }
+
+        async function createCustomer(name, phone, notes) {
+            if (!name || !name.trim()) return null;
+            setLoading('createCustomer', true);
+            const result = await window.dataSdk.create({
+                type: 'customer', customerName: name.trim(), customerPhone: (phone || '').trim(),
+                customerNotes: (notes || '').trim(), createdAt: new Date().toISOString()
+            });
+            setLoading('createCustomer', false);
+            return result.isOk ? result.id : null;
+        }
+
+        async function updateCustomer(customer) {
+            setLoading('updateCustomer', true);
+            const result = await window.dataSdk.update(customer);
+            if (result.isOk) { appState.editingCustomer = null; showToast('تم تحديث بيانات العميل', 'success'); }
+            else showToast('حدث خطأ أثناء التحديث', 'error');
+            setLoading('updateCustomer', false);
+        }
+
+        async function deleteCustomer(customerId) {
+            const bills = getCustomerBills(customerId);
+            const confirmEl = document.getElementById(`confirm-cust-${customerId}`);
+            if (confirmEl && confirmEl.dataset.visible === 'true') {
+                setLoading(`delete-cust-${customerId}`, true);
+                // فك ربط الفواتير بدلاً من حذفها
+                for (const bill of bills) {
+                    await window.dataSdk.update({ ...bill, billCustomerId: null, billClientName: getCustomerName(customerId) });
+                }
+                const customer = getCustomerById(customerId);
+                const result = await window.dataSdk.delete(customer);
+                if (result.isOk) {
+                    showToast(bills.length > 0 ? `تم حذف العميل وفك ربط ${bills.length} فاتورة` : 'تم حذف العميل', 'success');
+                    if (appState.viewingCustomerId === customerId) { appState.viewingCustomerId = null; appState.currentView = 'customers'; }
+                } else showToast('حدث خطأ', 'error');
+                setLoading(`delete-cust-${customerId}`, false);
+            } else {
+                if (confirmEl) { confirmEl.dataset.visible = 'true'; confirmEl.style.display = 'flex'; confirmEl.innerHTML = bills.length > 0 ? `تأكيد (مع ${bills.length} فاتورة)` : 'تأكيد الحذف'; setTimeout(() => { if (confirmEl) { confirmEl.dataset.visible = 'false'; confirmEl.style.display = 'none'; } }, 4000); }
+            }
+        }
+
+        /* === أحداث واجهة العملاء في الفاتورة === */
+        function onCustomerSearchInput(value) { appState.customerSearchTerm = value; appState.showNewCustomerInline = false; render(); }
+        function selectCustomerForBill(customerId) {
+            appState.selectedCustomerId = customerId;
+            appState.customerSearchTerm = '';
+            appState.showNewCustomerInline = false;
+            render();
+        }
+        function deselectCustomerForBill() { appState.selectedCustomerId = null; render(); }
+        function showInlineNewCustomer() { appState.showNewCustomerInline = true; appState.customerSearchTerm = ''; render(); }
+        function hideInlineNewCustomer() { appState.showNewCustomerInline = false; appState.newCustomerInlineName = ''; appState.newCustomerInlinePhone = ''; render(); }
+        async function submitInlineCustomer() {
+            const name = document.getElementById('inlineCustName')?.value || appState.newCustomerInlineName;
+            const phone = document.getElementById('inlineCustPhone')?.value || appState.newCustomerInlinePhone;
+            if (!name.trim()) { showToast('الرجاء إدخال اسم العميل', 'error'); return; }
+            const id = await createCustomer(name, phone, '');
+            if (id) { appState.selectedCustomerId = id; appState.showNewCustomerInline = false; appState.newCustomerInlineName = ''; appState.newCustomerInlinePhone = ''; showToast('تم إضافة العميل واختياره', 'success'); render(); }
+            else showToast('حدث خطأ أثناء إضافة العميل', 'error');
+        }
+        function confirmClientSelection() { appState.billStep = 'items'; render(); }
+        function onInlineCustNameInput(v) { appState.newCustomerInlineName = v; }
+        function onInlineCustPhoneInput(v) { appState.newCustomerInlinePhone = v; }
+
+        /* === أحداث دليل العملاء === */
+        function onCustomerDirSearchInput(v) { appState.customerDirSearch = v; render(); }
+        function onCustomerDirSortChange(v) { appState.customerDirSort = v; render(); }
+        function viewCustomerDetail(customerId) { appState.viewingCustomerId = customerId; appState.currentView = 'customerDetail'; render(); }
+        function editCustomerFromDir(customerId) { const c = getCustomerById(customerId); if (c) { appState.editingCustomer = JSON.parse(JSON.stringify(c)); render(); } }
+        function cancelEditCustomer() { appState.editingCustomer = null; render(); }
+        async function saveEditCustomer(e) {
+            e.preventDefault();
+            const name = document.getElementById('editCustName')?.value;
+            const phone = document.getElementById('editCustPhone')?.value;
+            const notes = document.getElementById('editCustNotes')?.value;
+            if (!name || !name.trim()) return showToast('الاسم مطلوب', 'error');
+            if (appState.editingCustomer) {
+                appState.editingCustomer.customerName = name.trim();
+                appState.editingCustomer.customerPhone = (phone || '').trim();
+                appState.editingCustomer.customerNotes = (notes || '').trim();
+                await updateCustomer(appState.editingCustomer);
+            }
+        }
+        async function addCustomerFromDir(e) {
+            e.preventDefault();
+            const name = document.getElementById('dirNewCustName')?.value;
+            const phone = document.getElementById('dirNewCustPhone')?.value;
+            if (!name || !name.trim()) return showToast('الاسم مطلوب', 'error');
+            const id = await createCustomer(name, phone, '');
+            if (id) { showToast('تم إضافة العميل بنجاح', 'success'); render(); }
+            else showToast('حدث خطأ', 'error');
+        }
+        function startBillForCustomer(customerId) {
+            if (appState.pricingModels.length === 0) { showToast('أنشئ نموذج تسعير أولاً', 'error'); return; }
+            appState.currentView = 'newBill';
+            appState.billItems = []; appState.selectedModel = null; appState.editingBillId = null; appState.lastBillInput = null;
+            appState.selectedCustomerId = customerId;
+            appState.currentBillClientName = getCustomerName(customerId);
+            appState.billStep = 'selectModel';
+            render();
+        }
+
+        /* === دوال مساعدة للعملاء في لوحة التحكم === */
+        function getTopCustomers(limit = 5) {
+            const spending = new Map();
+            for (const c of appState.customers) spending.set(c.__backendId, 0);
+            for (const b of appState.bills) { if (b.billCustomerId && spending.has(b.billCustomerId)) spending.set(b.billCustomerId, spending.get(b.billCustomerId) + b.billTotal); }
+            return [...spending.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id, total]) => ({ customer: getCustomerById(id), total }));
+        }
+
+        /* === الدوال الأصلية (بدون تغيير جوهري) === */
+        function triggerFileInput() { document.getElementById('excelFileInput').click(); }
+        async function importFromExcel(event) {
+            const file = event.target.files[0]; if (!file) return;
+            setLoading('importExcel', true);
+            try {
+                const data = await file.arrayBuffer(); const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0]; const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                if (rows.length < 2) throw new Error('الملف فارغ أو لا يحتوي على بيانات');
+                let headerRowIndex = -1, sizeColIndex = -1; const categoryMap = new Map();
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i]; if (!row) continue;
+                    const sizeIdx = row.findIndex(cell => cell && cell.toString().trim() === 'المقاس');
+                    if (sizeIdx !== -1) {
+                        headerRowIndex = i; sizeColIndex = sizeIdx;
+                        for (let j = 0; j < row.length; j++) { if (j === sizeIdx) continue; let catName = row[j]?.toString().trim(); if (!catName) continue; if (catName === 'نصفكم') catName = 'نصف كم'; if (catName === 'سبور') catName = 'حماله'; categoryMap.set(j, catName); }
+                        break;
+                    }
+                }
+                if (headerRowIndex === -1) throw new Error('لم يتم العثور على صف الرأس الذي يحتوي على "المقاس"');
+                const modelData = []; const categoryNames = Array.from(categoryMap.values());
+                for (let catName of categoryNames) modelData.push({ name: catName, prices: SIZES.map(s => ({ size: s, price: 0 })) });
+                for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                    const row = rows[i]; if (!row || row.length === 0) continue;
+                    const sizeCell = row[sizeColIndex]; if (sizeCell === undefined || sizeCell === null) continue;
+                    const size = parseInt(sizeCell); if (isNaN(size) || !SIZES.includes(size)) continue;
+                    for (let [colIdx, catName] of categoryMap.entries()) {
+                        const priceCell = row[colIdx]; if (priceCell === undefined || priceCell === null || priceCell === '------' || priceCell === '') continue;
+                        const price = parseFloat(priceCell); if (isNaN(price)) continue;
+                        const catData = modelData.find(c => c.name === catName); if (catData) { const priceEntry = catData.prices.find(p => p.size === size); if (priceEntry) priceEntry.price = price; }
+                    }
+                }
+                let modelName = file.name.replace(/\.[^/.]+$/, ""); modelName = prompt("أدخل اسم النموذج:", modelName);
+                if (!modelName || !modelName.trim()) { setLoading('importExcel', false); return; }
+                const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: modelName.trim(), pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+                showToast(result.isOk ? 'تم استيراد النموذج بنجاح' : 'حدث خطأ', result.isOk ? 'success' : 'error');
+            } catch (err) { console.error(err); showToast('خطأ في قراءة الملف: ' + err.message, 'error'); }
+            finally { setLoading('importExcel', false); event.target.value = ''; render(); }
+        }
+
+        async function createPricingModel(e) {
+            e.preventDefault(); const name = document.getElementById('modelName').value; if (!name.trim()) return showToast('الرجاء إدخال اسم النموذج', 'error');
+            setLoading('createModel', true);
+            const modelData = appState.categories.map(category => ({ name: category, prices: SIZES.map(size => ({ size, price: 0 })) }));
+            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: name, pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+            if (result.isOk) { document.getElementById('modelName').value = ''; showToast('تم إنشاء النموذج بنجاح', 'success'); } else showToast('حدث خطأ', 'error');
+            setLoading('createModel', false);
+        }
+
+        async function updatePricingModel(model) {
+            setLoading('updateModel', true);
+            const result = await window.dataSdk.update({ ...model, pricingModelData: JSON.stringify(model.data) });
+            if (result.isOk) { appState.editingModel = null; showToast('تم تحديث النموذج بنجاح', 'success'); } else showToast('حدث خطأ', 'error');
+            setLoading('updateModel', false);
+        }
+
+        async function deletePricingModel(model) {
+            const modelId = model.__backendId; const confirmBtn = document.getElementById(`confirm-${modelId}`);
+            if (confirmBtn && confirmBtn.style.display !== 'none') {
+                setLoading(`delete-${modelId}`, true); const result = await window.dataSdk.delete(model);
+                if (result.isOk) { showToast('تم حذف النموذج', 'success'); appState.pricingModels = appState.pricingModels.filter(m => m.__backendId !== modelId); render(); } else showToast('حدث خطأ', 'error');
+                setLoading(`delete-${modelId}`, false);
+            } else { const deleteBtn = document.getElementById(`delete-${modelId}`); if (deleteBtn) deleteBtn.style.display = 'none'; if (confirmBtn) { confirmBtn.style.display = 'inline-flex'; setTimeout(() => { confirmBtn.style.display = 'none'; if (deleteBtn) deleteBtn.style.display = 'inline-flex'; }, 5000); } }
+        }
+
+        function editModel(model) { appState.editingModel = JSON.parse(JSON.stringify(model)); render(); }
+        function updatePrice(categoryIndex, sizeIndex, price) { if (appState.editingModel) appState.editingModel.data[categoryIndex].prices[sizeIndex].price = parseFloat(price) || 0; }
+        function saveModelEdits() { if (appState.editingModel) updatePricingModel(appState.editingModel); }
+        function cancelEdit() { appState.editingModel = null; render(); }
+        function fillAllPrices() { const price = parseFloat(document.getElementById('quickFillPrice').value); if (!price || price <= 0) return showToast('الرجاء إدخال سعر صحيح', 'error'); if (appState.editingModel) { appState.editingModel.data.forEach(cat => cat.prices.forEach(p => p.price = price)); render(); } }
+        function clearAllPrices() { if (appState.editingModel) { appState.editingModel.data.forEach(cat => cat.prices.forEach(p => p.price = 0)); render(); } }
+        async function duplicateModel(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId); if (!model) return;
+            setLoading('duplicateModel', true);
+            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: `${model.pricingModelName} (نسخة)`, pricingModelData: model.pricingModelData, createdAt: new Date().toISOString() });
+            showToast(result.isOk ? 'تم نسخ النموذج' : 'حدث خطأ', result.isOk ? 'success' : 'error');
+            setLoading('duplicateModel', false);
+        }
+        function viewModelDetails(modelId) { const model = appState.pricingModels.find(m => m.__backendId === modelId); if (model) { appState.viewingModel = model; appState.currentView = 'viewModel'; render(); } }
+
+        function startNewBill() { appState.currentView = 'newBill'; appState.billItems = []; appState.selectedModel = null; appState.editingBillId = null; appState.lastBillInput = null; appState.currentBillClientName = ''; appState.selectedCustomerId = null; appState.customerSearchTerm = ''; appState.showNewCustomerInline = false; appState.billStep = 'selectModel'; render(); }
+        function selectModelForBill(modelId) { appState.selectedModel = appState.pricingModels.find(m => m.__backendId === modelId); appState.billStep = 'clientName'; render(); }
+        function backToModelSelect() { appState.selectedModel = null; appState.billStep = 'selectModel'; render(); }
+        function backToClientName() { appState.billStep = 'clientName'; render(); }
+        function cancelNewBill() { appState.currentView = 'bills'; appState.lastBillInput = null; appState.editingBillId = null; appState.currentBillClientName = ''; appState.selectedCustomerId = null; appState.selectedModel = null; appState.billStep = 'selectModel'; render(); }
+
+        function editBill() {
+            if (!appState.currentBill) return; const bill = appState.currentBill;
+            appState.editingBillId = bill.__backendId; appState.billItems = JSON.parse(JSON.stringify(bill.items));
+            appState.currentBillClientName = bill.billClientName || ''; appState.selectedCustomerId = bill.billCustomerId || null;
+            appState.currentView = 'newBill';
+            const model = appState.pricingModels.find(m => m.__backendId === bill.billModelId);
+            if (model) appState.selectedModel = model; appState.billStep = 'items'; render();
+        }
+
+        function addBillItem() {
+            const category = document.getElementById('billCategory').value; const size = parseInt(document.getElementById('billSize').value); const quantity = parseFloat(document.getElementById('billQuantity').value);
+            if (!category || !size || !quantity) return showToast('الرجاء تعبئة جميع الحقول', 'error');
+            const categoryData = appState.selectedModel.data.find(c => c.name === category); const priceData = categoryData.prices.find(p => p.size === size);
+            const unitPrice = priceData.price; const total = unitPrice * quantity;
+            appState.billItems.push({ category, size, quantity, unitPrice, total });
+            appState.lastBillInput = { category, size: size + 2 <= 56 ? size + 2 : size, quantity }; render();
+        }
+        function removeBillItem(index) { appState.billItems.splice(index, 1); render(); }
+
+        async function saveBill() {
+            if (appState.billItems.length === 0) return showToast('الرجاء إضافة عناصر للفاتورة', 'error');
+            setLoading('saveBill', true);
+            const billTotal = appState.billItems.reduce((sum, item) => sum + item.total, 0);
+            const clientName = appState.selectedCustomerId ? getCustomerName(appState.selectedCustomerId) : appState.currentBillClientName;
+            let result;
+            if (appState.editingBillId) {
+                const originalBill = appState.bills.find(b => b.__backendId === appState.editingBillId);
+                result = await window.dataSdk.update({ ...originalBill, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: clientName, billCustomerId: appState.selectedCustomerId || null });
+            } else {
+                const billNumber = `INV-${Date.now()}`;
+                result = await window.dataSdk.create({ type: 'bill', billNumber, billDate: new Date().toISOString(), billModelId: appState.selectedModel.__backendId, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: clientName, billCustomerId: appState.selectedCustomerId || null, createdAt: new Date().toISOString() });
+            }
+            if (result.isOk) { showToast(appState.editingBillId ? 'تم تحديث الفاتورة' : 'تم حفظ الفاتورة', 'success'); cancelNewBill(); } else showToast('حدث خطأ', 'error');
+            setLoading('saveBill', false);
+        }
+
+        function viewBill(bill) { appState.currentBill = bill; appState.currentView = 'viewBill'; render(); }
+        function printBill() { window.print(); }
+
+        async function shareBill() {
+            const element = document.getElementById('printable-bill'); const container = document.getElementById('view-bill-container');
+            if (!container) { showToast('خطأ', 'error'); return; }
+            setLoading('sharing', true); container.classList.add('pdf-capture-mode');
+            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            try {
+                const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], opt.filename, { type: 'application/pdf' })] })) {
+                    await navigator.share({ title: `فاتورة ${appState.currentBill.billNumber}`, text: `فاتورة من ${appState.companySettings.name}`, files: [new File([pdfBlob], opt.filename, { type: 'application/pdf' })] });
+                    showToast('تم فتح نافذة المشاركة', 'success');
+                } else { const url = URL.createObjectURL(pdfBlob); const a = document.createElement('a'); a.href = url; a.download = opt.filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); showToast('تم تنزيل PDF', 'info'); }
+            } catch (error) { if (error.name !== 'AbortError') { console.error(error); showToast('حدث خطأ', 'error'); } }
+            finally { container.classList.remove('pdf-capture-mode'); setLoading('sharing', false); }
+        }
+
+        async function downloadBillPDF() {
+            const element = document.getElementById('printable-bill'); const container = document.getElementById('view-bill-container');
+            if (!container) { showToast('خطأ', 'error'); return; }
+            setLoading('downloading', true); container.classList.add('pdf-capture-mode');
+            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            try { await html2pdf().set(opt).from(element).save(); showToast('تم تنزيل PDF', 'success'); } catch (error) { console.error(error); showToast('حدث خطأ', 'error'); }
+            finally { container.classList.remove('pdf-capture-mode'); setLoading('downloading', false); }
+        }
+
+        async function deleteBill(bill) {
+            const confirmDelete = document.getElementById(`confirm-bill-${bill.__backendId}`);
+            if (confirmDelete && confirmDelete.style.display === 'inline-flex') {
+                setLoading(`delete-bill-${bill.__backendId}`, true); const result = await window.dataSdk.delete(bill);
+                if (result.isOk) { showToast('تم حذف الفاتورة', 'success'); appState.currentView = 'bills'; } else showToast('حدث خطأ', 'error');
+                setLoading(`delete-bill-${bill.__backendId}`, false);
+            } else { if (confirmDelete) { confirmDelete.style.display = 'inline-flex'; setTimeout(() => confirmDelete.style.display = 'none', 3000); } }
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const name = document.getElementById('settingsName').value, phone = document.getElementById('settingsPhone').value, address = document.getElementById('settingsAddress').value, footer = document.getElementById('settingsFooter').value;
+            setLoading('saveSettings', true);
+            const settingsData = { type: 'settings', companyName: name, companyPhone: phone, companyAddress: address, companyFooter: footer, createdAt: appState.settings ? appState.settings.createdAt : new Date().toISOString() };
+            let result;
+            if (appState.settings?.__backendId) result = await window.dataSdk.update({ ...appState.settings, ...settingsData });
+            else result = await window.dataSdk.create(settingsData);
+            showToast(result.isOk ? 'تم حفظ الإعدادات' : 'حدث خطأ', result.isOk ? 'success' : 'error');
+            setLoading('saveSettings', false);
+        }
+
+        function filterBills() {
+            const searchTerm = document.getElementById('billSearch').value.toLowerCase();
+            document.querySelectorAll('.bill-row').forEach(row => { row.style.display = row.getAttribute('data-bill-number').toLowerCase().includes(searchTerm) ? '' : 'none'; });
+        }
+
+        function render() { document.getElementById('app').innerHTML = renderDashboardLayout(); }
+
+        /* === التصيير الرئيسي === */
+        function renderDashboardLayout() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const sidebarClasses = appState.isSidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0";
+            const navItems = [
+                { view: 'dashboard', label: '📊 لوحة التحكم' },
+                { view: 'customers', label: '👥 دليل العملاء' },
+                { view: 'pricing', label: '💰 إدارة الأسعار' },
+                { view: 'bills', label: '📄 الفواتير' },
+                { view: 'settings', label: '⚙️ الإعدادات' }
+            ];
+            return `
+                <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color};">
+                    <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                        <button onclick="toggleSidebar()" class="text-white text-2xl">${appState.isSidebarOpen ? '✕' : '☰'}</button>
+                        <div class="flex items-center gap-2"><div class="w-8 h-8 bg-white rounded-full flex items-center justify-center"><span class="text-sm" style="color: ${config.primary_color};">👔</span></div><span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span></div>
+                    </div>
+                    ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
+                    <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                        <div class="p-6 h-full overflow-y-auto flex flex-col">
+                            <div class="flex items-center justify-between gap-3 mb-8">
+                                <div class="flex items-center gap-3"><div class="w-12 h-12 bg-white rounded-full flex items-center justify-center"><span class="text-2xl" style="color: ${config.primary_color};">👔</span></div><div class="text-white"><h2 class="font-bold text-lg">لوحة الإدارة</h2><p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p></div></div>
+                                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
+                            </div>
+                            <nav class="space-y-2 flex-1">
+                                ${navItems.map(item => `
+                                    <button onclick="appState.currentView = '${item.view}'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === item.view ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === item.view ? `color: ${config.primary_color}` : ''}">
+                                        ${item.label}
+                                    </button>
+                                `).join('')}
+                            </nav>
+                            <div class="mt-auto pt-6 border-t border-white border-opacity-30 space-y-3">
+                                ${renderSyncIndicator()}
+                                <div class="text-white text-xs opacity-70">الإصدار 2.0 — مزامنة سحابية</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-1 h-full overflow-hidden flex flex-col"><div class="flex-1 overflow-auto p-4 md:p-8">${renderCurrentView()}</div></div>
+                </div>`;
+        }
+
+        function renderCurrentView() {
+            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, settings: renderSettings, customers: renderCustomerDirectory, customerDetail: renderCustomerDetail };
+            return (views[appState.currentView] || renderDashboard)();
+        }
+
+        /* === لوحة التحكم (محدّثة مع عملاء) === */
+        function renderDashboard() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const recentBills = appState.bills.slice(-5).reverse();
+            const topCustomers = getTopCustomers(5);
+            return `
+                <div class="fade-in">
+                    <h1 class="text-3xl md:text-4xl font-bold mb-8" style="color: ${config.text_color};">لوحة التحكم</h1>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+                        <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});"><div class="text-white"><div class="text-3xl md:text-4xl mb-1">💰</div><h3 class="text-sm md:text-lg font-semibold opacity-90 mb-1">نماذج التسعير</h3><p class="text-2xl md:text-4xl font-bold">${appState.pricingModels.length}</p></div></div>
+                        <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, #48bb78, #38a169);"><div class="text-white"><div class="text-3xl md:text-4xl mb-1">📄</div><h3 class="text-sm md:text-lg font-semibold opacity-90 mb-1">الفواتير</h3><p class="text-2xl md:text-4xl font-bold">${appState.bills.length}</p></div></div>
+                        <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, #ed8936, #dd6b20);"><div class="text-white"><div class="text-3xl md:text-4xl mb-1">👥</div><h3 class="text-sm md:text-lg font-semibold opacity-90 mb-1">العملاء</h3><p class="text-2xl md:text-4xl font-bold">${appState.customers.length}</p></div></div>
+                        <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale bg-white"><button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-2 group"><div class="text-4xl md:text-5xl group-hover:scale-110 transition-transform">➕</div><span class="text-sm md:text-xl font-bold" style="color: ${config.primary_color};">فاتورة جديدة</span></button></div>
+                    </div>
+
+                    ${topCustomers.length > 0 ? `
+                    <div class="card-shadow rounded-xl p-6 bg-white mb-8">
+                        <div class="flex justify-between items-center mb-4"><h2 class="text-xl md:text-2xl font-bold" style="color: ${config.text_color};">أبرز العملاء</h2><button onclick="appState.currentView='customers'; render();" class="text-sm font-semibold" style="color: ${config.primary_color};">عرض الكل ←</button></div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            ${topCustomers.map(({ customer, total }) => customer ? `
+                                <button onclick="viewCustomerDetail('${customer.__backendId}');" class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-right">
+                                    <div class="avatar-circle w-10 h-10 text-sm" style="background-color: ${getAvatarColor(customer.customerName)};">${getInitials(customer.customerName)}</div>
+                                    <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${escapeHtml(customer.customerName)}</p><p class="text-xs font-bold" style="color: ${config.accent_color};">${total.toFixed(0)} ج</p></div>
+                                </button>
+                            ` : '').join('')}
+                        </div>
+                    </div>` : ''}
+
+                    <div class="card-shadow rounded-xl p-6 bg-white">
+                        <div class="flex justify-between items-center mb-6"><h2 class="text-xl md:text-2xl font-bold" style="color: ${config.text_color};">الفواتير الأخيرة</h2><button onclick="appState.currentView='bills'; render();" class="text-sm font-semibold" style="color: ${config.primary_color};">عرض الكل ←</button></div>
+                        ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">📄</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
+                            <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 text-sm">رقم الفاتورة</th><th class="text-right py-3 px-4 text-sm">العميل</th><th class="text-right py-3 px-4 text-sm hidden md:table-cell">التاريخ</th><th class="text-right py-3 px-4 text-sm">المبلغ</th><th class="text-center py-3 px-4 text-sm">إجراء</th></tr></thead>
+                            <tbody>${recentBills.map(bill => {
+                                const cName = bill.billCustomerId ? getCustomerName(bill.billCustomerId) : bill.billClientName;
+                                return `<tr class="border-b"><td class="py-3 px-4 text-sm font-semibold" style="color: ${config.primary_color};">${bill.billNumber}</td><td class="py-3 px-4 text-sm">${cName ? 'أ/ ' + escapeHtml(cName) : '<span class="opacity-50">—</span>'}</td><td class="py-3 px-4 text-sm hidden md:table-cell">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4 text-sm font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} ج</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b=>b.__backendId==='${bill.__backendId}'));" class="px-3 py-1.5 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.primary_color};">عرض</button></td></tr>`;
+                            }).join('')}</tbody></table></div>`}
+                    </div>
+                </div>`;
+        }
+
+        /* === دليل العملاء === */
+        function renderCustomerDirectory() {
+            const config = window.elementSdk?.config || defaultConfig;
+            if (appState.editingCustomer) return renderEditCustomerForm(config);
+            const term = appState.customerDirSearch.toLowerCase().trim();
+            let customers = [...appState.customers];
+            if (term) customers = customers.filter(c => c.customerName.toLowerCase().includes(term) || (c.customerPhone && c.customerPhone.includes(term)));
+
+            // ترتيب
+            if (appState.customerDirSort === 'recent') customers.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            else if (appState.customerDirSort === 'name') customers.sort((a, b) => a.customerName.localeCompare(b.customerName, 'ar'));
+            else if (appState.customerDirSort === 'spending') customers.sort((a, b) => getCustomerTotalSpent(b.__backendId) - getCustomerTotalSpent(a.__backendId));
+            else if (appState.customerDirSort === 'bills') customers.sort((a, b) => getCustomerBills(b.__backendId).length - getCustomerBills(a.__backendId).length);
+
+            return `
+                <div class="fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">دليل العملاء</h1>
+                        <button onclick="document.getElementById('dirNewCustForm').classList.toggle('hidden');" class="px-5 py-2.5 rounded-lg font-semibold text-white flex items-center gap-2 text-sm" style="background-color: ${config.primary_color};">➕ إضافة عميل</button>
+                    </div>
+
+                    <div id="dirNewCustForm" class="hidden card-shadow rounded-xl p-5 bg-white mb-6 slide-up">
+                        <h3 class="text-lg font-bold mb-4" style="color: ${config.text_color};">عميل جديد</h3>
+                        <form onsubmit="addCustomerFromDir(event);" class="flex flex-col md:flex-row gap-3">
+                            <input type="text" id="dirNewCustName" required placeholder="الاسم بالكامل" class="flex-1 px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">
+                            <input type="tel" id="dirNewCustPhone" placeholder="رقم الهاتف (اختياري)" class="md:w-56 px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">
+                            <button type="submit" ${isLoading('createCustomer') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 text-sm" style="background-color: ${config.accent_color};">${isLoading('createCustomer') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ</span></button>
+                        </form>
+                    </div>
+
+                    <div class="card-shadow rounded-xl p-4 bg-white mb-6">
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input type="text" value="${escapeHtml(appState.customerDirSearch)}" oninput="onCustomerDirSearchInput(this.value);" placeholder="بحث بالاسم أو رقم الهاتف..." class="flex-1 px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">
+                            <select onchange="onCustomerDirSortChange(this.value);" class="px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">
+                                <option value="recent" ${appState.customerDirSort === 'recent' ? 'selected' : ''}>الأحدث أولاً</option>
+                                <option value="name" ${appState.customerDirSort === 'name' ? 'selected' : ''}>حسب الاسم</option>
+                                <option value="spending" ${appState.customerDirSort === 'spending' ? 'selected' : ''}>حسب الإنفاق</option>
+                                <option value="bills" ${appState.customerDirSort === 'bills' ? 'selected' : ''}>حسب عدد الفواتير</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    ${customers.length === 0 ? `
+                        <div class="card-shadow rounded-xl p-12 bg-white text-center">
+                            <div class="text-6xl mb-4">👥</div>
+                            <h3 class="text-2xl font-bold mb-2">${term ? 'لا توجد نتائج' : 'لا يوجد عملاء بعد'}</h3>
+                            <p class="text-lg opacity-75 mb-4">${term ? 'جرب كلمات بحث مختلفة' : 'أضف أول عميل لدليل العملاء'}</p>
+                            ${!term ? `<button onclick="document.getElementById('dirNewCustForm').classList.remove('hidden');" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إضافة عميل</button>` : ''}
+                        </div>
+                    ` : `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            ${customers.map(c => {
+                                const bills = getCustomerBills(c.__backendId); const total = getCustomerTotalSpent(c.__backendId);
+                                return `
+                                <div class="card-shadow rounded-xl p-5 bg-white hover-scale">
+                                    <div class="flex items-start gap-3 mb-3">
+                                        <div class="avatar-circle w-12 h-12 text-base" style="background-color: ${getAvatarColor(c.customerName)};">${getInitials(c.customerName)}</div>
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="font-bold text-lg truncate">${escapeHtml(c.customerName)}</h3>
+                                            ${c.customerPhone ? `<p class="text-sm opacity-75" dir="ltr">${escapeHtml(c.customerPhone)}</p>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-4 mb-4 text-sm">
+                                        <div><span class="opacity-60">فواتير:</span> <strong>${bills.length}</strong></div>
+                                        <div><span class="opacity-60">إجمالي:</span> <strong style="color: ${config.accent_color};">${total.toFixed(0)} ج</strong></div>
+                                    </div>
+                                    <div class="flex gap-2 flex-wrap">
+                                        <button onclick="viewCustomerDetail('${c.__backendId}');" class="flex-1 min-w-[70px] px-3 py-2 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.primary_color};">عرض</button>
+                                        <button onclick="startBillForCustomer('${c.__backendId}');" class="flex-1 min-w-[70px] px-3 py-2 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.accent_color};">فاتورة</button>
+                                        <button onclick="editCustomerFromDir('${c.__backendId}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold text-xs">تعديل</button>
+                                        <div class="flex gap-1">
+                                            <button onclick="deleteCustomer('${c.__backendId}');" id="del-cust-${c.__backendId}" ${isLoading(`delete-cust-${c.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg text-white text-xs flex items-center gap-1">${isLoading(`delete-cust-${c.__backendId}`) ? '<div class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></div>' : 'حذف'}</button>
+                                            <button id="confirm-cust-${c.__backendId}" data-visible="false" onclick="deleteCustomer('${c.__backendId}');" style="display:none;" class="px-3 py-2 bg-red-700 rounded-lg text-white text-xs"></button>
+                                        </div>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    `}
+                </div>`;
+        }
+
+        function renderEditCustomerForm(config) {
+            const c = appState.editingCustomer;
+            return `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-8"><h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">تعديل بيانات العميل</h1><button onclick="cancelEditCustomer();" class="px-5 py-2.5 bg-gray-300 rounded-lg font-semibold text-sm">إلغاء</button></div>
+                    <div class="card-shadow rounded-xl p-6 bg-white max-w-xl">
+                        <form onsubmit="saveEditCustomer(event);" class="space-y-5">
+                            <div><label class="block text-sm font-semibold mb-2">الاسم بالكامل</label><input type="text" id="editCustName" value="${escapeHtml(c.customerName)}" required class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">رقم الهاتف</label><input type="tel" id="editCustPhone" value="${escapeHtml(c.customerPhone)}" class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">ملاحظات</label><textarea id="editCustNotes" rows="3" class="w-full px-4 py-3 border-2 rounded-lg resize-none" style="border-color: ${config.primary_color};">${escapeHtml(c.customerNotes)}</textarea></div>
+                            <button type="submit" ${isLoading('updateCustomer') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('updateCustomer') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button>
+                        </form>
+                    </div>
+                </div>`;
+        }
+
+        /* === تفاصيل العميل === */
+        function renderCustomerDetail() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const c = getCustomerById(appState.viewingCustomerId);
+            if (!c) { appState.currentView = 'customers'; render(); return ''; }
+            const bills = getCustomerBills(c.__backendId).sort((a, b) => new Date(b.billDate) - new Date(a.billDate));
+            const total = getCustomerTotalSpent(c.__backendId);
+            const avgBill = bills.length > 0 ? total / bills.length : 0;
+
+            return `
+                <div class="fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <div class="flex items-center gap-4">
+                            <button onclick="appState.currentView='customers'; render();" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300">→</button>
+                            <div class="avatar-circle w-14 h-14 text-xl" style="background-color: ${getAvatarColor(c.customerName)};">${getInitials(c.customerName)}</div>
+                            <div><h1 class="text-2xl md:text-3xl font-bold" style="color: ${config.text_color};">${escapeHtml(c.customerName)}</h1>${c.customerPhone ? `<p class="text-sm opacity-75" dir="ltr">${escapeHtml(c.customerPhone)}</p>` : ''}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="startBillForCustomer('${c.__backendId}');" class="px-5 py-2.5 rounded-lg font-semibold text-white text-sm flex items-center gap-2" style="background-color: ${config.accent_color};">➕ فاتورة جديدة</button>
+                            <button onclick="editCustomerFromDir('${c.__backendId}');" class="px-5 py-2.5 bg-gray-200 rounded-lg font-semibold text-sm">تعديل</button>
+                        </div>
+                    </div>
+
+                    ${c.customerNotes ? `<div class="card-shadow rounded-xl p-4 bg-white mb-6"><p class="text-sm opacity-60 mb-1">ملاحظات</p><p>${escapeHtml(c.customerNotes)}</p></div>` : ''}
+
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="card-shadow rounded-xl p-4 text-center" style="background-color: ${config.primary_color};"><div class="text-white"><p class="text-xs opacity-80 mb-1">عدد الفواتير</p><p class="text-2xl md:text-3xl font-bold">${bills.length}</p></div></div>
+                        <div class="card-shadow rounded-xl p-4 text-center" style="background-color: ${config.accent_color};"><div class="text-white"><p class="text-xs opacity-80 mb-1">إجمالي الإنفاق</p><p class="text-2xl md:text-3xl font-bold">${total.toFixed(0)} ج</p></div></div>
+                        <div class="card-shadow rounded-xl p-4 text-center bg-white"><div><p class="text-xs opacity-60 mb-1">متوسط الفاتورة</p><p class="text-2xl md:text-3xl font-bold" style="color: ${config.primary_color};">${avgBill.toFixed(0)} ج</p></div></div>
+                    </div>
+
+                    <div class="card-shadow rounded-xl p-6 bg-white">
+                        <h2 class="text-xl font-bold mb-4" style="color: ${config.text_color};">فواتير العميل</h2>
+                        ${bills.length === 0 ? `<div class="text-center py-8 opacity-50"><p>لا توجد فواتير لهذا العميل</p></div>` : `
+                            <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 text-sm">رقم الفاتورة</th><th class="text-right py-3 px-4 text-sm">التاريخ</th><th class="text-right py-3 px-4 text-sm">عدد العناصر</th><th class="text-right py-3 px-4 text-sm">المبلغ</th><th class="text-center py-3 px-4 text-sm">إجراء</th></tr></thead>
+                            <tbody>${bills.map(bill => `<tr class="border-b"><td class="py-3 px-4 text-sm font-semibold" style="color: ${config.primary_color};">${bill.billNumber}</td><td class="py-3 px-4 text-sm">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4 text-sm">${bill.items.length}</td><td class="py-3 px-4 text-sm font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} ج</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b=>b.__backendId==='${bill.__backendId}'));" class="px-3 py-1.5 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>
+                        `}
+                    </div>
+                </div>`;
+        }
+
+        /* === عرض النموذج (بدون تغيير) === */
+        function renderViewModel() {
+            const config = window.elementSdk?.config || defaultConfig; const model = appState.viewingModel;
+            if (!model) { appState.currentView = 'pricing'; render(); return ''; }
+            return `<div class="fade-in"><div class="flex justify-between items-center mb-8"><h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">رجوع</button></div><div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto"><table class="w-full border-collapse"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead><tbody>${model.data.map(cat => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+        }
+
+        /* === إدارة الأسعار (بدون تغيير جوهري) === */
+        function renderPricing() {
+            const config = window.elementSdk?.config || defaultConfig;
+            if (appState.editingModel) {
+                return `<div class="fade-in"><div class="flex justify-between items-center mb-8"><h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">تعديل: ${appState.editingModel.pricingModelName}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ</span></button></div></div><div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto"><div class="mb-4 flex flex-wrap gap-3"><button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.primary_color};">تعبئة سريعة</button><button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white text-sm">مسح الكل</button><input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32 text-sm" style="border-color: ${config.primary_color};"></div><table class="w-full border-collapse"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead><tbody>${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${cat.prices.map((p, sizeIdx) => `<td class="py-3 px-4"><input type="number" min="0" step="0.01" value="${p.price}" onchange="updatePrice(${catIdx}, ${sizeIdx}, this.value);" class="w-20 px-2 py-1 border rounded text-center text-sm" style="border-color: ${config.primary_color};"></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+            }
+            return `<div class="fade-in"><h1 class="text-3xl md:text-4xl font-bold mb-8" style="color: ${config.text_color};">إدارة الأسعار</h1><div class="card-shadow rounded-xl p-6 bg-white mb-8"><h2 class="text-xl font-bold mb-4" style="color: ${config.text_color};">إنشاء نموذج تسعير جديد</h2><div class="flex flex-col md:flex-row gap-3"><form onsubmit="createPricingModel(event);" class="flex-1 flex flex-col md:flex-row gap-3"><input type="text" id="modelName" required placeholder="اسم النموذج" class="flex-1 px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};"><button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 text-sm" style="background-color: ${config.primary_color};">${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}<span>إنشاء</span></button></form><div class="flex gap-2"><input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="importFromExcel(event)" class="hidden"><button onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-5 py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : '📊'}<span>استيراد Excel</span></button></div></div></div><div class="space-y-6">${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">💰</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3></div>` : appState.pricingModels.map(model => { const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0); const totalPossible = model.data.length * SIZES.length; const percent = Math.round((totalPrices / totalPossible) * 100); return `<div class="card-shadow rounded-xl p-6 bg-white hover-scale"><div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4"><div class="flex-1"><h3 class="text-xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><div class="flex items-center gap-4"><div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs"><div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${config.accent_color};"></div></div><span class="text-sm font-semibold">${totalPrices}/${totalPossible} (${percent}%)</span></div></div><div class="flex flex-wrap gap-2"><button onclick="viewModelDetails('${model.__backendId}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold text-sm">عرض</button><button onclick="editModel(appState.pricingModels.find(m=>m.__backendId==='${model.__backendId}'));" class="px-3 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.primary_color};">تعديل</button><button onclick="duplicateModel('${model.__backendId}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white text-sm">نسخ</button><div class="flex gap-1"><button onclick="deletePricingModel(appState.pricingModels.find(m=>m.__backendId==='${model.__backendId}'));" id="delete-${model.__backendId}" ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white text-sm flex items-center gap-1">${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></div>' : 'حذف'}</button><button id="confirm-${model.__backendId}" onclick="deletePricingModel(appState.pricingModels.find(m=>m.__backendId==='${model.__backendId}'));" style="display:none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white text-sm">تأكيد</button></div></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3">${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg" style="background-color: ${config.background_color};"><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${cat.name}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاس</p></div>`).join('')}${model.data.length > 4 ? `<div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color};"><p class="font-semibold text-sm" style="color: ${config.primary_color};">+${model.data.length - 4}</p></div>` : ''}</div></div>`; }).join('')}</div></div>`;
+        }
+
+        /* === الفواتير (محدّثة مع أسماء العملاء) === */
+        function renderBills() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const sortedBills = [...appState.bills].sort((a, b) => new Date(b.billDate) - new Date(a.billDate));
+            return `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-8"><h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">الفواتير</h1><button onclick="startNewBill();" class="px-5 py-2.5 rounded-lg font-semibold text-white flex items-center gap-2 text-sm" style="background-color: ${config.primary_color};"><span class="text-xl">➕</span><span>فاتورة جديدة</span></button></div>
+                    ${appState.bills.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">📄</div><h3 class="text-2xl font-bold mb-2">لا توجد فواتير</h3><button onclick="startNewBill();" class="px-8 py-3 rounded-lg font-semibold text-white mt-4" style="background-color: ${config.primary_color};">إنشاء فاتورة</button></div>` : `
+                        <div class="mb-6"><input type="text" id="billSearch" onkeyup="filterBills();" placeholder="بحث برقم الفاتورة..." class="w-full px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+                            <div class="card-shadow rounded-xl p-5" style="background-color: ${config.primary_color};"><div class="text-white"><p class="text-xs opacity-90 mb-1">إجمالي الفواتير</p><p class="text-2xl md:text-3xl font-bold">${appState.bills.length}</p></div></div>
+                            <div class="card-shadow rounded-xl p-5" style="background-color: ${config.accent_color};"><div class="text-white"><p class="text-xs opacity-90 mb-1">إجمالي المبيعات</p><p class="text-2xl md:text-3xl font-bold">${appState.bills.reduce((s, b) => s + b.billTotal, 0).toFixed(0)} ج</p></div></div>
+                            <div class="card-shadow rounded-xl p-5 bg-white"><div><p class="text-xs opacity-75 mb-1">متوسط الفاتورة</p><p class="text-2xl md:text-3xl font-bold" style="color: ${config.primary_color};">${(appState.bills.reduce((s, b) => s + b.billTotal, 0) / appState.bills.length).toFixed(0)} ج</p></div></div>
+                        </div>
+                        <div class="card-shadow rounded-xl p-4 md:p-6 bg-white"><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 text-sm">رقم</th><th class="text-right py-3 px-4 text-sm">العميل</th><th class="text-right py-3 px-4 text-sm hidden md:table-cell">التاريخ</th><th class="text-right py-3 px-4 text-sm">عناصر</th><th class="text-right py-3 px-4 text-sm">المبلغ</th><th class="text-center py-3 px-4 text-sm">إجراء</th></tr></thead>
+                        <tbody>${sortedBills.map(bill => {
+                            const cName = bill.billCustomerId ? getCustomerName(bill.billCustomerId) : bill.billClientName;
+                            const cId = bill.billCustomerId;
+                            return `<tr class="bill-row border-b" data-bill-number="${bill.billNumber}"><td class="py-3 px-4 text-sm font-semibold" style="color: ${config.primary_color};">${bill.billNumber}</td><td class="py-3 px-4 text-sm">${cName ? (cId ? `<button onclick="viewCustomerDetail('${cId}'); return false;" class="hover:underline font-semibold" style="color: ${config.text_color};">أ/ ${escapeHtml(cName)}</button>` : 'أ/ ' + escapeHtml(cName)) : '<span class="opacity-50">—</span>'}</td><td class="py-3 px-4 text-sm hidden md:table-cell">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4 text-sm">${bill.items.length}</td><td class="py-3 px-4 text-sm font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(0)} ج</td><td class="py-3 px-4 text-center"><div class="flex gap-1 justify-center"><button onclick="viewBill(appState.bills.find(b=>b.__backendId==='${bill.__backendId}'));" class="px-3 py-1.5 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.primary_color};">عرض</button><button onclick="deleteBill(appState.bills.find(b=>b.__backendId==='${bill.__backendId}'));" ${isLoading(`delete-bill-${bill.__backendId}`) ? 'disabled' : ''} class="px-3 py-1.5 bg-red-500 rounded-lg text-white text-xs flex items-center gap-1">${isLoading(`delete-bill-${bill.__backendId}`) ? '<div class="loading-spinner" style="width:12px;height:12px;border-width:2px;"></div>' : 'حذف'}</button><button id="confirm-bill-${bill.__backendId}" onclick="deleteBill(appState.bills.find(b=>b.__backendId==='${bill.__backendId}'));" style="display:none;" class="px-3 py-1.5 bg-red-700 rounded-lg text-white text-xs">تأكيد</button></div></td></tr>`;
+                        }).join('')}</tbody></table></div></div>`}
+                </div>`;
+        }
+
+        /* === إنشاء فاتورة (محدّث مع قائمة العملاء المنسدلة) === */
+        function renderNewBill() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const lastInput = appState.lastBillInput || {};
+            const isEditing = !!appState.editingBillId;
+            const selectedCustomer = appState.selectedCustomerId ? getCustomerById(appState.selectedCustomerId) : null;
+
+            const stepsBar = `
+                <div class="flex items-center justify-center gap-2 md:gap-4 mb-8 no-print">
+                    ${[{n:'1',l:'نموذج التسعير',s:'selectModel'},{n:'2',l:'العميل',s:'clientName'},{n:'3',l:'العناصر',s:'items'}].map((step, idx, arr) => {
+                        const active = appState.billStep === step.s || (appState.billStep === 'items' && step.s === 'clientName') || (appState.billStep === 'items' && step.s === 'selectModel') || (appState.billStep === 'clientName' && step.s === 'selectModel');
+                        const current = appState.billStep === step.s;
+                        return `${idx > 0 ? `<div class="w-6 md:w-12 h-0.5 rounded" style="background-color: ${active ? config.primary_color : '#cbd5e0'};"></div>` : ''}
+                            <div class="flex items-center gap-1.5"><div class="w-7 h-7 md:w-9 md:h-9 rounded-full flex items-center justify-center text-white font-bold text-xs md:text-sm ${current ? 'ring-4 ring-offset-2' : ''}" style="background-color: ${active ? config.primary_color : '#cbd5e0'};">${step.n}</div><span class="font-semibold text-xs md:text-sm hidden sm:inline" style="color: ${active ? config.primary_color : '#a0aec0'};">${step.l}</span></div>`;
+                    }).join('')}
+                </div>`;
+
+            let content = '';
+
+            if (appState.billStep === 'selectModel') {
+                content = `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-xl font-bold mb-6" style="color: ${config.text_color};">اختر نموذج التسعير</h2>${appState.pricingModels.length === 0 ? `<div class="text-center py-12"><div class="text-6xl mb-4">💰</div><p class="text-xl mb-4">لا توجد نماذج تسعير</p><button onclick="appState.currentView='pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء نموذج</button></div>` : `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">${appState.pricingModels.map(model => `<button onclick="selectModelForBill('${model.__backendId}');" class="card-shadow rounded-lg p-5 text-right hover-scale bg-white border-2 transition-all" style="border-color: ${config.primary_color}33;"><h3 class="text-lg font-bold mb-1">${escapeHtml(model.pricingModelName)}</h3><p class="text-sm opacity-75">${model.data.length} فئات</p></button>`).join('')}</div>`}</div>`;
+            } else if (appState.billStep === 'clientName') {
+                const filteredCustomers = getFilteredCustomersForDropdown();
+                const recentIds = getRecentCustomerIds(8);
+                const recentCustomers = !appState.customerSearchTerm.trim() ? recentIds.map(id => getCustomerById(id)).filter(Boolean) : [];
+                const isSearching = appState.customerSearchTerm.trim().length > 0;
+
+                content = `
+                    <div class="card-shadow rounded-xl bg-white max-w-lg mx-auto overflow-hidden">
+                        <div class="p-5 border-b" style="border-color: ${config.background_color};">
+                            <div class="text-center mb-4">
+                                <div class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center" style="background-color: ${config.background_color};"><span class="text-3xl">👤</span></div>
+                                <h2 class="text-xl font-bold" style="color: ${config.text_color};">اختر العميل</h2>
+                                <p class="text-sm opacity-75 mt-1">ابحث عن عميل أو أضف عميل جديد</p>
+                            </div>
+                            <!-- حقل البحث -->
+                            <div class="relative">
+                                <input type="text" value="${escapeHtml(appState.customerSearchTerm)}" oninput="onCustomerSearchInput(this.value);" placeholder="بحث بالاسم أو رقم الهاتف..." class="w-full px-4 py-3 pr-10 border-2 rounded-xl text-sm" style="border-color: ${config.primary_color};" id="custDropdownSearch" autocomplete="off">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 text-lg">🔍</span>
+                            </div>
+                        </div>
+
+                        <!-- العميل المحدد -->
+                        ${selectedCustomer ? `
+                            <div class="p-4 mx-4 mt-3 rounded-xl flex items-center gap-3 slide-up" style="background-color: ${config.primary_color}15; border: 2px solid ${config.primary_color};">
+                                <div class="avatar-circle w-11 h-11 text-sm" style="background-color: ${getAvatarColor(selectedCustomer.customerName)};">${getInitials(selectedCustomer.customerName)}</div>
+                                <div class="flex-1 min-w-0"><p class="font-bold text-sm">${escapeHtml(selectedCustomer.customerName)}</p>${selectedCustomer.customerPhone ? `<p class="text-xs opacity-60" dir="ltr">${escapeHtml(selectedCustomer.customerPhone)}</p>` : ''}</div>
+                                <button onclick="deselectCustomerForBill();" class="p-2 hover:bg-red-50 rounded-lg text-red-400 text-lg">✕</button>
+                            </div>
+                        ` : ''}
+
+                        <!-- نموذج إضافة عميل جديد مضمن -->
+                        ${appState.showNewCustomerInline ? `
+                            <div class="p-4 mx-4 mt-3 rounded-xl slide-up" style="background-color: ${config.accent_color}10; border: 2px dashed ${config.accent_color};">
+                                <p class="text-sm font-semibold mb-3" style="color: ${config.accent_color};">إضافة عميل جديد</p>
+                                <div class="space-y-2">
+                                    <input type="text" id="inlineCustName" value="${escapeHtml(appState.newCustomerInlineName)}" oninput="onInlineCustNameInput(this.value);" placeholder="الاسم بالكامل *" class="w-full px-3 py-2.5 border-2 rounded-lg text-sm" style="border-color: ${config.accent_color};" autofocus>
+                                    <input type="tel" id="inlineCustPhone" value="${escapeHtml(appState.newCustomerInlinePhone)}" oninput="onInlineCustPhoneInput(this.value);" placeholder="رقم الهاتف (اختياري)" class="w-full px-3 py-2.5 border-2 rounded-lg text-sm" style="border-color: ${config.accent_color};">
+                                    <div class="flex gap-2">
+                                        <button onclick="submitInlineCustomer();" class="flex-1 py-2.5 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.accent_color};">إضافة واختيار</button>
+                                        <button onclick="hideInlineNewCustomer();" class="px-4 py-2.5 bg-gray-200 rounded-lg font-semibold text-sm">إلغاء</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- قائمة العملاء -->
+                        ${!appState.showNewCustomerInline ? `
+                            <div class="customer-list-scroll">
+                                ${!isSearching && recentCustomers.length > 0 ? `
+                                    <div class="px-4 pt-3 pb-1"><p class="text-xs font-semibold opacity-50 uppercase tracking-wider">العملاء الأخيرون</p></div>
+                                    ${recentCustomers.map(c => `
+                                        <button onclick="selectCustomerForBill('${c.__backendId}');" class="customer-item w-full text-right px-4 py-3 flex items-center gap-3 transition-colors ${appState.selectedCustomerId === c.__backendId ? 'bg-gray-50' : 'hover:bg-gray-50'}">
+                                            <div class="avatar-circle w-10 h-10 text-xs" style="background-color: ${getAvatarColor(c.customerName)};">${getInitials(c.customerName)}</div>
+                                            <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${escapeHtml(c.customerName)}</p>${c.customerPhone ? `<p class="text-xs opacity-50" dir="ltr">${escapeHtml(c.customerPhone)}</p>` : ''}</div>
+                                            ${appState.selectedCustomerId === c.__backendId ? `<span class="text-green-500 font-bold text-lg">✓</span>` : `<span class="text-xs opacity-40">${getCustomerBills(c.__backendId).length} فاتورة</span>`}
+                                        </button>
+                                    `).join('')}
+                                ` : ''}
+
+                                ${isSearching ? `
+                                    ${filteredCustomers.length > 0 ? filteredCustomers.map(c => `
+                                        <button onclick="selectCustomerForBill('${c.__backendId}');" class="customer-item w-full text-right px-4 py-3 flex items-center gap-3 transition-colors ${appState.selectedCustomerId === c.__backendId ? 'bg-gray-50' : 'hover:bg-gray-50'}">
+                                            <div class="avatar-circle w-10 h-10 text-xs" style="background-color: ${getAvatarColor(c.customerName)};">${getInitials(c.customerName)}</div>
+                                            <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${escapeHtml(c.customerName)}</p>${c.customerPhone ? `<p class="text-xs opacity-50" dir="ltr">${escapeHtml(c.customerPhone)}</p>` : ''}</div>
+                                            ${appState.selectedCustomerId === c.__backendId ? '<span class="text-green-500 font-bold text-lg">✓</span>' : ''}
+                                        </button>
+                                    `).join('') : `
+                                        <div class="px-4 py-8 text-center opacity-50"><p class="text-sm mb-3">لم يتم العثور على "${escapeHtml(appState.customerSearchTerm)}"</p><button onclick="showInlineNewCustomer();" class="text-sm font-semibold" style="color: ${config.accent_color};">+ إضافة كعميل جديد</button></div>
+                                    `}
+                                ` : ''}
+
+                                ${!isSearching && appState.customers.length === 0 ? `
+                                    <div class="px-4 py-8 text-center opacity-50"><p class="text-sm mb-3">لا يوجد عملاء مسجلين بعد</p><button onclick="showInlineNewCustomer();" class="text-sm font-semibold" style="color: ${config.accent_color};">+ إضافة عميل جديد</button></div>
+                                ` : ''}
+                            </div>
+
+                            <!-- زر إضافة عميل جديد -->
+                            ${!isSearching ? `
+                                <div class="p-4 border-t" style="border-color: ${config.background_color};">
+                                    <button onclick="showInlineNewCustomer();" class="w-full py-3 rounded-xl font-semibold text-sm border-2 border-dashed flex items-center justify-center gap-2 transition-colors" style="border-color: ${config.accent_color}; color: ${config.accent_color};">➕ إضافة عميل جديد</button>
+                                </div>
+                            ` : ''}
+                        ` : ''}
+
+                        <!-- أزرار التنقل -->
+                        <div class="p-4 border-t flex gap-3" style="border-color: ${config.background_color};">
+                            <button onclick="backToModelSelect();" class="flex-1 py-3 bg-gray-200 rounded-xl font-semibold text-sm">رجوع</button>
+                            <button onclick="confirmClientSelection();" class="flex-1 py-3 rounded-xl font-semibold text-white text-sm" style="background-color: ${config.primary_color};">متابعة</button>
+                        </div>
+                    </div>`;
+            } else if (appState.billStep === 'items') {
+                const customerLabel = selectedCustomer ? `أ/ ${selectedCustomer.customerName}` : (appState.currentBillClientName ? `أ/ ${appState.currentBillClientName}` : 'بدون عميل');
+                content = `
+                    <div class="mb-4 no-print flex items-center gap-3">
+                        <button onclick="backToClientName();" class="px-3 py-1.5 bg-gray-200 rounded-lg font-semibold text-xs hover:bg-gray-300">↩ رجوع</button>
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm" style="background-color: ${config.background_color};">
+                            ${selectedCustomer ? `<div class="avatar-circle w-6 h-6 text-[10px]" style="background-color: ${getAvatarColor(selectedCustomer.customerName)};">${getInitials(selectedCustomer.customerName)}</div>` : ''}
+                            <span class="font-semibold opacity-75">${customerLabel}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="card-shadow rounded-xl p-5 bg-white"><h2 class="text-lg font-bold mb-4">إضافة عنصر</h2>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <select id="billCategory" class="px-3 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">${appState.selectedModel.data.map(cat => `<option value="${cat.name}" ${lastInput.category === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}</select>
+                                <select id="billSize" class="px-3 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+                                <input type="number" id="billQuantity" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-3 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};">
+                                <button onclick="addBillItem();" class="px-5 py-3 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.accent_color};">إضافة</button>
+                            </div>
+                        </div>
+                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-5 bg-white"><h2 class="text-lg font-bold mb-4">عناصر الفاتورة (${appState.billItems.length})</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-2 px-3 text-xs">حذف</th><th class="text-center py-2 px-3 text-xs">الإجمالي</th><th class="text-center py-2 px-3 text-xs">السعر</th><th class="text-center py-2 px-3 text-xs">الكمية</th><th class="text-center py-2 px-3 text-xs">المقاس</th><th class="text-right py-2 px-3 text-xs">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-2 py-1 bg-red-500 rounded text-white text-xs">حذف</button></td><td class="text-center font-bold text-sm" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center text-sm">${item.unitPrice.toFixed(2)}</td><td class="text-center text-sm">${item.quantity.toFixed(2)}</td><td class="text-center text-sm">${item.size}</td><td class="text-sm">${item.category}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-3 text-left font-bold text-lg">الإجمالي:</td><td class="py-4 px-3 text-center font-bold text-xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} ج</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-xl font-bold text-white text-base flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
+                    </div>`;
+            }
+
+            return `<div class="fade-in"><div class="flex justify-between items-center mb-4"><h1 class="text-2xl md:text-4xl font-bold" style="color: ${config.text_color};">${isEditing ? 'تعديل الفاتورة' : 'فاتورة جديدة'}</h1><button onclick="cancelNewBill();" class="px-5 py-2.5 bg-gray-300 rounded-lg font-semibold text-sm">إلغاء</button></div>${stepsBar}${content}</div>`;
+        }
+
+        /* === عرض الفاتورة (محدّث مع رابط العميل) === */
+        function renderViewBill() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const bill = appState.currentBill;
+            const clientName = bill.billCustomerId ? getCustomerName(bill.billCustomerId) : bill.billClientName;
+            const customerId = bill.billCustomerId;
+            return `
+                <div class="fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 no-print">
+                        <h1 class="text-2xl md:text-4xl font-bold" style="color: ${config.text_color};">عرض الفاتورة</h1>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="appState.currentView = 'bills'; render();" class="px-4 py-2 bg-gray-300 rounded-lg font-semibold text-xs">رجوع</button>
+                            <button onclick="editBill();" class="px-4 py-2 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.accent_color};">✏️ تعديل</button>
+                            <button onclick="printBill();" class="px-4 py-2 rounded-lg font-semibold text-white text-xs" style="background-color: ${config.primary_color};">🖨️ طباعة</button>
+                            <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 py-2 bg-blue-500 rounded-lg font-semibold text-white text-xs flex items-center gap-1">${isLoading('sharing') ? '<div class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></div>' : '📤'} مشاركة</button>
+                            <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 py-2 bg-green-600 rounded-lg font-semibold text-white text-xs flex items-center gap-1">${isLoading('downloading') ? '<div class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></div>' : '⬇️'} تنزيل</button>
+                        </div>
+                    </div>
+                    <div id="view-bill-container" class="w-full">
+                        <div id="printable-bill" class="card-shadow rounded-xl p-4 md:p-8 bg-white max-w-4xl mx-auto">
+                            <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color};">
+                                <div class="print-header-grid">
+                                    <div class="print-company text-right">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});"><span class="text-2xl md:text-3xl">👔</span></div>
+                                            <div><h2 class="text-xl md:text-3xl font-bold">${escapeHtml(appState.companySettings.name)}</h2><p class="opacity-75 text-xs md:text-sm">فاتورة مبيعات</p></div>
+                                        </div>
+                                        <div class="space-y-1 text-sm md:text-base mt-2"><p>📞 ${escapeHtml(appState.companySettings.phone)}</p><p>📍 ${escapeHtml(appState.companySettings.address)}</p></div>
+                                        ${clientName ? `<div class="mt-4 pt-3 border-t border-dashed" style="border-color: ${config.primary_color}33;"><p class="text-xs opacity-60 mb-1">العميل</p><p class="text-xl md:text-2xl font-bold" style="color: ${config.primary_color};">أ/ ${escapeHtml(clientName)}</p></div>` : ''}
+                                    </div>
+                                    <div class="print-invoice text-left">
+                                        <div class="mb-4"><p class="text-xs md:text-sm opacity-75 mb-1">رقم الفاتورة</p><p class="text-2xl md:text-3xl font-bold" style="color: ${config.primary_color};">${bill.billNumber}</p></div>
+                                        <div><p class="text-xs md:text-sm opacity-75 mb-1">التاريخ</p><p class="text-base md:text-lg font-semibold">${new Date(bill.billDate).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-8 overflow-x-auto"><table class="mt-8 w-full min-w-[500px]"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-2 px-2 font-bold text-sm">الإجمالي</th><th class="text-center py-2 px-2 font-bold text-sm">الكمية</th><th class="text-center py-2 px-2 font-bold text-sm">سعر الوحدة</th><th class="text-center py-2 px-2 font-bold text-sm">الفئة</th><th class="text-center py-2 px-2 font-bold text-sm">المقاس</th></tr></thead><tbody>${bill.items.map(item => `<tr class="border-b"><td class="py-2 px-2 text-center font-semibold text-sm">${item.total.toFixed(2)}</td><td class="py-2 px-2 text-center text-sm">${item.quantity.toFixed(2)}</td><td class="py-2 px-2 text-center text-sm">${item.unitPrice.toFixed(2)}</td><td class="py-2 px-2 text-center text-sm">${escapeHtml(item.category)}</td><td class="py-2 px-2 text-center text-sm">${item.size}</td></tr>`).join('')}</tbody></table></div>
+                            <div class="border-t-2 pt-6" style="border-color: ${config.primary_color};"><div class="flex justify-between items-center"><span class="text-xl md:text-2xl font-bold">الإجمالي الكلي</span><span class="text-3xl md:text-4xl font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</span></div></div>
+                            <div class="mt-4 pt-4 border-t text-center opacity-75 text-sm"><p>${escapeHtml(appState.companySettings.footer)}</p></div>
+                        </div>
+                    </div>
+                    ${customerId ? `<div class="max-w-4xl mx-auto mt-4 no-print"><button onclick="viewCustomerDetail('${customerId}');" class="text-sm font-semibold" style="color: ${config.primary_color};">← عرض ملف العميل</button></div>` : ''}
+                </div>`;
+        }
+
+        /* === الإعدادات (بدون تغيير) === */
+        function renderSettings() {
+            const config = window.elementSdk?.config || defaultConfig;
+            return `<div class="fade-in"><h1 class="text-3xl md:text-4xl font-bold mb-8" style="color: ${config.text_color};">الإعدادات</h1><div class="card-shadow rounded-xl p-6 bg-white max-w-2xl"><h2 class="text-xl font-bold mb-6">معلومات الشركة</h2><form onsubmit="saveSettings(event);" class="space-y-5"><div><label class="block text-sm font-semibold mb-2">اسم الشركة</label><input type="text" id="settingsName" value="${escapeHtml(appState.companySettings.name)}" required class="w-full px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};"></div><div><label class="block text-sm font-semibold mb-2">رقم الهاتف</label><input type="text" id="settingsPhone" value="${escapeHtml(appState.companySettings.phone)}" required class="w-full px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};"></div><div><label class="block text-sm font-semibold mb-2">العنوان</label><input type="text" id="settingsAddress" value="${escapeHtml(appState.companySettings.address)}" required class="w-full px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};"></div><div><label class="block text-sm font-semibold mb-2">نص التذييل</label><input type="text" id="settingsFooter" value="${escapeHtml(appState.companySettings.footer)}" required class="w-full px-4 py-3 border-2 rounded-lg text-sm" style="border-color: ${config.primary_color};"></div><button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-base flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الإعدادات</span></button></form></div></div>`;
+        }
+
+        /* === تهيئة عنصر التخصيص === */
+        const element = {
+            defaultConfig,
+            onConfigChange: () => render(),
+            mapToCapabilities: (config) => ({
+                recolorables: [
+                    { get: () => config.primary_color || defaultConfig.primary_color, set: (v) => { config.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); } },
+                    { get: () => config.secondary_color || defaultConfig.secondary_color, set: (v) => { config.secondary_color = v; window.elementSdk.setConfig({ secondary_color: v }); } },
+                    { get: () => config.accent_color || defaultConfig.accent_color, set: (v) => { config.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); } },
+                    { get: () => config.background_color || defaultConfig.background_color, set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
+                    { get: () => config.text_color || defaultConfig.text_color, set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); } }
+                ],
+                fontEditable: { get: () => config.font_family || defaultConfig.font_family, set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); } },
+                fontSizeable: { get: () => config.font_size || defaultConfig.font_size, set: (v) => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); } }
+            })
+        };
+
+        async function init() {
+            if (window.elementSdk) await window.elementSdk.init(element);
+            if (window.dataSdk) await window.dataSdk.init(dataHandler);
+            render();
+            // تركيز حقل البحث عند فتح القائمة المنسدلة
+            setTimeout(() => {
+                const searchEl = document.getElementById('custDropdownSearch');
+                if (searchEl) searchEl.focus();
+            }, 100);
+        }
+        init();
+    </script>
+</body>
+</html>
