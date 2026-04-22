@@ -13,14 +13,15 @@ Built with a focus on usability and flexibility, the system features a fully res
 ## ✨ Key Features
 
 ### 💰 Advanced Pricing Management
-*   **Dynamic Modeling:** Create and manage detailed pricing models (e.g., Model A, B, C).
-*   **Size & Category Matrix:** Support for a wide range of sizes (20-56) and categories (Sleep, Half Sleeve, Shorts, Heater Sets, etc.).
+*   **Dynamic Modeling:** Create and manage detailed pricing models (e.g., Model A, B, C, D, E).
+*   **Size & Category Matrix:** Support for a wide range of sizes (22-56) and categories (سليب, نصف كم, شورت, حماله, كلسون, كم, المجموع).
+*   **Excel Integration:** Easily import pricing models directly from `.xlsx` files using integrated SheetJS.
 *   **Bulk Operations:** Features for quick-filling prices, duplicating successful models, and batch editing.
-*   **Auto-Seeding:** Comes pre-loaded with standard industry pricing templates (Models A, B, C, and Heater Sets) derived from verified data sources.
+*   **Auto-Seeding:** Comes pre-loaded with standard industry pricing templates (Models A, B, C, D, E).
 
 ### 🧾 Invoicing & Billing
-*   **Smart Point of Sale:** Rapid bill creation flow: Select Model → Select Items → Auto-calculate Totals.
-*   **Print-Ready Invoices:** Generates professional, branded invoices compatible with standard printers.
+*   **Smart Point of Sale:** Rapid bill creation flow: Select Model → Select Client → Select Items → Auto-calculate Totals.
+*   **Print-Ready Invoices:** Generates professional, branded invoices compatible with standard printers and supports downloading as PDF (via `html2pdf.js`).
 *   **Sales Archive:** Searchable history of all generated bills and transactions.
 
 ### 📊 Dashboard & Analytics
@@ -56,10 +57,10 @@ Built with a focus on usability and flexibility, the system features a fully res
     cd white_gold_web
     ```
 3.  **Launch the Application:**
-    Open the `v3.html` file directly in your web browser.
+    Open the `index.html` file directly in your web browser.
 
 ### Initial Setup
-1.  Upon first launch, the system will automatically seed the database with default pricing models (A, B, C, etc.) if no data exists.
+1.  Upon first launch, the system will optionally load initial models if seeded. Otherwise, use "Import from Excel" via the newly supported `.xlsx` feature.
 2.  Log in using the default dashboard access (or create a new admin user via the interface).
 3.  Navigate to **Settings** to configure your factory/company details.
 
@@ -67,19 +68,22 @@ Built with a focus on usability and flexibility, the system features a fully res
 
 ```
 white_gold_web/
-├── v3.html           # Main application file (Core logic & UI)
-├── Data/             
-│   ├── A.csv         # Pricing data for Model A
-│   ├── B.csv         # Pricing data for Model B
-│   └── C.csv         # Pricing data for Model C
-├── v2/               # Archived versions and assets
-└── README.md         # Project documentation
+├── index.html           # Main application file (Core logic & UI)
+├── A.xlsx               # Pricing data template for Model A
+├── B.xlsx               # Pricing data template for Model B
+├── C.xlsx               # Pricing data template for Model C
+├── D.xlsx               # Pricing data template for Model D
+├── E.xlsx               # Pricing data template for Model E
+├── v3_Billing_only/     
+│   └── Billing_v5.html  # Development prototype for v5 billing
+├── v2/                  # Archived versions and assets
+└── README.md            # Project documentation
 ```
 
 ## 📝 Usage Guidelines
 
-*   **Defining Prices:** Go to the "Pricing" section. You must have at least one active Pricing Model to create bills.
-*   **Creating Bills:** Navigate to "New Bill". Select the Pricing Model applicable to the customer (e.g., "Wholesale Model A"), then add items by Category and Size.
+*   **Defining Prices:** Go to the "Pricing" section. You must have at least one active Pricing Model. You can either construct it manually or import directly using your Excel (`.xlsx`) files.
+*   **Creating Bills:** Navigate to "New Bill". Select the Pricing Model applicable to the customer (e.g., "Wholesale Model A"), enter the Client Name, and add items by Category and Size.
 *   **Data Backup:** Since data is stored in the browser's LocalStorage, avoid clearing your browser cache to prevent data loss. For production use, a backend integration is recommended.
 
 ## 🤝 Contributing
