@@ -40,6 +40,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="/_sdk/data_sdk.js"></script>
     <script src="/_sdk/element_sdk.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
     <style>
         body {
@@ -158,6 +159,26 @@
                 display: none !important; 
             }
         }
+    @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .print-header-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; align-items: start !important; }
+            .print-company { text-align: right !important; margin: 0 !important; padding: 0 !important; }
+            .print-invoice { text-align: left !important; margin: 0 !important; padding: 0 !important; }
+            .print-company div, .print-invoice div { margin: 0 !important; padding: 0 !important; }
+            #printable-bill { display: block !important; height: auto !important; overflow: visible !important; position: static !important; background: white !important; }
+            body { background: white; }
+            html, body, #app, .h-full, .min-h-screen { height: auto !important; overflow: visible !important; position: static !important; }
+            .flex-1, .overflow-auto, .overflow-hidden { overflow: visible !important; height: auto !important; display: block !important; }
+            .fixed.inset-y-0 { display: none !important; }
+        }
+        .pdf-capture-mode .print-header-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; align-items: start !important; }
+        .pdf-capture-mode .print-company { text-align: right !important; margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode .print-invoice { text-align: left !important; margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode .print-company div, .pdf-capture-mode .print-invoice div { margin: 0 !important; padding: 0 !important; }
+        .pdf-capture-mode { height: auto !important; overflow: visible !important; display: block !important; }
+        @view-transition { navigation: auto; }
+    
     </style>
     <style>
         @view-transition {
@@ -301,29 +322,17 @@
             },
             pricingModels: [],
             bills: [],
-            categories: [
-                "ثوب رجالي",
-                "قميص",
-                "بنطلون",
-                "جاكيت",
-                "عباية نسائية",
-                "فستان",
-                "تنورة",
-                "بلوزة",
-                "سليب",
-                "نصف كم",
-                "شورت",
-                "سبور",
-                "كلسون",
-                "كم",
-                "المجموع"
-            ],
+            categories: ["سليب", "نصف كم", "شورت", "حماله", "كلسون", "كم", "المجموع"],
             selectedModel: null,
             editingModel: null,
             viewingModel: null, // Add this
             billItems: [],
             currentBill: null,
-            loadingStates: {}
+            loadingStates: {},
+            editingBillId: null,
+            lastBillInput: null,
+            currentBillClientName: '',
+            billStep: 'selectModel'
         };
 
         // Size generation (22 to 56, step 2)
@@ -436,175 +445,67 @@
         async function createPricingModel(e) {
             e.preventDefault();
             const name = document.getElementById('modelName').value;
-
-            if (!name.trim()) {
-                showToast('الرجاء إدخال اسم النموذج', 'error');
-                return;
-            }
-
+            if (!name.trim()) return showToast('الرجاء إدخال اسم النموذج', 'error');
             setLoading('createModel', true);
-
-            const modelData = appState.categories.map(category => ({
-                name: category,
-                prices: SIZES.map(size => ({ size, price: 0 }))
-            }));
-
-            const result = await window.dataSdk.create({
-                type: 'pricingModel',
-                pricingModelName: name,
-                pricingModelData: JSON.stringify(modelData),
-                createdAt: new Date().toISOString()
-            });
-
-            if (result.isOk) {
-                document.getElementById('modelName').value = '';
-                showToast('تم إنشاء النموذج بنجاح', 'success');
-            } else {
-                const errorMsg = result.error?.message || 'خطأ غير معروف';
-                showToast('حدث خطأ أثناء الإنشاء: ' + errorMsg, 'error');
-                console.error('Create model error:', result.error);
-            }
-
+            const modelData = appState.categories.map(category => ({ name: category, prices: SIZES.map(size => ({ size, price: 0 })) }));
+            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: name, pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+            if (result.isOk) { document.getElementById('modelName').value = ''; showToast('تم إنشاء النموذج بنجاح', 'success'); }
+            else { showToast('حدث خطأ أثناء الإنشاء', 'error'); }
             setLoading('createModel', false);
         }
 
         async function updatePricingModel(model) {
             setLoading('updateModel', true);
-
-            const result = await window.dataSdk.update({
-                ...model,
-                pricingModelData: JSON.stringify(model.data)
-            });
-
-            if (result.isOk) {
-                appState.editingModel = null;
-                showToast('تم تحديث النموذج بنجاح', 'success');
-            } else {
-                showToast('حدث خطأ أثناء التحديث', 'error');
-            }
-
+            const result = await window.dataSdk.update({ ...model, pricingModelData: JSON.stringify(model.data) });
+            if (result.isOk) { appState.editingModel = null; showToast('تم تحديث النموذج بنجاح', 'success'); }
+            else { showToast('حدث خطأ أثناء التحديث', 'error'); }
             setLoading('updateModel', false);
         }
 
         async function deletePricingModel(model) {
             const modelId = model.__backendId;
             const confirmBtn = document.getElementById(`confirm-${modelId}`);
-
-            // If confirmation button is visible, proceed with deletion
             if (confirmBtn && confirmBtn.style.display !== 'none') {
                 setLoading(`delete-${modelId}`, true);
-
                 const result = await window.dataSdk.delete(model);
-
-                if (result.isOk) {
-                    showToast('تم حذف النموذج بنجاح', 'success');
-                    // Remove from local state immediately
-                    appState.pricingModels = appState.pricingModels.filter(m => m.__backendId !== modelId);
-                    render();
-                } else {
-                    showToast('حدث خطأ أثناء الحذف', 'error');
-                }
-
+                if (result.isOk) { showToast('تم حذف النموذج بنجاح', 'success'); appState.pricingModels = appState.pricingModels.filter(m => m.__backendId !== modelId); render(); }
+                else { showToast('حدث خطأ أثناء الحذف', 'error'); }
                 setLoading(`delete-${modelId}`, false);
             } else {
-                // Show confirmation button
                 const deleteBtn = document.getElementById(`delete-${modelId}`);
-                if (deleteBtn) {
-                    deleteBtn.style.display = 'none';
-                }
-                if (confirmBtn) {
-                    confirmBtn.style.display = 'inline-flex';
-                    // Auto-hide after 5 seconds
-                    setTimeout(() => {
-                        confirmBtn.style.display = 'none';
-                        if (deleteBtn) {
-                            deleteBtn.style.display = 'inline-flex';
-                        }
-                    }, 5000);
-                }
+                if (deleteBtn) deleteBtn.style.display = 'none';
+                if (confirmBtn) { confirmBtn.style.display = 'inline-flex'; setTimeout(() => { confirmBtn.style.display = 'none'; if (deleteBtn) deleteBtn.style.display = 'inline-flex'; }, 5000); }
             }
         }
 
-        function editModel(model) {
-            appState.editingModel = JSON.parse(JSON.stringify(model));
-            render();
-        }
+        function editModel(model) { appState.editingModel = JSON.parse(JSON.stringify(model)); render(); }
 
-        function updatePrice(categoryIndex, sizeIndex, price) {
-            if (appState.editingModel) {
-                appState.editingModel.data[categoryIndex].prices[sizeIndex].price = parseFloat(price) || 0;
-            }
-        }
+        function updatePrice(categoryIndex, sizeIndex, price) { if (appState.editingModel) { appState.editingModel.data[categoryIndex].prices[sizeIndex].price = parseFloat(price) || 0; } }
 
-        async function saveModelEdits() {
-            if (appState.editingModel) {
-                await updatePricingModel(appState.editingModel);
-            }
-        }
+        async function saveModelEdits() { if (appState.editingModel) updatePricingModel(appState.editingModel); }
 
-        function cancelEdit() {
-            appState.editingModel = null;
-            render();
-        }
+        function cancelEdit() { appState.editingModel = null; render(); }
 
         function fillAllPrices() {
             const price = parseFloat(document.getElementById('quickFillPrice').value);
-            if (!price || price <= 0) {
-                showToast('الرجاء إدخال سعر صحيح', 'error');
-                return;
-            }
-
-            if (appState.editingModel) {
-                appState.editingModel.data.forEach(category => {
-                    category.prices.forEach(priceData => {
-                        priceData.price = price;
-                    });
-                });
-                render();
-            }
+            if (!price || price <= 0) return showToast('الرجاء إدخال سعر صحيح', 'error');
+            if (appState.editingModel) { appState.editingModel.data.forEach(cat => cat.prices.forEach(p => p.price = price)); render(); }
         }
 
-        function clearAllPrices() {
-            if (appState.editingModel) {
-                appState.editingModel.data.forEach(category => {
-                    category.prices.forEach(priceData => {
-                        priceData.price = 0;
-                    });
-                });
-                render();
-            }
-        }
+        function clearAllPrices() { if (appState.editingModel) { appState.editingModel.data.forEach(cat => cat.prices.forEach(p => p.price = 0)); render(); } }
 
         async function duplicateModel(modelId) {
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
             if (!model) return;
-
             setLoading('duplicateModel', true);
-
-            const newName = `${model.pricingModelName} (نسخة)`;
-            const result = await window.dataSdk.create({
-                type: 'pricingModel',
-                pricingModelName: newName,
-                pricingModelData: model.pricingModelData,
-                createdAt: new Date().toISOString()
-            });
-
-            if (result.isOk) {
-                showToast('تم نسخ النموذج بنجاح', 'success');
-            } else {
-                showToast('حدث خطأ أثناء النسخ', 'error');
-            }
-
+            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: `${model.pricingModelName} (نسخة)`, pricingModelData: model.pricingModelData, createdAt: new Date().toISOString() });
+            showToast(result.isOk ? 'تم نسخ النموذج بنجاح' : 'حدث خطأ أثناء النسخ', result.isOk ? 'success' : 'error');
             setLoading('duplicateModel', false);
         }
 
         function viewModelDetails(modelId) {
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
-            if (!model) return;
-
-            appState.viewingModel = model;
-            appState.currentView = 'viewModel';
-            render();
+            if (model) { appState.viewingModel = model; appState.currentView = 'viewModel'; render(); }
         }
 
         // Billing
@@ -612,235 +513,116 @@
             appState.currentView = 'newBill';
             appState.billItems = [];
             appState.selectedModel = null;
-            appState.editingBillId = null; // Clear editing state
+            appState.editingBillId = null;
+            appState.lastBillInput = null;
+            appState.currentBillClientName = '';
+            appState.billStep = 'selectModel';
             render();
         }
 
         function editBill() {
             if (!appState.currentBill) return;
-            
             const bill = appState.currentBill;
             appState.editingBillId = bill.__backendId;
-            appState.billItems = JSON.parse(JSON.stringify(bill.items)); // Deep copy
+            appState.billItems = JSON.parse(JSON.stringify(bill.items));
+            appState.currentBillClientName = bill.billClientName || '';
             appState.currentView = 'newBill';
-            
-            // Find and set the model
             const model = appState.pricingModels.find(m => m.__backendId === bill.billModelId);
-            if (model) {
-                appState.selectedModel = model;
-            }
-            
+            if (model) appState.selectedModel = model;
+            appState.billStep = 'items';
             render();
         }
 
         function selectModelForBill(modelId) {
             appState.selectedModel = appState.pricingModels.find(m => m.__backendId === modelId);
+            appState.billStep = 'clientName';
             render();
         }
 
         function addBillItem() {
             const category = document.getElementById('billCategory').value;
             const size = parseInt(document.getElementById('billSize').value);
-            const quantity = parseInt(document.getElementById('billQuantity').value);
-
-            if (!category || !size || !quantity) {
-                showToast('الرجاء تعبئة جميع الحقول', 'error');
-                return;
-            }
-
+            const quantity = parseFloat(document.getElementById('billQuantity').value);
+            if (!category || !size || !quantity) return showToast('الرجاء تعبئة جميع الحقول', 'error');
             const categoryData = appState.selectedModel.data.find(c => c.name === category);
             const priceData = categoryData.prices.find(p => p.size === size);
             const unitPrice = priceData.price;
             const total = unitPrice * quantity;
-
-            appState.billItems.push({
-                category,
-                size,
-                quantity,
-                unitPrice,
-                total
-            });
-
-            // Auto-increment size and keep other values
-            const nextSize = size + 2;
-            const finalSize = nextSize <= 56 ? nextSize : size;
-            
-            appState.lastBillInput = {
-                category: category,
-                size: finalSize,
-                quantity: quantity
-            };
-
+            appState.billItems.push({ category, size, quantity, unitPrice, total });
+            const nextSize = size + 2 <= 56 ? size + 2 : size;
+            appState.lastBillInput = { category, size: nextSize, quantity };
             render();
         }
 
-        function removeBillItem(index) {
-            appState.billItems.splice(index, 1);
-            render();
-        }
+        function removeBillItem(index) { appState.billItems.splice(index, 1); render(); }
 
         async function saveBill() {
-            if (appState.billItems.length === 0) {
-                showToast('الرجاء إضافة عناصر للفاتورة', 'error');
-                return;
-            }
-
+            if (appState.billItems.length === 0) return showToast('الرجاء إضافة عناصر للفاتورة', 'error');
             setLoading('saveBill', true);
-
             const billTotal = appState.billItems.reduce((sum, item) => sum + item.total, 0);
-            
             let result;
-            
             if (appState.editingBillId) {
-                // Update existing bill
                 const originalBill = appState.bills.find(b => b.__backendId === appState.editingBillId);
-                
-                result = await window.dataSdk.update({
-                    ...originalBill,
-                    billItems: JSON.stringify(appState.billItems),
-                    billTotal: billTotal,
-                    // Keep original bill number and date
-                });
+                result = await window.dataSdk.update({ ...originalBill, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: appState.currentBillClientName });
             } else {
-                // Create new bill
                 const billNumber = `INV-${Date.now()}`;
-                
-                result = await window.dataSdk.create({
-                    type: 'bill',
-                    billNumber: billNumber,
-                    billDate: new Date().toISOString(),
-                    billModelId: appState.selectedModel.__backendId,
-                    billItems: JSON.stringify(appState.billItems),
-                    billTotal: billTotal,
-                    createdAt: new Date().toISOString()
-                });
+                result = await window.dataSdk.create({ type: 'bill', billNumber, billDate: new Date().toISOString(), billModelId: appState.selectedModel.__backendId, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: appState.currentBillClientName, createdAt: new Date().toISOString() });
             }
-
             if (result.isOk) {
                 showToast(appState.editingBillId ? 'تم تحديث الفاتورة بنجاح' : 'تم حفظ الفاتورة بنجاح', 'success');
-                appState.currentView = 'bills';
-                appState.billItems = [];
-                appState.selectedModel = null;
-                appState.editingBillId = null;
-            } else {
-                showToast('حدث خطأ أثناء الحفظ', 'error');
-            }
-
+                cancelNewBill();
+            } else { showToast('حدث خطأ أثناء الحفظ', 'error'); }
             setLoading('saveBill', false);
         }
 
-        function viewBill(bill) {
-            appState.currentBill = bill;
-            appState.currentView = 'viewBill';
-            render();
-        }
+        function viewBill(bill) { appState.currentBill = bill; appState.currentView = 'viewBill'; render(); }
 
-        function printBill() {
-            window.print();
-        }
+        function printBill() { window.print(); }
 
         async function shareBill() {
-            if (!appState.currentBill) return;
-
+            const element = document.getElementById('printable-bill');
+            const container = document.getElementById('view-bill-container');
+            if (!container) { showToast('خطأ: لم يتم العثور على حاوية الفاتورة', 'error'); return; }
             setLoading('sharing', true);
-
+            container.classList.add('pdf-capture-mode');
+            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             try {
-                const element = document.getElementById('printable-bill');
-                const opt = {
-                    margin: 10,
-                    filename: `Invoice-${appState.currentBill.billNumber}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, logging: false },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
-
-                const worker = html2pdf().set(opt).from(element).output('blob');
-                const blob = await worker;
-                const file = new File([blob], opt.filename, { type: 'application/pdf' });
-
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        files: [file],
-                        title: `فاتورة ${appState.currentBill.billNumber}`,
-                        text: `فاتورة من ${appState.companySettings.name}`,
-                    });
+                const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], opt.filename, { type: 'application/pdf' })] })) {
+                    const file = new File([pdfBlob], opt.filename, { type: 'application/pdf' });
+                    await navigator.share({ title: `فاتورة ${appState.currentBill.billNumber}`, text: `فاتورة من ${appState.companySettings.name}`, files: [file] });
+                    showToast('تم فتح نافذة المشاركة', 'success');
                 } else {
-                    html2pdf().set(opt).from(element).save();
-                    showToast('تم تحميل الفاتورة كملف PDF', 'success');
+                    const url = URL.createObjectURL(pdfBlob);
+                    const a = document.createElement('a'); a.href = url; a.download = opt.filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                    showToast('مشاركة الملفات غير مدعومة، تم تنزيل PDF بدلاً من ذلك', 'info');
                 }
-            } catch (err) {
-                console.error('Share failed:', err);
-                showToast('حدث خطأ أثناء إنشاء PDF', 'error');
-            }
-
-            setLoading('sharing', false);
+            } catch (error) {
+                if (error.name !== 'AbortError') { console.error('PDF sharing error:', error); showToast('حدث خطأ أثناء إنشاء أو مشاركة PDF', 'error'); }
+            } finally { container.classList.remove('pdf-capture-mode'); setLoading('sharing', false); }
         }
 
         async function deleteBill(bill) {
             const confirmDelete = document.getElementById(`confirm-bill-${bill.__backendId}`);
-
             if (confirmDelete && confirmDelete.style.display === 'inline-flex') {
                 setLoading(`delete-bill-${bill.__backendId}`, true);
-
                 const result = await window.dataSdk.delete(bill);
-
-                if (result.isOk) {
-                    showToast('تم حذف الفاتورة بنجاح', 'success');
-                    appState.currentView = 'bills';
-                } else {
-                    showToast('حدث خطأ أثناء الحذف', 'error');
-                }
-
+                if (result.isOk) { showToast('تم حذف الفاتورة بنجاح', 'success'); appState.currentView = 'bills'; }
+                else { showToast('حدث خطأ أثناء الحذف', 'error'); }
                 setLoading(`delete-bill-${bill.__backendId}`, false);
-            } else {
-                if (confirmDelete) {
-                    confirmDelete.style.display = 'inline-flex';
-                    setTimeout(() => {
-                        confirmDelete.style.display = 'none';
-                    }, 3000);
-                }
-            }
+            } else { if (confirmDelete) { confirmDelete.style.display = 'inline-flex'; setTimeout(() => confirmDelete.style.display = 'none', 3000); } }
         }
 
         // Settings
         async function saveSettings(e) {
             e.preventDefault();
-
-            const name = document.getElementById('settingsName').value;
-            const phone = document.getElementById('settingsPhone').value;
-            const address = document.getElementById('settingsAddress').value;
-            const footer = document.getElementById('settingsFooter').value;
-
+            const name = document.getElementById('settingsName').value, phone = document.getElementById('settingsPhone').value, address = document.getElementById('settingsAddress').value, footer = document.getElementById('settingsFooter').value;
             setLoading('saveSettings', true);
-
-            const settingsData = {
-                type: 'settings',
-                companyName: name,
-                companyPhone: phone,
-                companyAddress: address,
-                companyFooter: footer,
-                createdAt: appState.settings ? appState.settings.createdAt : new Date().toISOString()
-            };
-
+            const settingsData = { type: 'settings', companyName: name, companyPhone: phone, companyAddress: address, companyFooter: footer, createdAt: appState.settings ? appState.settings.createdAt : new Date().toISOString() };
             let result;
-            if (appState.settings && appState.settings.__backendId) {
-                // Update existing
-                result = await window.dataSdk.update({
-                    ...appState.settings,
-                    ...settingsData
-                });
-            } else {
-                // Create new
-                result = await window.dataSdk.create(settingsData);
-            }
-
-            if (result.isOk) {
-                showToast('تم حفظ الإعدادات بنجاح', 'success');
-            } else {
-                const errorMsg = result.error?.message || 'خطأ غير معروف';
-                showToast('حدث خطأ أثناء الحفظ: ' + errorMsg, 'error');
-            }
-
+            if (appState.settings?.__backendId) result = await window.dataSdk.update({ ...appState.settings, ...settingsData });
+            else result = await window.dataSdk.create(settingsData);
+            showToast(result.isOk ? 'تم حفظ الإعدادات بنجاح' : 'حدث خطأ أثناء الحفظ', result.isOk ? 'success' : 'error');
             setLoading('saveSettings', false);
         }
 
@@ -1089,487 +871,158 @@
 
         function renderDashboardLayout() {
             const config = window.elementSdk?.config || defaultConfig;
-            const sidebarClasses = appState.isSidebarOpen 
-                ? "translate-x-0" 
-                : "translate-x-full md:translate-x-0";
-
+            const sidebarClasses = appState.isSidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0";
             return `
-        <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color || defaultConfig.background_color};">
-          
-          <!-- Mobile Header -->
-          <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
-             <button onclick="toggleSidebar()" class="text-white text-2xl">
-                 ${appState.isSidebarOpen ? '✕' : '☰'}
-             </button>
-             <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                  <span class="text-sm" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
-                </div>
-                <span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span>
-             </div>
-          </div>
-
-          <!-- Mobile Overlay -->
-          ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
-
-          <!-- Sidebar -->
-          <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
-            <div class="p-6 h-full overflow-y-auto">
-              <!-- Sidebar Header -->
-              <div class="flex items-center justify-between gap-3 mb-8">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                    <span class="text-2xl" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
+                <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color};">
+                    <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                        <button onclick="toggleSidebar()" class="text-white text-2xl">${appState.isSidebarOpen ? '✕' : '☰'}</button>
+                        <div class="flex items-center gap-2"><div class="w-8 h-8 bg-white rounded-full flex items-center justify-center"><span class="text-sm" style="color: ${config.primary_color};">👔</span></div><span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span></div>
                     </div>
-                    <div class="text-white">
-                    <h2 class="font-bold text-lg">لوحة الإدارة</h2>
-                    <p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p>
+                    ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
+                    <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+                        <div class="p-6 h-full overflow-y-auto">
+                            <div class="flex items-center justify-between gap-3 mb-8">
+                                <div class="flex items-center gap-3"><div class="w-12 h-12 bg-white rounded-full flex items-center justify-center"><span class="text-2xl" style="color: ${config.primary_color};">👔</span></div><div class="text-white"><h2 class="font-bold text-lg">لوحة الإدارة</h2><p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p></div></div>
+                                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
+                            </div>
+                            <nav class="space-y-2">
+                                ${['dashboard', 'pricing', 'bills', 'settings'].map(view => `
+                                    <button onclick="appState.currentView = '${view}'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === view ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === view ? `color: ${config.primary_color}` : ''}">
+                                        ${view === 'dashboard' ? '📊 لوحة التحكم' : view === 'pricing' ? '💰 إدارة الأسعار' : view === 'bills' ? '📄 الفواتير' : '⚙️ الإعدادات'}
+                                    </button>
+                                `).join('')}
+                            </nav>
+                            <div class="mt-8 pt-8 border-t border-white border-opacity-30"><div class="text-white text-sm opacity-90">وصول الإدارة مفتوح</div><button onclick="logout();" class="w-full text-right px-4 py-3 mt-4 rounded-lg font-semibold text-white hover:bg-white hover:bg-opacity-20 transition-all opacity-80 hover:opacity-100 flex items-center justify-between"><span>تسجيل الخروج</span><span class="transition-transform">🚪</span></button></div>
+                        </div>
                     </div>
-                </div>
-                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
-              </div>
-              
-              <nav class="space-y-2">
-                <button onclick="appState.currentView = 'dashboard'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'dashboard' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'dashboard' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
-                  📊 لوحة التحكم
-                </button>
-                <button onclick="appState.currentView = 'pricing'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'pricing' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'pricing' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
-                  💰 إدارة الأسعار
-                </button>
-                <button onclick="appState.currentView = 'bills'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'bills' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'bills' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
-                  📄 الفواتير
-                </button>
-                <button onclick="appState.currentView = 'settings'; appState.isSidebarOpen = false; render();" class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === 'settings' ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" style="${appState.currentView === 'settings' ? `color: ${config.primary_color || defaultConfig.primary_color}` : ''}">
-                  ⚙️ الإعدادات
-                </button>
-              </nav>
-              
-              <div class="mt-8 pt-8 border-t border-white border-opacity-30">
-                <button onclick="logout();" class="w-full text-right px-4 py-3 rounded-lg font-semibold text-white hover:bg-white hover:bg-opacity-20 transition-all">
-                  🚪 تسجيل الخروج
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Main Content -->
-          <div class="flex-1 h-full overflow-hidden flex flex-col">
-            <div class="flex-1 overflow-auto p-4 md:p-8">
-              ${renderCurrentView()}
-            </div>
-          </div>
-        </div>
-      `;
+                    <div class="flex-1 h-full overflow-hidden flex flex-col"><div class="flex-1 overflow-auto p-4 md:p-8">${renderCurrentView()}</div></div>
+                </div>`;
         }
 
         function renderCurrentView() {
-            switch (appState.currentView) {
-                case 'dashboard':
-                    return renderDashboard();
-                case 'pricing':
-                    return renderPricing();
-                case 'viewModel':
-                    return renderViewModel();
-                case 'bills':
-                    return renderBills();
-                case 'newBill':
-                    return renderNewBill();
-                case 'viewBill':
-                    return renderViewBill();
-                case 'settings':
-                    return renderSettings();
-                default:
-                    return renderDashboard();
-            }
+            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, settings: renderSettings };
+            return (views[appState.currentView] || renderDashboard)();
         }
 
         function renderDashboard() {
             const config = window.elementSdk?.config || defaultConfig;
             const recentBills = appState.bills.slice(-5).reverse();
-
             return `
-        <div class="fade-in">
-          <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">لوحة التحكم</h1>
-          
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
-              <div class="text-white">
-                <div class="text-4xl mb-2">💰</div>
-                <h3 class="text-lg font-semibold opacity-90 mb-1">نماذج التسعير</h3>
-                <p class="text-4xl font-bold">${appState.pricingModels.length}</p>
-              </div>
-            </div>
-            
-            <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale" style="background: linear-gradient(135deg, ${config.accent_color || defaultConfig.accent_color}, #38a169);">
-              <div class="text-white">
-                <div class="text-4xl mb-2">📄</div>
-                <h3 class="text-lg font-semibold opacity-90 mb-1">إجمالي الفواتير</h3>
-                <p class="text-4xl font-bold">${appState.bills.length}</p>
-              </div>
-            </div>
-            
-            <div class="card-shadow rounded-xl p-4 md:p-6 hover-scale bg-white">
-              <button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group">
-                <div class="text-5xl group-hover:scale-110 transition-transform">➕</div>
-                <span class="text-xl font-bold" style="color: ${config.primary_color || defaultConfig.primary_color};">إنشاء فاتورة جديدة</span>
-              </button>
-            </div>
-          </div>
-          
-          <div class="card-shadow rounded-xl p-6 bg-white">
-            <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">الفواتير الأخيرة</h2>
-            ${recentBills.length === 0 ? `
-              <div class="text-center py-12 opacity-50">
-                <div class="text-6xl mb-4">📄</div>
-                <p class="text-xl" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد فواتير بعد</p>
-              </div>
-            ` : `
-              <div class="overflow-x-auto">
-                <table class="w-full">
-                  <thead>
-                    <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</th>
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</th>
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المبلغ الإجمالي</th>
-                      <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${recentBills.map(bill => `
-                      <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
-                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${bill.billNumber}</td>
-                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td>
-                        <td class="py-3 px-4 font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</td>
-                        <td class="py-3 px-4 text-center">
-                          <button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold hover:opacity-80 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color}; color: white;">
-                            عرض
-                          </button>
-                        </td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            `}
-          </div>
-        </div>
-      `;
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">لوحة التحكم</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="card-shadow rounded-xl p-6 hover-scale" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});"><div class="text-white"><div class="text-4xl mb-2">💰</div><h3 class="text-lg font-semibold opacity-90 mb-1">نماذج التسعير</h3><p class="text-4xl font-bold">${appState.pricingModels.length}</p></div></div>
+                        <div class="card-shadow rounded-xl p-6 hover-scale" style="background: linear-gradient(135deg, ${config.accent_color}, #38a169);"><div class="text-white"><div class="text-4xl mb-2">📄</div><h3 class="text-lg font-semibold opacity-90 mb-1">إجمالي الفواتير</h3><p class="text-4xl font-bold">${appState.bills.length}</p></div></div>
+                        <div class="card-shadow rounded-xl p-6 hover-scale bg-white"><button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group"><div class="text-5xl group-hover:scale-110 transition-transform">➕</div><span class="text-xl font-bold" style="color: ${config.primary_color};">إنشاء فاتورة جديدة</span></button></div>
+                    </div>
+                    <div class="card-shadow rounded-xl p-6 bg-white">
+                        <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">الفواتير الأخيرة</h2>
+                        ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">📄</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
+                            <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
+                            <tbody>${recentBills.map(bill => `<tr class="border-b"><td class="py-3 px-4">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>`}
+                    </div>
+                </div>`;
         }
 
         function renderViewModel() {
             const config = window.elementSdk?.config || defaultConfig;
             const model = appState.viewingModel;
-
-            if (!model) {
-                appState.currentView = 'pricing';
-                render();
-                return '';
-            }
-
+            if (!model) { appState.currentView = 'pricing'; render(); return ''; }
             return `
-        <div class="fade-in">
-          <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1>
-            <button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
-              رجوع
-            </button>
-          </div>
-
-          <div class="card-shadow rounded-xl p-4 md:p-6 bg-white overflow-x-auto">
-            <table class="w-full border-collapse">
-              <thead>
-                <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                  <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
-                  ${SIZES.map(size => `
-                    <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${size}</th>
-                  `).join('')}
-                </tr>
-              </thead>
-              <tbody>
-                ${model.data.map((category) => `
-                  <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
-                    <td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">
-                      <div class="flex items-center gap-2">
-                        ${getCategoryIcon(category.name)}
-                        <span>${category.name}</span>
-                      </div>
-                    </td>
-                    ${SIZES.map(size => {
-                        const priceData = category.prices.find(p => p.size === size);
-                        const price = priceData ? priceData.price : 0;
-                        return `
-                      <td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color || defaultConfig.accent_color : config.text_color || defaultConfig.text_color};">
-                        ${price > 0 ? price.toFixed(2) : '-'}
-                      </td>
-                    `}).join('')}
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">رجوع</button></div>
+                    <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
+                            <tbody>${model.data.map(cat => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}</tr>`).join('')}</tbody>
+                        </table>
+                    </div>
+                </div>`;
         }
 
         function renderPricing() {
             const config = window.elementSdk?.config || defaultConfig;
-
             if (appState.editingModel) {
                 return `
-          <div class="fade-in">
-            <div class="flex justify-between items-center mb-8">
-              <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">تعديل نموذج: ${appState.editingModel.pricingModelName}</h1>
-              <div class="flex gap-3">
-                <button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
-                  إلغاء
-                </button>
-                <button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
-                  ${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}
-                  <span>حفظ التعديلات</span>
-                </button>
-              </div>
-            </div>
-            
-            <div class="card-shadow rounded-xl p-4 md:p-6 bg-white overflow-x-auto">
-              <div class="mb-4 flex flex-col md:flex-row gap-3">
-                <button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                  تعبئة سريعة
-                </button>
-                <button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white hover:bg-gray-600 transition-colors">
-                  مسح الكل
-                </button>
-                <input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32 focus:outline-none" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              </div>
-              <table class="w-full border-collapse">
-                <thead>
-                  <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                    <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
-                    ${SIZES.map(size => `
-                      <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${size}</th>
-                    `).join('')}
-                  </tr>
-                </thead>
-                <tbody>
-                  ${appState.editingModel.data.map((category, catIndex) => `
-                    <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
-                      <td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10" style="color: ${config.text_color || defaultConfig.text_color};">
-                        <div class="flex items-center gap-2">
-                          ${getCategoryIcon(category.name)}
-                          <span>${category.name}</span>
+                    <div class="fade-in">
+                        <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج: ${appState.editingModel.pricingModelName}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button></div></div>
+                        <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
+                            <div class="mb-4 flex flex-wrap gap-3"><button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعبئة سريعة</button><button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white">مسح الكل</button><input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32" style="border-color: ${config.primary_color};"></div>
+                            <table class="w-full border-collapse">
+                                <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
+                                <tbody>${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${cat.prices.map((p, sizeIdx) => `<td class="py-3 px-4"><input type="number" min="0" step="0.01" value="${p.price}" onchange="updatePrice(${catIdx}, ${sizeIdx}, this.value);" class="w-20 px-2 py-1 border rounded text-center" style="border-color: ${config.primary_color};"></td>`).join('')}</tr>`).join('')}</tbody>
+                            </table>
                         </div>
-                      </td>
-                      ${category.prices.map((priceData, sizeIndex) => `
-                        <td class="py-3 px-4">
-                          <input type="number" min="0" step="0.01" value="${priceData.price}" onchange="updatePrice(${catIndex}, ${sizeIndex}, this.value);" class="w-20 px-2 py-1 border rounded text-center focus:outline-none transition-all hover:border-opacity-100" style="border-color: ${config.primary_color || defaultConfig.primary_color}; border-opacity: 0.5;">
-                        </td>
-                      `).join('')}
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
+                    </div>`;
             }
-
             return `
-        <div class="fade-in">
-          <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">إدارة الأسعار</h1>
-          
-          <div class="card-shadow rounded-xl p-4 md:p-6 bg-white mb-8">
-            <h2 class="text-xl md:text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">إنشاء نموذج تسعير جديد</h2>
-            <form onsubmit="createPricingModel(event);" class="flex flex-col md:flex-row gap-3">
-              <input type="text" id="modelName" required placeholder="اسم النموذج (مثال: تسعير الصيف 2024)" class="flex-1 px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                ${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}
-                <span>إنشاء</span>
-              </button>
-            </form>
-          </div>
-          
-          <div class="space-y-6">
-            ${appState.pricingModels.length === 0 ? `
-              <div class="card-shadow rounded-xl p-12 bg-white text-center">
-                <div class="text-6xl mb-4">💰</div>
-                <h3 class="text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد نماذج تسعير</h3>
-                <p class="text-lg opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">قم بإنشاء نموذج التسعير الأول الخاص بك</p>
-              </div>
-            ` : appState.pricingModels.map(model => {
-                const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
-                const totalPossible = model.data.length * SIZES.length;
-                const percentComplete = Math.round((totalPrices / totalPossible) * 100);
-
-                return `
-              <div class="card-shadow rounded-xl p-4 md:p-6 bg-white hover-scale">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                  <div class="flex-1 w-full">
-                    <h3 class="text-xl md:text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">${model.pricingModelName}</h3>
-                    <div class="flex items-center gap-4">
-                      <div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs">
-                        <div class="h-2 rounded-full transition-all" style="width: ${percentComplete}%; background-color: ${config.accent_color || defaultConfig.accent_color};"></div>
-                      </div>
-                      <span class="text-xs md:text-sm font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${totalPrices}/${totalPossible} (${percentComplete}%)</span>
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">إدارة الأسعار</h1>
+                    <div class="card-shadow rounded-xl p-6 bg-white mb-8">
+                        <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color};">إنشاء نموذج تسعير جديد</h2>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <form onsubmit="createPricingModel(event);" class="flex-1 flex flex-col md:flex-row gap-3">
+                                <input type="text" id="modelName" required placeholder="اسم النموذج" class="flex-1 px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}<span>إنشاء</span></button>
+                            </form>
+                            <div class="flex gap-2">
+                                <input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="importFromExcel(event)" class="hidden">
+                                <button onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : '📊'}<span>استيراد من Excel</span></button>
+                            </div>
+                        </div>
                     </div>
-                  </div>
-                  <div class="flex flex-wrap gap-2 w-full md:w-auto">
-                    <button onclick="viewModelDetails('${model.__backendId}');" class="flex-1 md:flex-none px-3 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300 transition-colors text-sm" style="color: ${config.text_color || defaultConfig.text_color};">
-                      عرض
-                    </button>
-                    <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" class="flex-1 md:flex-none px-3 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity text-sm" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                      تعديل
-                    </button>
-                    <button onclick="duplicateModel('${model.__backendId}');" class="flex-1 md:flex-none px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white hover:bg-blue-600 transition-colors text-sm">
-                      نسخ
-                    </button>
-                    <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
-                      <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" 
-                              id="delete-${model.__backendId}"
-                              ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} 
-                              class="flex-1 md:flex-none px-3 py-2 bg-red-500 rounded-lg font-semibold text-white hover:bg-red-600 transition-colors flex items-center justify-center gap-2 text-sm">
-                        ${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}
-                        <span>حذف</span>
-                      </button>
-                      <button id="confirm-${model.__backendId}" 
-                              onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" 
-                              style="display: none;" 
-                              class="flex-1 md:flex-none px-3 py-2 bg-red-700 rounded-lg font-semibold text-white hover:bg-red-800 transition-colors text-sm">
-                        تأكيد
-                      </button>
+                    <div class="space-y-6">
+                        ${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">💰</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3><p class="text-lg opacity-75">قم بإنشاء نموذج التسعير الأول الخاص بك</p></div>` : appState.pricingModels.map(model => {
+                            const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
+                            const totalPossible = model.data.length * SIZES.length;
+                            const percent = Math.round((totalPrices / totalPossible) * 100);
+                            return `
+                                <div class="card-shadow rounded-xl p-6 bg-white hover-scale">
+                                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                                        <div class="flex-1"><h3 class="text-2xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><div class="flex items-center gap-4"><div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs"><div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${config.accent_color};"></div></div><span class="text-sm font-semibold">${totalPrices}/${totalPossible} (${percent}%)</span></div></div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button onclick="viewModelDetails('${model.__backendId}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold">عرض</button>
+                                            <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" class="px-3 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعديل</button>
+                                            <button onclick="duplicateModel('${model.__backendId}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white">نسخ</button>
+                                            <div class="flex gap-2">
+                                                <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" id="delete-${model.__backendId}" ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button>
+                                                <button id="confirm-${model.__backendId}" onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" style="display: none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg" style="background-color: ${config.background_color};"><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${cat.name}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاسات مسعرة</p></div>`).join('')}
+                                        ${model.data.length > 4 ? `<div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color};"><p class="font-semibold text-sm" style="color: ${config.primary_color};">+${model.data.length - 4} فئات</p></div>` : ''}
+                                    </div>
+                                </div>`;
+                        }).join('')}
                     </div>
-                  </div>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  ${model.data.slice(0, 4).map(category => {
-                    const priced = category.prices.filter(p => p.price > 0).length;
-                    return `
-                    <div class="p-3 rounded-lg" style="background-color: ${config.background_color || defaultConfig.background_color};">
-                      <div class="flex items-center gap-2 mb-1">
-                        <span>${getCategoryIcon(category.name)}</span>
-                        <p class="font-semibold text-sm" style="color: ${config.text_color || defaultConfig.text_color};">${category.name}</p>
-                      </div>
-                      <p class="text-xs opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">${priced}/${SIZES.length} مقاسات مسعرة</p>
-                    </div>
-                  `}).join('')}
-                  ${model.data.length > 4 ? `
-                    <div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color || defaultConfig.background_color};">
-                      <p class="font-semibold text-sm" style="color: ${config.primary_color || defaultConfig.primary_color};">+${model.data.length - 4} فئات</p>
-                    </div>
-                  ` : ''}
-                </div>
-              </div>
-            `}).join('')}
-          </div>
-        </div>
-      `;
+                </div>`;
         }
 
         function renderBills() {
             const config = window.elementSdk?.config || defaultConfig;
             const sortedBills = [...appState.bills].sort((a, b) => new Date(b.billDate) - new Date(a.billDate));
-
             return `
-        <div class="fade-in">
-          <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفواتير</h1>
-            <button onclick="startNewBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-              <span class="text-2xl">➕</span>
-              <span>فاتورة جديدة</span>
-            </button>
-          </div>
-          
-          ${appState.bills.length === 0 ? `
-            <div class="card-shadow rounded-xl p-12 bg-white text-center">
-              <div class="text-6xl mb-4">📄</div>
-              <h3 class="text-2xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد فواتير</h3>
-              <p class="text-lg opacity-75 mb-6" style="color: ${config.text_color || defaultConfig.text_color};">قم بإنشاء أول فاتورة لك</p>
-              <button onclick="startNewBill();" class="px-8 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                إنشاء فاتورة
-              </button>
-            </div>
-          ` : `
-            <div class="mb-6">
-              <input type="text" id="billSearch" onkeyup="filterBills();" placeholder="بحث برقم الفاتورة..." class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div class="card-shadow rounded-xl p-6" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                <div class="text-white">
-                  <p class="text-sm opacity-90 mb-1">إجمالي الفواتير</p>
-                  <p class="text-3xl font-bold">${appState.bills.length}</p>
-                </div>
-              </div>
-              <div class="card-shadow rounded-xl p-6" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
-                <div class="text-white">
-                  <p class="text-sm opacity-90 mb-1">إجمالي المبيعات</p>
-                  <p class="text-3xl font-bold">${appState.bills.reduce((sum, b) => sum + b.billTotal, 0).toFixed(2)} جنية</p>
-                </div>
-              </div>
-              <div class="card-shadow rounded-xl p-6 bg-white">
-                <div style="color: ${config.text_color || defaultConfig.text_color};">
-                  <p class="text-sm opacity-75 mb-1">متوسط قيمة الفاتورة</p>
-                  <p class="text-3xl font-bold" style="color: ${config.primary_color || defaultConfig.primary_color};">
-                    ${(appState.bills.reduce((sum, b) => sum + b.billTotal, 0) / appState.bills.length).toFixed(2)} جنية
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div id="billsList" class="card-shadow rounded-xl p-6 bg-white">
-              <div class="overflow-x-auto">
-                <table class="w-full">
-                  <thead>
-                    <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</th>
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</th>
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عدد العناصر</th>
-                      <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المبلغ الإجمالي</th>
-                      <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${sortedBills.map(bill => `
-                      <tr class="bill-row border-b hover:bg-opacity-50 transition-colors" data-bill-number="${bill.billNumber}" style="border-color: ${config.background_color || defaultConfig.background_color};">
-                        <td class="py-3 px-4 font-semibold" style="color: ${config.primary_color || defaultConfig.primary_color};">${bill.billNumber}</td>
-                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td>
-                        <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${bill.items.length}</td>
-                        <td class="py-3 px-4 font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</td>
-                        <td class="py-3 px-4 text-center">
-                          <div class="flex gap-2 justify-center">
-                            <button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                              عرض
-                            </button>
-                            <button onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" ${isLoading(`delete-bill-${bill.__backendId}`) ? 'disabled' : ''} class="px-4 py-2 bg-red-500 rounded-lg font-semibold text-white hover:bg-red-600 transition-colors flex items-center gap-2">
-                              ${isLoading(`delete-bill-${bill.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}
-                              <span>حذف</span>
-                            </button>
-                            <button id="confirm-bill-${bill.__backendId}" onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" style="display: none;" class="px-4 py-2 bg-red-700 rounded-lg font-semibold text-white hover:bg-red-800 transition-colors">
-                              تأكيد
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          `}
-        </div>
-      `;
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">الفواتير</h1><button onclick="startNewBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.primary_color};"><span class="text-2xl">➕</span><span>فاتورة جديدة</span></button></div>
+                    ${appState.bills.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">📄</div><h3 class="text-2xl font-bold mb-2">لا توجد فواتير</h3><p class="text-lg opacity-75 mb-6">قم بإنشاء أول فاتورة لك</p><button onclick="startNewBill();" class="px-8 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء فاتورة</button></div>` : `
+                        <div class="mb-6"><input type="text" id="billSearch" onkeyup="filterBills();" placeholder="بحث برقم الفاتورة..." class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="card-shadow rounded-xl p-6" style="background-color: ${config.primary_color};"><div class="text-white"><p class="text-sm opacity-90 mb-1">إجمالي الفواتير</p><p class="text-3xl font-bold">${appState.bills.length}</p></div></div>
+                            <div class="card-shadow rounded-xl p-6" style="background-color: ${config.accent_color};"><div class="text-white"><p class="text-sm opacity-90 mb-1">إجمالي المبيعات</p><p class="text-3xl font-bold">${appState.bills.reduce((s, b) => s + b.billTotal, 0).toFixed(2)} جنية</p></div></div>
+                            <div class="card-shadow rounded-xl p-6 bg-white"><div><p class="text-sm opacity-75 mb-1">متوسط قيمة الفاتورة</p><p class="text-3xl font-bold" style="color: ${config.primary_color};">${(appState.bills.reduce((s, b) => s + b.billTotal, 0) / appState.bills.length).toFixed(2)} جنية</p></div></div>
+                        </div>
+                        <div id="billsList" class="card-shadow rounded-xl p-6 bg-white">
+                            <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">عدد العناصر</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
+                            <tbody>${sortedBills.map(bill => `<tr class="bill-row border-b" data-bill-number="${bill.billNumber}"><td class="py-3 px-4 font-semibold" style="color: ${config.primary_color};">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4">${bill.items.length}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center"><div class="flex gap-2 justify-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button><button onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" ${isLoading(`delete-bill-${bill.__backendId}`) ? 'disabled' : ''} class="px-4 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-bill-${bill.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button><button id="confirm-bill-${bill.__backendId}" onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" style="display: none;" class="px-4 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button></div></td></tr>`).join('')}</tbody></table></div>
+                        </div>`}
+                </div>`;
         }
 
         function filterBills() {
             const searchTerm = document.getElementById('billSearch').value.toLowerCase();
-            const rows = document.querySelectorAll('.bill-row');
-
-            rows.forEach(row => {
-                const billNumber = row.getAttribute('data-bill-number').toLowerCase();
-                if (billNumber.includes(searchTerm)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+            document.querySelectorAll('.bill-row').forEach(row => { row.style.display = row.getAttribute('data-bill-number').toLowerCase().includes(searchTerm) ? '' : 'none'; });
         }
 
         function renderNewBill() {
@@ -1577,284 +1030,191 @@
             const lastInput = appState.lastBillInput || {};
             const isEditing = !!appState.editingBillId;
 
+            const stepsBar = `
+                <div class="flex items-center justify-center gap-2 md:gap-4 mb-8 no-print">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base ${appState.billStep === 'selectModel' ? 'ring-4 ring-offset-2' : ''}" style="background-color: ${appState.billStep === 'selectModel' || appState.billStep === 'clientName' || appState.billStep === 'items' ? config.primary_color : '#cbd5e0'};">1</div>
+                        <span class="font-semibold text-sm md:text-base hidden sm:inline" style="color: ${appState.billStep === 'selectModel' ? config.primary_color : '#a0aec0'};">نموذج التسعير</span>
+                    </div>
+                    <div class="w-8 md:w-16 h-0.5 rounded" style="background-color: ${appState.billStep !== 'selectModel' ? config.primary_color : '#cbd5e0'};"></div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base ${appState.billStep === 'clientName' ? 'ring-4 ring-offset-2' : ''}" style="background-color: ${appState.billStep === 'clientName' || appState.billStep === 'items' ? config.primary_color : '#cbd5e0'};">2</div>
+                        <span class="font-semibold text-sm md:text-base hidden sm:inline" style="color: ${appState.billStep === 'clientName' ? config.primary_color : '#a0aec0'};">اسم العميل</span>
+                    </div>
+                    <div class="w-8 md:w-16 h-0.5 rounded" style="background-color: ${appState.billStep === 'items' ? config.primary_color : '#cbd5e0'};"></div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base ${appState.billStep === 'items' ? 'ring-4 ring-offset-2' : ''}" style="background-color: ${appState.billStep === 'items' ? config.primary_color : '#cbd5e0'};">3</div>
+                        <span class="font-semibold text-sm md:text-base hidden sm:inline" style="color: ${appState.billStep === 'items' ? config.primary_color : '#a0aec0'};">العناصر</span>
+                    </div>
+                </div>`;
+
+            const cancelButton = `<button onclick="cancelNewBill();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button>`;
+
+            let content = '';
+
+            if (appState.billStep === 'selectModel') {
+                content = `
+                    <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">اختر نموذج التسعير</h2>
+                        ${appState.pricingModels.length === 0 ? `<div class="text-center py-12"><div class="text-6xl mb-4">💰</div><p class="text-xl mb-4">لا توجد نماذج تسعرة متاحة</p><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء نموذج تسعير</button></div>` : `
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${appState.pricingModels.map(model => `<button onclick="selectModelForBill('${model.__backendId}');" class="card-shadow rounded-lg p-6 text-right hover-scale bg-white border-2" style="border-color: ${config.primary_color}; border-opacity: 0.3;"><h3 class="text-xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><p class="text-sm opacity-75">${model.data.length} فئات متاحة</p></button>`).join('')}</div>`}
+                    </div>`;
+            } else if (appState.billStep === 'clientName') {
+                content = `
+                    <div class="card-shadow rounded-xl p-6 bg-white max-w-lg mx-auto">
+                        <div class="text-center mb-6">
+                            <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center" style="background-color: ${config.background_color};"><span class="text-4xl">👤</span></div>
+                            <h2 class="text-2xl font-bold mb-2" style="color: ${config.text_color};">اسم العميل</h2>
+                            <p class="opacity-75">أدخل اسم العميل ثم اضغط متابعة</p>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold mb-2">اسم العميل</label>
+                            <input type="text" id="billClientName" value="${escapeHtml(appState.currentBillClientName)}" placeholder="أدخل اسم العميل (اختياري)" class="w-full px-4 py-4 border-2 rounded-lg text-lg" style="border-color: ${config.primary_color};" onkeydown="if(event.key==='Enter') confirmClientName();">
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="backToModelSelect();" class="flex-1 px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">رجوع</button>
+                            <button onclick="confirmClientName();" class="flex-1 px-6 py-3 rounded-lg font-semibold text-white text-lg" style="background-color: ${config.primary_color};">متابعة</button>
+                        </div>
+                    </div>`;
+            } else if (appState.billStep === 'items') {
+                content = `
+                    <div class="space-y-6">
+                        <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">إضافة عنصر</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <select id="billCategory" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${appState.selectedModel.data.map(cat => `<option value="${cat.name}" ${lastInput.category === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}</select>
+                                <select id="billSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+                                <input type="number" id="billQuantity" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                <button onclick="addBillItem();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.accent_color};">إضافة</button>
+                            </div>
+                        </div>
+                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-right py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center">${item.unitPrice.toFixed(2)}</td><td class="text-center">${item.quantity.toFixed(2)}</td><td class="text-center">${item.size}</td><td>${item.category}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
+                    </div>`;
+            }
+
             return `
-        <div class="fade-in">
-          <div class="flex justify-between items-center mb-8">
-            <h1 class="text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${isEditing ? 'تعديل الفاتورة' : 'إنشاء فاتورة جديدة'}</h1>
-            <button onclick="appState.currentView = 'bills'; appState.lastBillInput = null; appState.editingBillId = null; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
-              إلغاء
-            </button>
-          </div>
-          
-          ${!appState.selectedModel ? `
-            <div class="card-shadow rounded-xl p-6 bg-white">
-              <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">اختر نموذج التسعير</h2>
-              ${appState.pricingModels.length === 0 ? `
-                <div class="text-center py-12">
-                  <div class="text-6xl mb-4">💰</div>
-                  <p class="text-xl mb-4" style="color: ${config.text_color || defaultConfig.text_color};">لا توجد نماذج تسعير متاحة</p>
-                  <button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                    إنشاء نموذج تسعير
-                  </button>
-                </div>
-              ` : `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  ${appState.pricingModels.map(model => `
-                    <button onclick="selectModelForBill('${model.__backendId}');" class="card-shadow rounded-lg p-6 text-right hover-scale bg-white border-2 transition-all hover:border-opacity-100" style="border-color: ${config.primary_color || defaultConfig.primary_color}; border-opacity: 0.3;">
-                      <h3 class="text-xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(model.pricingModelName)}</h3>
-                      <p class="text-sm opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">${model.data.length} فئات متاحة</p>
-                    </button>
-                  `).join('')}
-                </div>
-              `}
-            </div>
-          ` : `
-            <div class="space-y-6">
-              <div class="card-shadow rounded-xl p-6 bg-white">
-                <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">إضافة عنصر</h2>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <select id="billCategory" class="px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                    <option value="">اختر الفئة</option>
-                    ${appState.selectedModel.data.map(cat => `
-                      <option value="${cat.name}" ${lastInput.category === cat.name ? 'selected' : ''}>${cat.name}</option>
-                    `).join('')}
-                  </select>
-                  
-                  <select id="billSize" class="px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                    <option value="">اختر المقاس</option>
-                    ${SIZES.map(size => `
-                      <option value="${size}" ${lastInput.size === size ? 'selected' : ''}>${size}</option>
-                    `).join('')}
-                  </select>
-                  
-                  <input type="number" id="billQuantity" min="1" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                  
-                  <button onclick="addBillItem();" class="px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
-                    إضافة
-                  </button>
-                </div>
-              </div>
-              
-              ${appState.billItems.length > 0 ? `
-                <div class="card-shadow rounded-xl p-6 bg-white">
-                  <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color || defaultConfig.text_color};">عناصر الفاتورة</h2>
-                  <div class="overflow-x-auto">
-                    <table class="w-full">
-                      <thead>
-                        <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                          <th class="text-right py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
-                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المقاس</th>
-                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الكمية</th>
-                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">السعر</th>
-                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الاجمالي</th>
-                          <th class="text-center py-3 px-4 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">إجراء</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${appState.billItems.map((item, index) => `
-                          <tr class="border-b hover:bg-opacity-50 transition-colors" style="border-color: ${config.background_color || defaultConfig.background_color};">
-                            <td class="py-3 px-4" style="color: ${config.text_color || defaultConfig.text_color};">${item.category}</td>
-                            <td class="py-3 px-4 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.size}</td>
-                            <td class="py-3 px-4 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.quantity}</td>
-                            <td class="py-3 px-4 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.unitPrice.toFixed(2)}</td>
-                            <td class="py-3 px-4 text-center font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${item.total.toFixed(2)}</td>
-                            <td class="py-3 px-4 text-center">
-                              <button onclick="removeBillItem(${index});" class="px-3 py-1 bg-red-500 rounded text-white text-sm hover:bg-red-600 transition-colors">
-                                حذف
-                              </button>
-                            </td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                      <tfoot>
-                        <tr class="border-t-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                          <td colspan="4" class="py-4 px-4 text-left font-bold text-xl" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي الكلي:</td>
-                          <td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color || defaultConfig.accent_color};">
-                            ${appState.billItems.reduce((sum, item) => sum + item.total, 0).toFixed(2)} جنية
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                  
-                  <div class="mt-6 flex justify-end">
-                    <button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                      ${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}
-                      <span>حفظ الفاتورة</span>
-                    </button>
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-          `}
-        </div>
-      `;
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-4">
+                        <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">${isEditing ? 'تعديل الفاتورة' : 'إنشاء فاتورة جديدة'}</h1>
+                        ${cancelButton}
+                    </div>
+                    ${stepsBar}
+                    ${appState.billStep === 'items' ? `<div class="mb-4 no-print"><button onclick="backToClientName();" class="px-4 py-2 bg-gray-200 rounded-lg font-semibold text-sm hover:bg-gray-300">↩ رجوع لاسم العميل</button></div>` : ''}
+                    ${content}
+                </div>`;
         }
 
         function renderViewBill() {
             const config = window.elementSdk?.config || defaultConfig;
             const bill = appState.currentBill;
-
+            const clientName = bill.billClientName || '';
             return `
-        <div class="fade-in">
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4 no-print">
-            <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">عرض الفاتورة</h1>
-            <div class="flex gap-3 w-full md:w-auto">
-              <button onclick="appState.currentView = 'bills'; render();" class="flex-1 md:flex-none px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400 transition-colors">
-                رجوع
-              </button>
-              <button onclick="editBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.accent_color || defaultConfig.accent_color};">
-                <span>✏️</span>
-                <span>تعديل</span>
-              </button>
-              <button onclick="printBill();" class="flex-1 md:flex-none px-6 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                <span>🖨️</span>
-                <span>طباعة</span>
-              </button>
-              <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="flex-1 md:flex-none px-6 py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center justify-center gap-2 hover:bg-blue-600 transition-colors">
-                ${isLoading('sharing') ? '<div class="loading-spinner"></div>' : '<span>📄</span>'}
-                <span>${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</span>
-              </button>
-            </div>
-          </div>
-          
-          <div id="printable-bill" class="card-shadow rounded-xl p-4 md:p-12 bg-white max-w-4xl mx-auto">
-            <!-- Invoice Header -->
-            <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-6">
-                <div>
-                  <div class="flex items-center gap-3 mb-2">
-                    <div class="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
-                      <span class="text-2xl md:text-3xl">👔</span>
+                <div class="fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 no-print">
+                        <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">عرض الفاتورة</h1>
+                        <div class="flex flex-wrap gap-2 md:gap-3">
+                            <button onclick="appState.currentView = 'bills'; render();" class="px-4 md:px-6 py-2 md:py-3 bg-gray-300 rounded-lg font-semibold text-sm md:text-base">رجوع</button>
+                            <button onclick="editBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.accent_color};">✏️ تعديل</button>
+                            <button onclick="printBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.primary_color};">🖨️ طباعة</button>
+                            <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : '📤'} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
+                            <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-green-600 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : '⬇️'} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
+                        </div>
                     </div>
-                    <div>
-                      <h2 class="text-2xl md:text-3xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
-                      <p class="opacity-75 text-sm md:text-base" style="color: ${config.text_color || defaultConfig.text_color};">فاتورة مبيعات</p>
+                    
+                    <div id="view-bill-container" class="w-full">
+                        <div id="printable-bill" class="card-shadow rounded-xl p-4 md:p-8 bg-white max-w-4xl mx-auto">
+                            <div class="border-b-2 pb-6 mb-6" style="border-color: ${config.primary_color};">
+                                <div class="print-header-grid">
+                                    <div class="print-company text-right">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});">
+                                                <span class="text-2xl md:text-3xl">👔</span>
+                                            </div>
+                                            <div>
+                                                <h2 class="text-xl md:text-3xl font-bold">${escapeHtml(appState.companySettings.name)}</h2>
+                                                <p class="opacity-75 text-xs md:text-sm">فاتورة مبيعات</p>
+                                            </div>
+                                        </div>
+                                        <div class="space-y-1 text-sm md:text-base mt-2">
+                                            <p>📞 ${escapeHtml(appState.companySettings.phone)}</p>
+                                            <p>📍 ${escapeHtml(appState.companySettings.address)}</p>
+                                        </div>
+                                        ${clientName ? `
+                                        <div class="mt-4 pt-3 border-t border-dashed" style="border-color: ${config.primary_color}; border-opacity: 0.3;">
+                                            <p class="text-xs opacity-60 mb-1">العميل</p>
+                                            <p class="text-xl md:text-2xl font-bold" style="color: ${config.primary_color};">أ/ ${escapeHtml(clientName)}</p>
+                                        </div>` : ''}
+                                    </div>
+                                    
+                                    <div class="print-invoice text-left">
+                                        <div class="mb-4">
+                                            <p class="text-xs md:text-sm opacity-75 mb-1">رقم الفاتورة</p>
+                                            <p class="text-2xl md:text-3xl font-bold" style="color: ${config.primary_color};">${bill.billNumber}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs md:text-sm opacity-75 mb-1">التاريخ</p>
+                                            <p class="text-base md:text-lg font-semibold">${new Date(bill.billDate).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-8 overflow-x-auto">
+                                <table class="mt-8 w-full min-w-[600px]">
+                                    <thead>
+                                        <tr class="border-b-2" style="border-color: ${config.primary_color};">
+                                            <th class="text-center py-2 px-2 font-bold">الإجمالي</th>
+                                            <th class="text-center py-2 px-2 font-bold">الكمية</th>
+                                            <th class="text-center py-2 px-2 font-bold">سعر الوحدة</th>
+                                            <th class="text-center py-2 px-2 font-bold">الفئة</th>
+                                            <th class="text-center py-2 px-2 font-bold">المقاس</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${bill.items.map(item => `
+                                            <tr class="border-b">
+                                                <td class="py-2 px-2 text-center font-semibold">${item.total.toFixed(2)}</td>
+                                                <td class="py-2 px-2 text-center">${item.quantity.toFixed(2)}</td>
+                                                <td class="py-2 px-2 text-center">${item.unitPrice.toFixed(2)}</td>
+                                                <td class="py-2 px-2 text-center">${escapeHtml(item.category)}</td>
+                                                <td class="py-2 px-2 text-center">${item.size}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="border-t-2 pt-6" style="border-color: ${config.primary_color};">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl md:text-2xl font-bold">الإجمالي الكلي</span>
+                                    <span class="text-3xl md:text-4xl font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t text-center opacity-75 text-sm md:text-base">
+                                <p>${escapeHtml(appState.companySettings.footer)}</p>
+                            </div>
+                        </div>
                     </div>
-                  </div>
-                  <div class="space-y-1 text-sm md:text-base" style="color: ${config.text_color || defaultConfig.text_color};">
-                    <p>📞 ${escapeHtml(appState.companySettings.phone)}</p>
-                    <p>📍 ${escapeHtml(appState.companySettings.address)}</p>
-                  </div>
-                </div>
-                
-                <div class="text-left w-full md:w-auto bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg md:rounded-none">
-                  <div class="flex md:block justify-between items-center mb-2 md:mb-0">
-                    <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">رقم الفاتورة</p>
-                    <p class="text-xl md:text-2xl font-bold md:mb-4" style="color: ${config.primary_color || defaultConfig.primary_color};">${bill.billNumber}</p>
-                  </div>
-                  <div class="flex md:block justify-between items-center">
-                    <p class="text-sm opacity-75 mb-1" style="color: ${config.text_color || defaultConfig.text_color};">التاريخ</p>
-                    <p class="font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${new Date(bill.billDate).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Invoice Items -->
-            <div class="mb-8 overflow-x-auto">
-              <table class="w-full min-w-[600px]">
-                <thead>
-                  <tr class="border-b-2" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-                    <th class="text-right py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الفئة</th>
-                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">المقاس</th>
-                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الكمية</th>
-                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">سعر الوحدة</th>
-                    <th class="text-center py-3 px-2 font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${bill.items.map(item => `
-                    <tr class="border-b" style="border-color: ${config.background_color || defaultConfig.background_color};">
-                      <td class="py-3 px-2" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(item.category)}</td>
-                      <td class="py-3 px-2 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.size}</td>
-                      <td class="py-3 px-2 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.quantity}</td>
-                      <td class="py-3 px-2 text-center" style="color: ${config.text_color || defaultConfig.text_color};">${item.unitPrice.toFixed(2)}</td>
-                      <td class="py-3 px-2 text-center font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">${item.total.toFixed(2)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-            
-            <!-- Total -->
-            <div class="border-t-2 pt-6" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              <div class="flex justify-between items-center bg-gray-50 md:bg-transparent p-4 md:p-0 rounded-lg md:rounded-none">
-                <span class="text-xl md:text-2xl font-bold" style="color: ${config.text_color || defaultConfig.text_color};">الإجمالي الكلي</span>
-                <span class="text-2xl md:text-4xl font-bold" style="color: ${config.accent_color || defaultConfig.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
-              </div>
-            </div>
-            
-            <!-- Footer -->
-            <div class="mt-8 md:mt-12 pt-6 border-t text-center opacity-75 text-sm md:text-base" style="border-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color};">
-              <p>${escapeHtml(appState.companySettings.footer)}</p>
-            </div>
-          </div>
-        </div>
-      `;
+                </div>`;
         }
 
         function renderSettings() {
             const config = window.elementSdk?.config || defaultConfig;
-
             return `
-        <div class="fade-in">
-          <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">الإعدادات</h1>
-          
-          <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl">
-            <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">معلومات الشركة</h2>
-            
-            <form onsubmit="saveSettings(event);" class="space-y-6">
-              <div>
-                <label for="settingsName" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">اسم الشركة</label>
-                <input type="text" id="settingsName" value="${escapeHtml(appState.companySettings.name)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              </div>
-              
-              <div>
-                <label for="settingsPhone" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">رقم الهاتف</label>
-                <input type="text" id="settingsPhone" value="${escapeHtml(appState.companySettings.phone)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              </div>
-              
-              <div>
-                <label for="settingsAddress" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">العنوان</label>
-                <input type="text" id="settingsAddress" value="${escapeHtml(appState.companySettings.address)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              </div>
-              
-              <div>
-                <label for="settingsFooter" class="block text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">نص التذييل</label>
-                <input type="text" id="settingsFooter" value="${escapeHtml(appState.companySettings.footer)}" required class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-all" style="border-color: ${config.primary_color || defaultConfig.primary_color};">
-              </div>
-              
-              <button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity" style="background-color: ${config.primary_color || defaultConfig.primary_color};">
-                ${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}
-                <span>حفظ الإعدادات</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      `;
+                <div class="fade-in">
+                    <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">الإعدادات</h1>
+                    <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl"><h2 class="text-2xl font-bold mb-6">معلومات الشركة</h2>
+                        <form onsubmit="saveSettings(event);" class="space-y-6">
+                            <div><label class="block text-sm font-semibold mb-2">اسم الشركة</label><input type="text" id="settingsName" value="${escapeHtml(appState.companySettings.name)}" required class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">رقم الهاتف</label><input type="text" id="settingsPhone" value="${escapeHtml(appState.companySettings.phone)}" required class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">العنوان</label><input type="text" id="settingsAddress" value="${escapeHtml(appState.companySettings.address)}" required class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <div><label class="block text-sm font-semibold mb-2">نص التذييل</label><input type="text" id="settingsFooter" value="${escapeHtml(appState.companySettings.footer)}" required class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
+                            <button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الإعدادات</span></button>
+                        </form>
+                    </div>
+                </div>`;
         }
 
-        function getCategoryIcon(category) {
-            const icons = {
-                'ثوب رجالي': '🧥',
-                'قميص': '👔',
-                'بنطلون': '👖',
-                'جاكيت': '🧥',
-                'عباية نسائية': '👗',
-                'فستان': '👗',
-                'تنورة': '👗',
-                'بلوزة': '👚',
-                'سليب': '🩲',
-                'نصف كم': '👕',
-                'شورت': '🩳',
-                'سبور': '🏃',
-                'كلسون': '🩲',
-                'كم': '👕'
-            };
-            return icons[category] || '👔';
-        }
+        function getCategoryIcon(category) { const icons = { 'سليب': '🩲', 'نصف كم': '👕', 'شورت': '🩳', 'حماله': '🏃', 'كلسون': '🩲', 'كم': '👕', 'المجموع': '🧮' }; return icons[category] || '👔'; }
 
         function scrollToProducts() {
             document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
@@ -1944,7 +1304,122 @@
             ])
         };
 
-        // Initialize
+        
+// Added from v5
+
+function triggerFileInput() { document.getElementById('excelFileInput').click(); }
+
+async function importFromExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            setLoading('importExcel', true);
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                if (rows.length < 2) throw new Error('الملف فارغ أو لا يحتوي على بيانات');
+                let headerRowIndex = -1, sizeColIndex = -1;
+                const categoryMap = new Map();
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row) continue;
+                    const sizeIdx = row.findIndex(cell => cell && cell.toString().trim() === 'المقاس');
+                    if (sizeIdx !== -1) {
+                        headerRowIndex = i; sizeColIndex = sizeIdx;
+                        for (let j = 0; j < row.length; j++) {
+                            if (j === sizeIdx) continue;
+                            let catName = row[j]?.toString().trim();
+                            if (!catName) continue;
+                            if (catName === 'نصفكم') catName = 'نصف كم';
+                            if (catName === 'سبور') catName = 'حماله';
+                            categoryMap.set(j, catName);
+                        }
+                        break;
+                    }
+                }
+                if (headerRowIndex === -1) throw new Error('لم يتم العثور على صف الرأس الذي يحتوي على "المقاس"');
+                const modelData = [];
+                const categoryNames = Array.from(categoryMap.values());
+                for (let catName of categoryNames) {
+                    modelData.push({ name: catName, prices: SIZES.map(s => ({ size: s, price: 0 })) });
+                }
+                for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || row.length === 0) continue;
+                    const sizeCell = row[sizeColIndex];
+                    if (sizeCell === undefined || sizeCell === null) continue;
+                    const size = parseInt(sizeCell);
+                    if (isNaN(size) || !SIZES.includes(size)) continue;
+                    for (let [colIdx, catName] of categoryMap.entries()) {
+                        const priceCell = row[colIdx];
+                        if (priceCell === undefined || priceCell === null || priceCell === '------' || priceCell === '') continue;
+                        const price = parseFloat(priceCell);
+                        if (isNaN(price)) continue;
+                        const catData = modelData.find(c => c.name === catName);
+                        if (catData) { const priceEntry = catData.prices.find(p => p.size === size); if (priceEntry) priceEntry.price = price; }
+                    }
+                }
+                let modelName = file.name.replace(/\.[^/.]+$/, "");
+                modelName = prompt("أدخل اسم النموذج:", modelName);
+                if (!modelName || !modelName.trim()) { setLoading('importExcel', false); return; }
+                const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: modelName.trim(), pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+                showToast(result.isOk ? 'تم استيراد النموذج بنجاح' : 'حدث خطأ أثناء حفظ النموذج', result.isOk ? 'success' : 'error');
+            } catch (err) {
+                console.error(err);
+                showToast('خطأ في قراءة الملف: ' + err.message, 'error');
+            } finally {
+                setLoading('importExcel', false);
+                event.target.value = '';
+                render();
+            }
+        }
+
+function confirmClientName() {
+            const input = document.getElementById('billClientName');
+            appState.currentBillClientName = input ? input.value.trim() : '';
+            appState.billStep = 'items';
+            render();
+        }
+
+function backToModelSelect() {
+            appState.selectedModel = null;
+            appState.billStep = 'selectModel';
+            render();
+        }
+
+function backToClientName() {
+            appState.billStep = 'clientName';
+            render();
+        }
+
+function cancelNewBill() {
+            appState.currentView = 'bills';
+            appState.lastBillInput = null;
+            appState.editingBillId = null;
+            appState.currentBillClientName = '';
+            appState.selectedModel = null;
+            appState.billStep = 'selectModel';
+            render();
+        }
+
+async function downloadBillPDF() {
+            const element = document.getElementById('printable-bill');
+            const container = document.getElementById('view-bill-container');
+            if (!container) { showToast('خطأ: لم يتم العثور على حاوية الفاتورة', 'error'); return; }
+            setLoading('downloading', true);
+            container.classList.add('pdf-capture-mode');
+            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            try {
+                await html2pdf().set(opt).from(element).save();
+                showToast('تم تنزيل PDF بنجاح', 'success');
+            } catch (error) { console.error('PDF download error:', error); showToast('حدث خطأ أثناء تنزيل PDF', 'error'); }
+            finally { container.classList.remove('pdf-capture-mode'); setLoading('downloading', false); }
+        }
+
+
+// Initialize
         async function init() {
             if (window.elementSdk) {
                 await window.elementSdk.init(element);
