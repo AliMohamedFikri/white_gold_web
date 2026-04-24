@@ -1,0 +1,12 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^powershell -c \"\\(Get-Content 'c:\\\\Users\\\\i catch\\\\Downloads\\\\My-GitHub\\\\white_gold_web\\\\index\\.html'\\)\\[695\\.\\.708\\]\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^powershell -c \"\\(Get-Content -Path 'c:\\\\Users\\\\i catch\\\\Downloads\\\\My-GitHub\\\\white_gold_web\\\\index\\.html'\\)\\[875\\.\\.887\\]\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

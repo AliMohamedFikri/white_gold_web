@@ -28,7 +28,7 @@
     <meta name="apple-mobile-web-app-title" content="White Gold">
 
     <!-- Favicon (Dynamic SVG) -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👔</text></svg>">
+    <link rel="icon" href="Logo%20white%20gold-Final-2.svg" type="image/svg+xml">
 
     <!-- Fonts (Optimized Loading) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -699,8 +699,8 @@
           <nav class="w-full py-4 px-4 md:py-6 md:px-8 relative z-50 shadow-sm" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center" style="background-color: white;">
-                  <span class="text-xl md:text-2xl" style="color: ${config.primary_color || defaultConfig.primary_color};">👔</span>
+                <div class="h-10 md:h-12 flex items-center justify-center p-1 bg-white rounded-lg">
+                  <img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="h-full w-auto object-contain" />
                 </div>
                 <div>
                   <h1 class="text-xl md:text-2xl font-bold text-white">${escapeHtml(companyName)}</h1>
@@ -837,7 +837,7 @@
         <div class="min-h-screen w-full flex items-center justify-center" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
           <div class="bg-white rounded-2xl shadow-2xl p-12 w-full max-w-md">
             <div class="text-center mb-8">
-              <div class="text-6xl mb-4">👔</div>
+              <div class="flex justify-center mb-4"><img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="w-24 h-24 object-contain" /></div>
               <h1 class="text-3xl font-bold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">دخول الإدارة</h1>
               <p class="opacity-75" style="color: ${config.text_color || defaultConfig.text_color};">نظام إدارة مصنع الملابس</p>
             </div>
@@ -876,13 +876,13 @@
                 <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color};">
                     <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
                         <button onclick="toggleSidebar()" class="text-white text-2xl">${appState.isSidebarOpen ? '✕' : '☰'}</button>
-                        <div class="flex items-center gap-2"><div class="w-8 h-8 bg-white rounded-full flex items-center justify-center"><span class="text-sm" style="color: ${config.primary_color};">👔</span></div><span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span></div>
+                        <div class="flex items-center gap-2"><div class="h-8 flex items-center justify-center p-[2px] bg-white rounded"><img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="h-full w-auto object-contain" /></div><span class="text-white font-bold text-lg">${escapeHtml(appState.companySettings.name)}</span></div>
                     </div>
                     ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
                     <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
                         <div class="p-6 h-full overflow-y-auto">
                             <div class="flex items-center justify-between gap-3 mb-8">
-                                <div class="flex items-center gap-3"><div class="w-12 h-12 bg-white rounded-full flex items-center justify-center"><span class="text-2xl" style="color: ${config.primary_color};">👔</span></div><div class="text-white"><h2 class="font-bold text-lg">لوحة الإدارة</h2><p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p></div></div>
+                                <div class="flex items-center gap-3"><div class="h-12 flex items-center justify-center p-1 bg-white rounded"><img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="h-full w-auto object-contain" /></div><div class="text-white"><h2 class="font-bold text-lg">لوحة الإدارة</h2><p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p></div></div>
                                 <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
                             </div>
                             <nav class="space-y-2">
@@ -1125,8 +1125,8 @@
                                 <div class="print-header-grid">
                                     <div class="print-company text-right">
                                         <div class="flex items-center gap-3 mb-2">
-                                            <div class="w-12 h-12 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});">
-                                                <span class="text-2xl md:text-3xl">👔</span>
+                                            <div class="h-12 md:h-16 flex items-center justify-center shrink-0 p-1 bg-white rounded-lg" style="border: 2px solid ${config.primary_color};">
+                                                <img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="h-full w-auto object-contain" />
                                             </div>
                                             <div>
                                                 <h2 class="text-xl md:text-3xl font-bold">${escapeHtml(appState.companySettings.name)}</h2>
