@@ -40,9 +40,8 @@
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="/_sdk/data_sdk.js"></script>
-    <script src="/_sdk/element_sdk.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="v3_Billing_only/bill_templates/logo_data_uri.js"></script>
 
     <style>
         body {
@@ -282,6 +281,31 @@
 <body class="h-full w-full">
     <div id="app" class="h-full w-full overflow-auto"></div>
     <script>
+        function loadOptionalSdkScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.onload = () => resolve(true);
+                script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+                document.head.appendChild(script);
+            });
+        }
+
+        async function initOptionalSdks() {
+            const isWebContext = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+            if (!isWebContext) {
+                return;
+            }
+
+            const tasks = [
+                loadOptionalSdkScript('/_sdk/data_sdk.js'),
+                loadOptionalSdkScript('/_sdk/element_sdk.js')
+            ];
+
+            await Promise.allSettled(tasks);
+        }
+
         // Bill template versioning: change this value to switch bill UI version.
         const BILL_TEMPLATE_VERSION = 'v7';
         const BILL_FALLBACK_TEMPLATE_VERSION = 'fallback';
@@ -730,27 +754,177 @@
 
         function printBill() { window.print(); }
 
-        async function shareBill() {
-            const element = document.getElementById('printable-bill');
+        function getBillPdfElements() {
             const container = document.getElementById('view-bill-container');
-            if (!container) { showToast('خطأ: لم يتم العثور على حاوية الفاتورة', 'error'); return; }
-            setLoading('sharing', true);
-            container.classList.add('pdf-capture-mode');
-            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            try {
-                const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
-                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], opt.filename, { type: 'application/pdf' })] })) {
-                    const file = new File([pdfBlob], opt.filename, { type: 'application/pdf' });
-                    await navigator.share({ title: `فاتورة ${appState.currentBill.billNumber}`, text: `فاتورة من ${appState.companySettings.name}`, files: [file] });
-                    showToast('تم فتح نافذة المشاركة', 'success');
-                } else {
-                    const url = URL.createObjectURL(pdfBlob);
-                    const a = document.createElement('a'); a.href = url; a.download = opt.filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-                    showToast('مشاركة الملفات غير مدعومة، تم تنزيل PDF بدلاً من ذلك', 'info');
+            const element = document.getElementById('printable-bill') || container?.querySelector('#printable-bill') || null;
+            return { container, element };
+        }
+
+        function buildBillPdfOptions(filename) {
+            const isFileProtocol = window.location.protocol === 'file:';
+            return {
+                margin: 10,
+                filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: !isFileProtocol, allowTaint: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+        }
+
+        function isCanvasSecurityError(error) {
+            return error?.name === 'SecurityError' || String(error?.message || '').includes('Tainted canvases');
+        }
+
+        function blobToDataUrl(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        const TRANSPARENT_PIXEL_DATA_URI = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
+        async function sanitizeImagesForPdf(root) {
+            const images = Array.from(root.querySelectorAll('img'));
+            const isFileProtocol = window.location.protocol === 'file:';
+
+            await Promise.all(images.map(async (img) => {
+                const src = img.getAttribute('src');
+                if (!src || src.startsWith('data:')) return;
+
+                try {
+                    if (isFileProtocol) {
+                        img.setAttribute('src', TRANSPARENT_PIXEL_DATA_URI);
+                        img.removeAttribute('srcset');
+                        return;
+                    }
+
+                    const absoluteSrc = new URL(src, window.location.href).href;
+                    const response = await fetch(absoluteSrc, { mode: 'cors', cache: 'force-cache' });
+                    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+                    const blob = await response.blob();
+                    const dataUrl = await blobToDataUrl(blob);
+                    img.setAttribute('src', dataUrl);
+                    img.removeAttribute('srcset');
+                    img.setAttribute('crossorigin', 'anonymous');
+                } catch (error) {
+                    img.setAttribute('src', TRANSPARENT_PIXEL_DATA_URI);
+                    img.removeAttribute('srcset');
                 }
+            }));
+        }
+
+        async function withPdfSafeElement(sourceElement, callback) {
+            const images = Array.from(sourceElement.querySelectorAll('img'));
+            const originalState = images.map((img) => ({
+                img,
+                src: img.getAttribute('src'),
+                srcset: img.getAttribute('srcset'),
+                crossorigin: img.getAttribute('crossorigin')
+            }));
+
+            try {
+                await sanitizeImagesForPdf(sourceElement);
+                return await callback(sourceElement);
+            } finally {
+                originalState.forEach(({ img, src, srcset, crossorigin }) => {
+                    if (src === null) img.removeAttribute('src'); else img.setAttribute('src', src);
+                    if (srcset === null) img.removeAttribute('srcset'); else img.setAttribute('srcset', srcset);
+                    if (crossorigin === null) img.removeAttribute('crossorigin'); else img.setAttribute('crossorigin', crossorigin);
+                });
+            }
+        }
+
+        async function runHtml2PdfWithFallback(element, opt, mode) {
+            try {
+                const worker = html2pdf().set(opt).from(element);
+                if (mode === 'blob') {
+                    return await worker.outputPdf('blob');
+                }
+                await worker.save();
+                return null;
             } catch (error) {
-                if (error.name !== 'AbortError') { console.error('PDF sharing error:', error); showToast('حدث خطأ أثناء إنشاء أو مشاركة PDF', 'error'); }
-            } finally { container.classList.remove('pdf-capture-mode'); setLoading('sharing', false); }
+                if (!isCanvasSecurityError(error)) {
+                    throw error;
+                }
+
+                return await withPdfSafeElement(element, async (safeElement) => {
+                    const worker = html2pdf().set(opt).from(safeElement);
+                    if (mode === 'blob') {
+                        return await worker.outputPdf('blob');
+                    }
+                    await worker.save();
+                    return null;
+                });
+            }
+        }
+
+        async function runBillPdfAction(loadingKey, action) {
+            if (!appState.currentBill) {
+                showToast('لا توجد فاتورة نشطة', 'error');
+                return;
+            }
+
+            if (typeof html2pdf !== 'function') {
+                showToast('مكتبة PDF غير متاحة حالياً', 'error');
+                return;
+            }
+
+            const { container, element } = getBillPdfElements();
+            if (!container || !element) {
+                showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error');
+                return;
+            }
+
+            const filename = `invoice_${appState.currentBill.billNumber}.pdf`;
+            const opt = buildBillPdfOptions(filename);
+
+            setLoading(loadingKey, true);
+            container.classList.add('pdf-capture-mode');
+
+            try {
+                // Wait one paint so capture-mode styles are applied before PDF rendering.
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                await action({ element, filename, opt });
+            } finally {
+                container.classList.remove('pdf-capture-mode');
+                setLoading(loadingKey, false);
+            }
+        }
+
+        async function shareBill() {
+            await runBillPdfAction('sharing', async ({ element, filename, opt }) => {
+                try {
+                    const pdfBlob = await runHtml2PdfWithFallback(element, opt, 'blob');
+                    const shareCapable = typeof File === 'function' && navigator.share && navigator.canShare;
+
+                    if (shareCapable) {
+                        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+                        if (navigator.canShare({ files: [file] })) {
+                            await navigator.share({ title: `فاتورة ${appState.currentBill.billNumber}`, text: `فاتورة من ${appState.companySettings.name}`, files: [file] });
+                            showToast('تم فتح نافذة المشاركة', 'success');
+                            return;
+                        }
+                    }
+
+                    const url = URL.createObjectURL(pdfBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('المشاركة غير مدعومة، تم تنزيل PDF بدلاً من ذلك', 'info');
+                } catch (error) {
+                    if (error?.name !== 'AbortError') {
+                        console.error('PDF sharing error:', error);
+                        showToast('حدث خطأ أثناء إنشاء أو مشاركة PDF', 'error');
+                    }
+                }
+            });
         }
 
         async function deleteBill(bill) {
@@ -1291,19 +1465,18 @@
         /* function getCategoryIcon(category) { const icons = { 'سليب': '🩲', 'نصف كم': '👕', 'شورت': '🩳', 'حماله': '🏃', 'كلسون': '🩲', 'كم': '👕', 'المجموع': '🧮' }; return icons[category] || '👔'; } */
         function getCategoryIcon(category) {
             const icons = {
-                'سليب': 'سليب.svg',
-                'نصف كم': 'نصفكم.svg',
-                'شورت': 'شورت.svg',
-                'حماله': 'حماله.svg', // This matches your uploaded file
-                'كلسون': 'كلسون.svg',
-                'كم': 'كم.svg',
-                'المجموع': 'total.svg'
+                'سليب': 'سليب',
+                'نصف كم': 'نصفكم',
+                'شورت': 'شورت',
+                'حماله': 'حماله', // This matches your uploaded file
+                'كلسون': 'كلسون',
+                'كم': 'كم',
             };
 
-            const iconFile = icons[category] || 'default.svg';
+            const iconFile = icons[category] || 'default';
 
             // Returning an <img> tag so the browser renders the image
-            return `<img src="assets/bg-blue/${iconFile}" alt="" style="width: 200px; height: 200px; vertical-align: middle; margin-left: 8px;">`;
+            return `<img src="assets/png/${iconFile}.JPEG" alt="" style="width: 200px; height: 200px; vertical-align: middle; margin-left: 8px;">`;
         }
         function scrollToProducts() {
             document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
@@ -1494,22 +1667,22 @@
         }
 
         async function downloadBillPDF() {
-            const element = document.getElementById('printable-bill');
-            const container = document.getElementById('view-bill-container');
-            if (!container) { showToast('خطأ: لم يتم العثور على حاوية الفاتورة', 'error'); return; }
-            setLoading('downloading', true);
-            container.classList.add('pdf-capture-mode');
-            const opt = { margin: 10, filename: `invoice_${appState.currentBill.billNumber}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            try {
-                await html2pdf().set(opt).from(element).save();
-                showToast('تم تنزيل PDF بنجاح', 'success');
-            } catch (error) { console.error('PDF download error:', error); showToast('حدث خطأ أثناء تنزيل PDF', 'error'); }
-            finally { container.classList.remove('pdf-capture-mode'); setLoading('downloading', false); }
+            await runBillPdfAction('downloading', async ({ element, opt }) => {
+                try {
+                    await runHtml2PdfWithFallback(element, opt, 'save');
+                    showToast('تم تنزيل PDF بنجاح', 'success');
+                } catch (error) {
+                    console.error('PDF download error:', error);
+                    showToast('حدث خطأ أثناء تنزيل PDF', 'error');
+                }
+            });
         }
 
 
         // Initialize
         async function init() {
+            await initOptionalSdks();
+
             try {
                 await loadBillTemplate(BILL_FALLBACK_TEMPLATE_VERSION);
                 await loadBillTemplate(BILL_TEMPLATE_VERSION);
@@ -1538,7 +1711,6 @@
 
         init();
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9ba841782304e191',t:'MTc2NzgzOTI0Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>

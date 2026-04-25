@@ -1,4 +1,10 @@
 (function () {
+    const LOGO_PATH = 'Logo%20white%20gold-Final-2.svg';
+
+    function getLogoSource(appState) {
+        return appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || LOGO_PATH;
+    }
+
     function renderViewBill(context) {
         const { appState, config, isLoading, escapeHtml } = context;
         const bill = appState.currentBill;
@@ -8,6 +14,7 @@
         }
 
         const clientName = bill.billClientName || '';
+        const logoSrc = getLogoSource(appState);
 
         return `
             <div class="fade-in">
@@ -29,7 +36,7 @@
                                 <div class="print-company text-right">
                                     <div class="flex items-center gap-3 mb-2">
                                         <div class="h-12 md:h-16 flex items-center justify-center shrink-0 p-1 bg-white rounded-lg" style="border: 2px solid ${config.primary_color};">
-                                            <img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="h-full w-auto object-contain" />
+                                            <img src="${logoSrc}" alt="Logo" class="h-full w-auto object-contain" />
                                         </div>
                                         <div>
                                             <h2 class="text-xl md:text-3xl font-bold">${escapeHtml(appState.companySettings.name)}</h2>

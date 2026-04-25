@@ -70,6 +70,7 @@
 `;
 
     const LOGO_PATH = 'Logo%20white%20gold-Final-2.svg';
+    const FALLBACK_LOGO_DATA_URI = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='32' fill='%23ffffff'/%3E%3Ccircle cx='128' cy='104' r='62' fill='%23d4af37'/%3E%3Ccircle cx='128' cy='104' r='46' fill='none' stroke='%23222222' stroke-width='10'/%3E%3Ctext x='128' y='119' text-anchor='middle' font-size='44' font-weight='700' font-family='Arial, sans-serif' fill='%23000000'%3EWG%3C/text%3E%3Crect x='54' y='188' width='148' height='16' rx='8' fill='%231f2937'/%3E%3C/svg%3E";
 
     function getResolvedLogoPath() {
         try {
@@ -84,23 +85,27 @@
             return;
         }
 
+        if (window.location.protocol === 'file:') {
+            appState.logoDataUri = window.__WHITE_GOLD_LOGO_DATA_URI__ || FALLBACK_LOGO_DATA_URI;
+            return;
+        }
+
         try {
             const res = await fetch(getResolvedLogoPath());
             if (!res.ok) {
-                appState.logoDataUri = getResolvedLogoPath();
+                appState.logoDataUri = FALLBACK_LOGO_DATA_URI;
                 return;
             }
 
             const svgText = await res.text();
             appState.logoDataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgText)));
         } catch (error) {
-            console.warn('Unable to preload logo as data URI, using original path.');
-            appState.logoDataUri = getResolvedLogoPath();
+            appState.logoDataUri = FALLBACK_LOGO_DATA_URI;
         }
     }
 
     function getLogoSource(appState) {
-        return appState.logoDataUri || getResolvedLogoPath();
+        return appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || getResolvedLogoPath();
     }
 
     function renderViewBill(context) {
