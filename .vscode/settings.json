@@ -7,6 +7,11 @@
         "/^powershell -c \"\\(Get-Content -Path 'c:\\\\Users\\\\i catch\\\\Downloads\\\\My-GitHub\\\\white_gold_web\\\\index\\.html'\\)\\[875\\.\\.887\\]\"$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "ForEach-Object": true,
+        "Test-Path": true,
+        "New-Item": true,
+        "Out-Null": true,
+        "Set-Content": true
     }
 }
