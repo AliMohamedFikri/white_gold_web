@@ -267,6 +267,168 @@
             display: block !important;
         }
 
+        .landing-shell {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .landing-atmosphere {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .landing-orb {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(4px);
+            opacity: 0.25;
+            animation: driftFloat 14s ease-in-out infinite;
+        }
+
+        .landing-orb.one {
+            width: 480px;
+            height: 480px;
+            top: -160px;
+            right: -120px;
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, rgba(255, 255, 255, 0.1) 55%, rgba(255, 255, 255, 0) 70%);
+        }
+
+        .landing-orb.two {
+            width: 360px;
+            height: 360px;
+            bottom: 120px;
+            left: -80px;
+            background: radial-gradient(circle at 50% 50%, #fde68a 0%, rgba(253, 230, 138, 0.12) 60%, rgba(253, 230, 138, 0) 72%);
+            animation-delay: -4s;
+        }
+
+        .landing-grid-overlay {
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+            background-size: 36px 36px;
+            opacity: 0.08;
+        }
+
+        .landing-nav {
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .landing-nav-link {
+            position: relative;
+            transition: opacity 0.2s ease;
+        }
+
+        .landing-nav-link::after {
+            content: '';
+            position: absolute;
+            inset-inline-start: 0;
+            bottom: -6px;
+            width: 0;
+            height: 2px;
+            background: #ffffff;
+            transition: width 0.25s ease;
+        }
+
+        .landing-nav-link:hover::after {
+            width: 100%;
+        }
+
+        .landing-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-weight: 700;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+            backdrop-filter: blur(6px);
+        }
+
+        .landing-hero-title {
+            text-wrap: balance;
+            letter-spacing: -0.02em;
+        }
+
+        .landing-hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .landing-metric-card {
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.24);
+            backdrop-filter: blur(6px);
+            padding: 0.9rem;
+            color: #ffffff;
+        }
+
+        .landing-product-card {
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.94) 100%);
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+        }
+
+        .landing-category-icon {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .landing-category-icon img {
+            width: 100% !important;
+            height: 100% !important;
+            margin-left: 0 !important;
+            object-fit: cover;
+            display: block;
+            filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.18));
+        }
+
+        .landing-about-panel {
+            border-radius: 20px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            background: linear-gradient(140deg, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.8) 100%);
+            padding: clamp(1.25rem, 2.4vw, 2rem);
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+        }
+
+        .landing-contact-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.08) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.38);
+            backdrop-filter: blur(8px);
+        }
+
+        @keyframes driftFloat {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            50% {
+                transform: translate3d(0, -16px, 0);
+            }
+
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .landing-hero-metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @view-transition {
             navigation: auto;
         }
@@ -1019,27 +1181,33 @@
             const ctaButton = config.cta_button || defaultConfig.cta_button;
 
             return `
-        <div class="min-h-screen w-full relative" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                <div class="landing-shell min-h-screen w-full" style="background: linear-gradient(180deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 46%, ${config.background_color || defaultConfig.background_color} 47%, ${config.background_color || defaultConfig.background_color} 100%);">
+                    <div class="landing-atmosphere" aria-hidden="true">
+                        <div class="landing-grid-overlay"></div>
+                        <div class="landing-orb one"></div>
+                        <div class="landing-orb two"></div>
+                    </div>
+
           <!-- Navigation -->
-          <nav class="w-full py-4 px-4 md:py-6 md:px-8 relative z-50 shadow-sm" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+                    <nav class="landing-nav w-full py-4 px-4 md:py-6 md:px-8 relative z-50 shadow-sm" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color}D9 0%, ${config.secondary_color || defaultConfig.secondary_color}CC 100%);">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
               <div class="flex items-center gap-3">
-                <div class="h-10 md:h-12 flex items-center justify-center p-1 bg-white rounded-lg">
+                                <div class="h-10 md:h-12 flex items-center justify-center p-1 bg-white rounded-xl shadow-md">
                   <img src="Logo%20white%20gold-Final-2.svg" alt="Logo" class="h-full w-auto object-contain" />
                 </div>
                 <div>
                   <h1 class="text-xl md:text-2xl font-bold text-white">${escapeHtml(companyName)}</h1>
-                  <p class="text-xs md:text-sm text-white opacity-90 hidden md:block">${escapeHtml(config.tagline || defaultConfig.tagline)}</p>
+                                    <p class="text-xs md:text-sm text-white opacity-95 hidden md:block">${escapeHtml(config.tagline || defaultConfig.tagline)}</p>
                 </div>
               </div>
               
               <!-- Desktop Menu -->
               <div class="hidden md:flex gap-6 items-center">
-                <a href="#" onclick="event.preventDefault(); appState.currentView = 'landing'; render();" class="text-white font-semibold hover:opacity-80 transition-opacity">الرئيسية</a>
-                <a href="#" onclick="event.preventDefault(); scrollToProducts();" class="text-white font-semibold hover:opacity-80 transition-opacity">المنتجات</a>
-                <a href="#" onclick="event.preventDefault(); scrollToAbout();" class="text-white font-semibold hover:opacity-80 transition-opacity">من نحن</a>
-                <a href="#" onclick="event.preventDefault(); scrollToContact();" class="text-white font-semibold hover:opacity-80 transition-opacity">تواصل معنا</a>
-                <button onclick="appState.currentView = 'login'; render();" class="px-6 py-2 bg-white rounded-lg font-semibold hover:shadow-lg transition-all" style="color: ${config.primary_color || defaultConfig.primary_color};">
+                                <a href="#" onclick="event.preventDefault(); appState.currentView = 'landing'; render();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">الرئيسية</a>
+                                <a href="#" onclick="event.preventDefault(); scrollToProducts();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">المنتجات</a>
+                                <a href="#" onclick="event.preventDefault(); scrollToAbout();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">من نحن</a>
+                                <a href="#" onclick="event.preventDefault(); scrollToContact();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">تواصل معنا</a>
+                                <button onclick="appState.currentView = 'login'; render();" class="px-6 py-2 bg-white rounded-xl font-semibold hover:shadow-lg transition-all" style="color: ${config.primary_color || defaultConfig.primary_color};">
                   دخول الإدارة
                 </button>
               </div>
@@ -1052,13 +1220,13 @@
 
             <!-- Mobile Menu Dropdown -->
             ${appState.isMobileMenuOpen ? `
-            <div class="absolute top-full left-0 w-full bg-white shadow-xl md:hidden z-50 flex flex-col fade-in border-t border-gray-100">
+                        <div class="absolute top-full left-0 w-full bg-white shadow-xl md:hidden z-50 flex flex-col fade-in border-t border-gray-100">
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); appState.currentView = 'landing'; render();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">الرئيسية</a>
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToProducts();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">المنتجات</a>
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToAbout();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</a>
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToContact();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">تواصل معنا</a>
                 <div class="p-4">
-                    <button onclick="toggleMobileMenu(); appState.currentView = 'login'; render();" class="w-full py-3 rounded-lg font-bold text-white shadow-md" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+                                        <button onclick="toggleMobileMenu(); appState.currentView = 'login'; render();" class="w-full py-3 rounded-xl font-bold text-white shadow-md" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
                     دخول الإدارة
                     </button>
                 </div>
@@ -1067,24 +1235,40 @@
           </nav>
 
           <!-- Hero Section -->
-          <section class="w-full py-16 md:py-24 px-4 md:px-8">
+                    <section class="w-full py-14 md:py-24 px-4 md:px-8 relative z-10">
             <div class="max-w-7xl mx-auto text-center">
-              <h2 class="text-4xl md:text-6xl font-bold mb-6 fade-in leading-tight" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(heroTitle)}</h2>
-              <p class="text-xl md:text-2xl mb-12 opacity-75 fade-in leading-relaxed" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(heroSubtitle)}</p>
-              <button onclick="scrollToContact();" class="btn-primary text-white px-8 md:px-10 py-3 md:py-4 rounded-lg text-lg md:text-xl font-bold shadow-lg hover:shadow-xl transition-shadow">
+                            <div class="landing-chip mb-6 fade-in">منصة إدارة متكاملة للمصنع</div>
+                            <h2 class="landing-hero-title text-4xl md:text-6xl font-extrabold mb-6 fade-in leading-tight" style="background: linear-gradient(120deg, #ffffff 0%, #fef3c7 60%, #ffffff 100%); -webkit-background-clip: text; background-clip: text; color: transparent;">${escapeHtml(heroTitle)}</h2>
+                            <p class="text-xl md:text-2xl mb-8 opacity-90 fade-in leading-relaxed text-white">${escapeHtml(heroSubtitle)}</p>
+                            <div class="landing-hero-metrics mb-8">
+                                <div class="landing-metric-card">
+                                    <p class="text-xs md:text-sm opacity-90">إدارة الفواتير</p>
+                                    <p class="text-lg md:text-xl font-bold">سريع ودقيق</p>
+                                </div>
+                                <div class="landing-metric-card">
+                                    <p class="text-xs md:text-sm opacity-90">نماذج التسعير</p>
+                                    <p class="text-lg md:text-xl font-bold">مرنة بالكامل</p>
+                                </div>
+                                <div class="landing-metric-card">
+                                    <p class="text-xs md:text-sm opacity-90">سير العمل</p>
+                                    <p class="text-lg md:text-xl font-bold">جاهز للمصنع</p>
+                                </div>
+                            </div>
+                            <button onclick="scrollToContact();" class="btn-primary text-white px-8 md:px-10 py-3 md:py-4 rounded-xl text-lg md:text-xl font-bold shadow-lg hover:shadow-xl transition-shadow">
                 ${escapeHtml(ctaButton)}
               </button>
             </div>
           </section>
 
           <!-- Products Section -->
-          <section id="products" class="w-full py-12 md:py-20 px-4 md:px-8" style="background-color: white;">
+                    <section id="products" class="w-full py-12 md:py-20 px-4 md:px-8 relative z-10" style="background-color: white;">
             <div class="max-w-7xl mx-auto">
-              <h2 class="text-3xl md:text-5xl font-bold text-center mb-10 md:mb-16" style="color: ${config.text_color || defaultConfig.text_color};">منتجاتنا</h2>
+                            <h2 class="text-3xl md:text-5xl font-bold text-center mb-3 md:mb-5" style="color: ${config.text_color || defaultConfig.text_color};">منتجاتنا</h2>
+                            <p class="text-center mb-10 md:mb-14 opacity-70" style="color: ${config.text_color || defaultConfig.text_color};">تشكيلة مقاسات دقيقة لكل خط إنتاج</p>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
                 ${appState.categories.map(category => `
-                  <div class="card-shadow rounded-xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
-                    <div class="text-5xl md:text-6xl text-center mb-4 transform hover:scale-110 transition-transform">
+                                    <div class="landing-product-card rounded-2xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                                        <div class="landing-category-icon text-center mb-4 transform hover:scale-110 transition-transform">
                       ${getCategoryIcon(category)}
                     </div>
                     <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${category}</h3>
@@ -1106,36 +1290,38 @@
           </section>
 
           <!-- About Section -->
-          <section id="about" class="w-full py-12 md:py-20 px-4 md:px-8">
+                    <section id="about" class="w-full py-12 md:py-20 px-4 md:px-8 relative z-10">
             <div class="max-w-4xl mx-auto text-center">
-              <h2 class="text-3xl md:text-5xl font-bold mb-8" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</h2>
-              <p class="text-lg md:text-xl leading-relaxed mb-6" style="color: ${config.text_color || defaultConfig.text_color};">
-                ${escapeHtml(companyName)} الذهب الأبيض هو مصنع رائد في تصنيع الملابس عالية الجودة. نفخر بتقديم أفضل المنتجات التي تجمع بين الجودة والأسعار المنافسة.
-              </p>
-              <p class="text-lg md:text-xl leading-relaxed" style="color: ${config.text_color || defaultConfig.text_color};">
-                نستخدم أحدث التقنيات وأفضل المواد لضمان رضا عملائنا الكرام. فريقنا من المحترفين ذوي الخبرة الطويلة في هذا المجال يعمل على تلبية جميع احتياجاتكم.
-              </p>
+                            <div class="landing-about-panel">
+                                <h2 class="text-3xl md:text-5xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</h2>
+                                <p class="text-lg md:text-xl leading-relaxed mb-6" style="color: ${config.text_color || defaultConfig.text_color};">
+                                    ${escapeHtml(companyName)} الذهب الأبيض هو مصنع رائد في تصنيع الملابس عالية الجودة. نفخر بتقديم أفضل المنتجات التي تجمع بين الجودة والأسعار المنافسة.
+                                </p>
+                                <p class="text-lg md:text-xl leading-relaxed" style="color: ${config.text_color || defaultConfig.text_color};">
+                                    نستخدم أحدث التقنيات وأفضل المواد لضمان رضا عملائنا الكرام. فريقنا من المحترفين ذوي الخبرة الطويلة في هذا المجال يعمل على تلبية جميع احتياجاتكم.
+                                </p>
+                            </div>
             </div>
           </section>
 
           <!-- Contact Section -->
-          <section id="contact" class="w-full py-12 md:py-20 px-4 md:px-8" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
+                    <section id="contact" class="w-full py-12 md:py-20 px-4 md:px-8 relative z-10" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
             <div class="max-w-4xl mx-auto text-center text-white">
               <h2 class="text-3xl md:text-5xl font-bold mb-12">تواصل معنا</h2>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12">
-                <div class="bg-white bg-opacity-20 rounded-xl p-6 md:p-8 hover-scale">
+                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale">
                   <div class="text-5xl mb-4">📞</div>
                   <h3 class="text-2xl font-bold mb-2">الهاتف</h3>
                   <p class="text-xl">${escapeHtml(appState.companySettings.phone)}</p>
                 </div>
-                <div class="bg-white bg-opacity-20 rounded-xl p-6 md:p-8 hover-scale">
+                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale">
                   <div class="text-5xl mb-4">💬</div>
                   <h3 class="text-2xl font-bold mb-2">واتساب</h3>
                   <a href="https://wa.me/${appState.companySettings.phone.replace(/[^0-9]/g, '')}" target="_blank" rel="noopener noreferrer" class="text-xl hover:underline">
                     تواصل عبر واتساب
                   </a>
                 </div>
-                <div class="bg-white bg-opacity-20 rounded-xl p-6 md:p-8 hover-scale">
+                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale">
                   <div class="text-5xl mb-4">📍</div>
                   <h3 class="text-2xl font-bold mb-2">الموقع</h3>
                   <p class="text-xl">${escapeHtml(appState.companySettings.address)}</p>
@@ -1145,7 +1331,7 @@
           </section>
 
           <!-- Footer -->
-          <footer class="w-full py-8 px-4 md:px-8" style="background-color: ${config.text_color || defaultConfig.text_color};">
+                    <footer class="w-full py-8 px-4 md:px-8 relative z-10" style="background-color: ${config.text_color || defaultConfig.text_color};">
             <div class="max-w-7xl mx-auto text-center text-white">
               <p class="text-base md:text-lg">${escapeHtml(appState.companySettings.footer)}</p>
               <p class="text-xs md:text-sm mt-4 opacity-75">© 2026 ${escapeHtml(companyName)}. جميع الحقوق محفوظة.</p>
