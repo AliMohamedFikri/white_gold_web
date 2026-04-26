@@ -7,6 +7,12 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+
     <!-- SEO Meta Tags -->
     <title>نظام إدارة مصنع الملابس | الذهب الأبيض</title>
     <meta name="description"
@@ -42,6 +48,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="v3_Billing_only/bill_templates/logo_data_uri.js"></script>
+    <script src="Security%20guide/security-module.js"></script>
 
     <style>
         body {
@@ -647,21 +654,82 @@
             }
         }
 
+        function storageSet(key, value, userScope = null) {
+            if (window.SecureStorage?.setItem) {
+                return window.SecureStorage.setItem(key, value, userScope);
+            }
+            localStorage.setItem(key, value);
+            return true;
+        }
+
+        function storageGet(key, userScope = null) {
+            if (window.SecureStorage?.getItem) {
+                return window.SecureStorage.getItem(key, userScope);
+            }
+            return localStorage.getItem(key);
+        }
+
+        function storageRemove(key, userScope = null) {
+            if (window.SecureStorage?.removeItem) {
+                return window.SecureStorage.removeItem(key, userScope);
+            }
+            localStorage.removeItem(key);
+            return true;
+        }
+
+        function sanitizeTextInput(value) {
+            if (window.SecurityUtils?.sanitizeHTML) {
+                return window.SecurityUtils.sanitizeHTML(value || '');
+            }
+            return escapeHtml(value || '');
+        }
+
+        function sanitizeClientNameInput(value) {
+            if (window.SecurityUtils?.sanitizeClientName) {
+                return window.SecurityUtils.sanitizeClientName(value || '');
+            }
+            return String(value || '').trim();
+        }
+
+        function sanitizeNumericInput(value, defaultValue = 0) {
+            if (window.SecurityUtils?.sanitizeNumber) {
+                return window.SecurityUtils.sanitizeNumber(value, defaultValue);
+            }
+            const num = parseFloat(value);
+            return isNaN(num) ? defaultValue : num;
+        }
+
+        function isRateLimitExceeded(action, message) {
+            if (window.RateLimiter?.isAllowed && !window.RateLimiter.isAllowed(action)) {
+                showToast(message || 'تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً', 'error');
+                window.AuditLog?.log?.('rate_limited_action_blocked', { action });
+                return true;
+            }
+            return false;
+        }
+
+        function initSecurityLayer() {
+            window.AuthManager?.init?.();
+            window.AuditLog?.log?.('app_security_layer_initialized');
+        }
+
         // --- الأمن والجلسات (Auth / Session Manager) ---
         const authManager = {
             saveSession(token, driveId) {
-                localStorage.setItem('wg_session_token', token);
-                localStorage.setItem('wg_drive_id', driveId);
-                localStorage.setItem('wg_last_login', Date.now());
+                storageSet('wg_session_token', token);
+                storageSet('wg_drive_id', driveId);
+                storageSet('wg_last_login', String(Date.now()));
+                window.AuditLog?.log?.('session_saved', { driveId: !!driveId });
             },
             clearSession() {
-                localStorage.removeItem('wg_session_token');
-                localStorage.removeItem('wg_drive_id');
-                localStorage.removeItem('wg_last_login');
+                storageRemove('wg_session_token');
+                storageRemove('wg_drive_id');
+                storageRemove('wg_last_login');
+                window.AuditLog?.log?.('session_cleared');
             },
             getSession() {
-                const token = localStorage.getItem('wg_session_token');
-                const driveId = localStorage.getItem('wg_drive_id');
+                const token = storageGet('wg_session_token');
+                const driveId = storageGet('wg_drive_id');
                 return (token && driveId) ? { token, driveId } : null;
             }
         };
@@ -690,6 +758,9 @@
 
         // Google Drive Data SDK
         async function findOrCreateDriveFile() {
+            if (isRateLimitExceeded('google_drive_search', 'تم تجاوز الحد الأقصى للطلبات. يرجى المحاولة لاحقاً')) {
+                throw new Error('Rate limit exceeded: google_drive_search');
+            }
             const searchRes = await fetch(
                 `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILE_NAME}' and trashed=false&spaces=drive`,
                 { headers: { Authorization: `Bearer ${googleAccessToken}` } }
@@ -702,6 +773,9 @@
             const form = new FormData();
             form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
             form.append('file', new Blob(['[]'], { type: 'application/json' }));
+            if (isRateLimitExceeded('google_drive_create_file', 'تم تجاوز الحد الأقصى لعمليات الإنشاء. يرجى المحاولة لاحقاً')) {
+                throw new Error('Rate limit exceeded: google_drive_create_file');
+            }
             const createRes = await fetch(
                 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
                 {
@@ -715,6 +789,9 @@
         }
 
         async function readDriveFile() {
+            if (isRateLimitExceeded('google_drive_read', 'تم تجاوز الحد الأقصى لعمليات القراءة. يرجى المحاولة لاحقاً')) {
+                throw new Error('Rate limit exceeded: google_drive_read');
+            }
             const res = await fetch(
                 `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
                 { headers: { Authorization: `Bearer ${googleAccessToken}` } }
@@ -731,6 +808,9 @@
         }
 
         async function writeDriveFile(data) {
+            if (isRateLimitExceeded('google_drive_write', 'تم تجاوز الحد الأقصى لعمليات الحفظ. يرجى المحاولة لاحقاً')) {
+                throw new Error('Rate limit exceeded: google_drive_write');
+            }
             const res = await fetch(
                 `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,
                 {
@@ -849,7 +929,7 @@
             window.dataSdk = {
                 init: async (handler) => {
                     window._dataHandler = handler;
-                    let data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    let data = JSON.parse(storageGet('app_data') || '[]');
 
                     // Seed initial data if empty
                     if (!data.some(d => d.type === 'pricingModel')) {
@@ -907,35 +987,35 @@
                             createdAt: new Date().toISOString(),
                             __backendId: 'seed_' + i
                         }))];
-                        localStorage.setItem('app_data', JSON.stringify(data));
+                        storageSet('app_data', JSON.stringify(data));
                     }
 
                     handler.onDataChanged(data);
                     return { isOk: true };
                 },
                 create: async (item) => {
-                    const data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    const data = JSON.parse(storageGet('app_data') || '[]');
                     const newItem = { ...item, __backendId: Date.now().toString() };
                     data.push(newItem);
-                    localStorage.setItem('app_data', JSON.stringify(data));
+                    storageSet('app_data', JSON.stringify(data));
                     if (window._dataHandler) window._dataHandler.onDataChanged(data);
                     return { isOk: true, id: newItem.__backendId };
                 },
                 update: async (item) => {
-                    const data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    const data = JSON.parse(storageGet('app_data') || '[]');
                     const index = data.findIndex(d => d.__backendId === item.__backendId);
                     if (index >= 0) {
                         data[index] = item;
-                        localStorage.setItem('app_data', JSON.stringify(data));
+                        storageSet('app_data', JSON.stringify(data));
                         if (window._dataHandler) window._dataHandler.onDataChanged(data);
                         return { isOk: true };
                     }
                     return { isOk: false };
                 },
                 delete: async (item) => {
-                    let data = JSON.parse(localStorage.getItem('app_data') || '[]');
+                    let data = JSON.parse(storageGet('app_data') || '[]');
                     data = data.filter(d => d.__backendId !== item.__backendId);
-                    localStorage.setItem('app_data', JSON.stringify(data));
+                    storageSet('app_data', JSON.stringify(data));
                     if (window._dataHandler) window._dataHandler.onDataChanged(data);
                     return { isOk: true };
                 }
@@ -1259,8 +1339,9 @@
         function addBillItem() {
             const category = document.getElementById('billCategory').value;
             const isCustom = category === 'مخصص';
-            const quantity = parseFloat(document.getElementById(isCustom ? 'billQuantityCustom' : 'billQuantity').value);
-            const tag = document.getElementById(isCustom ? 'billTagCustom' : 'billTag')?.value?.trim() || '';
+            const quantity = sanitizeNumericInput(document.getElementById(isCustom ? 'billQuantityCustom' : 'billQuantity').value, 0);
+            const rawTag = document.getElementById(isCustom ? 'billTagCustom' : 'billTag')?.value?.trim() || '';
+            const tag = sanitizeTextInput(rawTag).substring(0, 120);
 
             if (!category || !quantity || quantity <= 0) {
                 return showToast('الرجاء تعبئة جميع الحقول المطلوبة', 'error');
@@ -1270,13 +1351,13 @@
 
             if (isCustom) {
                 const customSize = document.getElementById('billCustomSize')?.value;
-                const customPrice = parseFloat(document.getElementById('billCustomPrice')?.value);
-                const customName = document.getElementById('billCustomName')?.value?.trim();
+                const customPrice = sanitizeNumericInput(document.getElementById('billCustomPrice')?.value, 0);
+                const customName = sanitizeTextInput(document.getElementById('billCustomName')?.value?.trim() || '');
                 if (!customPrice || customPrice <= 0) return showToast('الرجاء إدخال سعر الوحدة', 'error');
                 if (!customName) return showToast('الرجاء إدخال اسم الفئة', 'error');
                 unitPrice = customPrice;
                 displayCategory = customName;
-                displaySize = customSize || '—';
+                displaySize = sanitizeTextInput(customSize || '—');
             } else {
                 const size = parseInt(document.getElementById('billSize').value);
                 if (!size) return showToast('الرجاء اختيار المقاس', 'error');
@@ -1284,7 +1365,7 @@
                 if (!categoryData) return showToast('الفئة غير موجودة', 'error');
                 const priceData = categoryData.prices.find(p => p.size === size);
                 unitPrice = priceData ? priceData.price : 0;
-                displayCategory = category;
+                displayCategory = sanitizeTextInput(category);
                 displaySize = size;
             }
 
@@ -1306,7 +1387,7 @@
             } else {
                 nextSize = displaySize;
             }
-            const customNamePersist = isCustom ? document.getElementById('billCustomName')?.value?.trim() : '';
+            const customNamePersist = isCustom ? sanitizeTextInput(document.getElementById('billCustomName')?.value?.trim() || '') : '';
             appState.lastBillInput = { category, size: nextSize, quantity, tag, customName: customNamePersist };
             render();
         }
@@ -1315,15 +1396,32 @@
 
         async function saveBill() {
             if (appState.billItems.length === 0) return showToast('الرجاء إضافة عناصر للفاتورة', 'error');
+            if (isRateLimitExceeded('save_bill', 'عدد كبير جداً من عمليات الحفظ. انتظر قليلاً')) return;
             setLoading('saveBill', true);
-            const billTotal = appState.billItems.reduce((sum, item) => sum + item.total, 0);
+            const sanitizedItems = appState.billItems.map(item => ({
+                ...item,
+                category: sanitizeTextInput(item.category),
+                size: typeof item.size === 'number' ? item.size : sanitizeTextInput(item.size),
+                quantity: sanitizeNumericInput(item.quantity, 0),
+                unitPrice: sanitizeNumericInput(item.unitPrice, 0),
+                total: sanitizeNumericInput(item.total, 0),
+                tag: sanitizeTextInput(item.tag || '')
+            }));
+            const sanitizedClientName = sanitizeClientNameInput(appState.currentBillClientName);
+            const billTotal = sanitizedItems.reduce((sum, item) => sum + item.total, 0);
             let result;
             if (appState.editingBillId) {
                 const originalBill = appState.bills.find(b => b.__backendId === appState.editingBillId);
-                result = await window.dataSdk.update({ ...originalBill, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: appState.currentBillClientName });
+                result = await window.dataSdk.update({ ...originalBill, billItems: JSON.stringify(sanitizedItems), billTotal, billClientName: sanitizedClientName });
             } else {
                 const billNumber = `INV-${Date.now()}`;
-                result = await window.dataSdk.create({ type: 'bill', billNumber, billDate: new Date().toISOString(), billModelId: appState.selectedModel.__backendId, billItems: JSON.stringify(appState.billItems), billTotal, billClientName: appState.currentBillClientName, createdAt: new Date().toISOString() });
+                result = await window.dataSdk.create({ type: 'bill', billNumber, billDate: new Date().toISOString(), billModelId: appState.selectedModel.__backendId, billItems: JSON.stringify(sanitizedItems), billTotal, billClientName: sanitizedClientName, createdAt: new Date().toISOString() });
+            }
+            if (result?.isOk) {
+                window.AuditLog?.log?.('bill_saved', {
+                    editMode: !!appState.editingBillId,
+                    itemsCount: sanitizedItems.length
+                });
             }
             if (result.isOk) {
                 showToast(appState.editingBillId ? 'تم تحديث الفاتورة بنجاح' : 'تم حفظ الفاتورة بنجاح', 'success');
@@ -2634,7 +2732,7 @@
 
         function confirmClientName() {
             const input = document.getElementById('billClientName');
-            appState.currentBillClientName = input ? input.value.trim() : '';
+            appState.currentBillClientName = sanitizeClientNameInput(input ? input.value : '');
             appState.billStep = 'items';
             render();
         }
@@ -2676,6 +2774,7 @@
 
         // Initialize
         async function init() {
+            initSecurityLayer();
             await initOptionalSdks();
 
             try {
