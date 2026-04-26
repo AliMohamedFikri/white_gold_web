@@ -128,25 +128,22 @@
             display: none;
         }
 
-
+        
         .bill-wrapper {
             background: #ffffff;
             position: relative;
         }
-
         .bill-accent-bar {
             height: 6px;
             width: 100%;
             border-radius: 3px 3px 0 0;
         }
-
         .bill-header {
             display: grid;
             grid-template-columns: 1fr;
             gap: 1.5rem;
             align-items: start;
         }
-
         @media (min-width: 640px) {
             .bill-header {
                 grid-template-columns: auto 1fr auto;
@@ -154,25 +151,21 @@
                 align-items: center;
             }
         }
-
         .bill-logo-frame {
             display: inline-flex;
             align-items: center;
             justify-content: center;
         }
-
         .bill-logo-image {
             display: block;
             width: 100%;
             height: 100%;
             object-fit: contain;
         }
-
         .bill-table {
             width: 100%;
             border-collapse: collapse;
         }
-
         .bill-table thead th {
             background: #f8fafc;
             font-weight: 700;
@@ -181,13 +174,11 @@
             padding: 10px 12px;
             border-bottom: 2px solid #e2e8f0;
         }
-
         .bill-table tbody td {
             padding: 10px 12px;
             border-bottom: 1px solid #f1f5f9;
             font-size: 0.9rem;
         }
-
         .bill-total-box {
             position: relative;
             overflow: hidden;
@@ -197,14 +188,12 @@
             padding: 20px 24px;
             box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
         }
-
         .bill-total-label {
             font-size: 1.15rem;
             font-weight: 800;
             color: #000000;
             margin-top: 2px;
         }
-
         .bill-total-value {
             font-size: clamp(2rem, 5.6vw, 3.6rem);
             line-height: 1;
@@ -212,18 +201,15 @@
             color: #000000;
             text-shadow: none;
         }
-
         .bill-total-currency {
             font-size: 0.82rem;
             font-weight: 700;
             color: #000000;
             margin-top: 6px;
         }
-
         .bill-footer-line {
             border-top: 2px dashed #e2e8f0;
         }
-
         .bill-watermark {
             position: absolute;
             top: 20%;
@@ -235,7 +221,7 @@
             font-weight: 999;
         }
 
-        @media print {
+@media print {
             .no-print {
                 display: none !important;
             }
@@ -545,7 +531,7 @@
             navigation: auto;
         }
     </style>
-    <base target="_blank">
+<base target="_blank">
 </head>
 
 <body class="h-full w-full">
@@ -994,18 +980,68 @@
             render();
         }
 
+        function onBillCategoryChange() {
+            const category = document.getElementById('billCategory').value;
+            const isCustom = category === 'مخصص';
+            const normalRow = document.getElementById('billNormalRow');
+            const customRow = document.getElementById('billCustomRow');
+            const customNameRow = document.getElementById('billCustomNameRow');
+            if (normalRow) normalRow.style.display = isCustom ? 'none' : 'grid';
+            if (customRow) customRow.style.display = isCustom ? 'grid' : 'none';
+            if (customNameRow) customNameRow.style.display = isCustom ? 'grid' : 'none';
+        }
         function addBillItem() {
             const category = document.getElementById('billCategory').value;
-            const size = parseInt(document.getElementById('billSize').value);
-            const quantity = parseFloat(document.getElementById('billQuantity').value);
-            if (!category || !size || !quantity) return showToast('الرجاء تعبئة جميع الحقول', 'error');
-            const categoryData = appState.selectedModel.data.find(c => c.name === category);
-            const priceData = categoryData.prices.find(p => p.size === size);
-            const unitPrice = priceData.price;
+            const isCustom = category === 'مخصص';
+            const quantity = parseFloat(document.getElementById(isCustom ? 'billQuantityCustom' : 'billQuantity').value);
+            const tag = document.getElementById(isCustom ? 'billTagCustom' : 'billTag')?.value?.trim() || '';
+
+            if (!category || !quantity || quantity <= 0) {
+                return showToast('الرجاء تعبئة جميع الحقول المطلوبة', 'error');
+            }
+
+            let unitPrice, displayCategory, displaySize;
+
+            if (isCustom) {
+                const customSize = document.getElementById('billCustomSize')?.value;
+                const customPrice = parseFloat(document.getElementById('billCustomPrice')?.value);
+                const customName = document.getElementById('billCustomName')?.value?.trim();
+                if (!customPrice || customPrice <= 0) return showToast('الرجاء إدخال سعر الوحدة', 'error');
+                if (!customName) return showToast('الرجاء إدخال اسم الفئة', 'error');
+                unitPrice = customPrice;
+                displayCategory = customName;
+                displaySize = customSize || '—';
+            } else {
+                const size = parseInt(document.getElementById('billSize').value);
+                if (!size) return showToast('الرجاء اختيار المقاس', 'error');
+                const categoryData = appState.selectedModel.data.find(c => c.name === category);
+                if (!categoryData) return showToast('الفئة غير موجودة', 'error');
+                const priceData = categoryData.prices.find(p => p.size === size);
+                unitPrice = priceData ? priceData.price : 0;
+                displayCategory = category;
+                displaySize = size;
+            }
+
             const total = unitPrice * quantity;
-            appState.billItems.push({ category, size, quantity, unitPrice, total });
-            const nextSize = size + 2 <= 56 ? size + 2 : size;
-            appState.lastBillInput = { category, size: nextSize, quantity };
+            appState.billItems.push({
+                category: displayCategory,
+                size: displaySize,
+                quantity,
+                unitPrice,
+                total,
+                tag,
+                isCustom: isCustom
+            });
+
+            let nextSize;
+            const parsedSize = parseInt(displaySize);
+            if (!isNaN(parsedSize) && parsedSize + 2 <= 56) {
+                nextSize = parsedSize + 2;
+            } else {
+                nextSize = displaySize;
+            }
+            const customNamePersist = isCustom ? document.getElementById('billCustomName')?.value?.trim() : '';
+            appState.lastBillInput = { category, size: nextSize, quantity, tag, customName: customNamePersist };
             render();
         }
 
@@ -1191,24 +1227,17 @@
             }
         }
 
-
+        
         async function preGenerateBillPdf() {
             if (!appState.currentBill) return;
             if (appState.currentBillPdfBlob && appState.currentBillPdfBlob.size > 0) return;
             if (appState.loadingStates.sharing) return; // don't conflict with active share
-
-            // Get both container and element
-            const { container, element } = getBillPdfElements();
-            if (!container || !element) return;
-
+            const { element } = getBillPdfElements();
+            if (!element) return;
             const filename = `invoice_${appState.currentBill.billNumber}.pdf`;
             const opt = buildBillPdfOptions(filename);
-
-            // Apply capture mode to the container instead of document.body
-            container.classList.add('pdf-capture-mode');
+            document.body.classList.add('pdf-capture-mode');
             try {
-                // Wait for styles to apply before capturing
-                await new Promise(resolve => requestAnimationFrame(resolve));
                 const blob = await runHtml2PdfWithFallback(element, opt, 'blob');
                 if (blob && blob.size > 0) {
                     appState.currentBillPdfBlob = blob;
@@ -1219,7 +1248,7 @@
             } catch (e) {
                 console.warn('[preGenerateBillPdf] failed:', e);
             } finally {
-                container.classList.remove('pdf-capture-mode');
+                document.body.classList.remove('pdf-capture-mode');
             }
         }
 
@@ -1241,8 +1270,8 @@
 
             // Re-fetch element AFTER render() so we get the live DOM node
             await new Promise(r => requestAnimationFrame(r));
-            const { container, element } = getBillPdfElements();
-            if (!container || !element) {
+            const { element } = getBillPdfElements();
+            if (!element) {
                 setLoading('sharing', false);
                 showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error');
                 return;
@@ -1254,16 +1283,15 @@
 
                 if (!pdfBlob || pdfBlob.size === 0) {
                     appState.currentBillPdfBlob = null; // clear invalid cache
-                    container.classList.add('pdf-capture-mode');
+                    document.body.classList.add('pdf-capture-mode');
                     try {
-                        await new Promise(r => requestAnimationFrame(r));
                         pdfBlob = await runHtml2PdfWithFallback(element, opt, 'blob');
                         console.log('[shareBill] generated blob:', pdfBlob ? `${pdfBlob.size} bytes` : 'null');
                         if (pdfBlob && pdfBlob.size > 0) {
                             appState.currentBillPdfBlob = pdfBlob;
                         }
                     } finally {
-                        container.classList.remove('pdf-capture-mode');
+                        document.body.classList.remove('pdf-capture-mode');
                     }
                 }
 
@@ -1331,12 +1359,11 @@
                     try {
                         let fbBlob = appState.currentBillPdfBlob;
                         if (!fbBlob || fbBlob.size === 0) {
-                            container.classList.add('pdf-capture-mode');
+                            document.body.classList.add('pdf-capture-mode');
                             try {
-                                await new Promise(r => requestAnimationFrame(r));
                                 fbBlob = await runHtml2PdfWithFallback(element, opt, 'blob');
                             } finally {
-                                container.classList.remove('pdf-capture-mode');
+                                document.body.classList.remove('pdf-capture-mode');
                             }
                         }
                         if (fbBlob && fbBlob.size > 0) {
@@ -1372,7 +1399,7 @@
         }
 
         // Settings
-
+        
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1891,14 +1918,36 @@
                 content = `
                     <div class="space-y-6">
                         <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">إضافة عنصر</h2>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <select id="billCategory" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${appState.selectedModel.data.map(cat => `<option value="${cat.name}" ${lastInput.category === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}</select>
-                                <select id="billSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
-                                <input type="number" id="billQuantity" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
-                                <button onclick="addBillItem();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.accent_color};">إضافة</button>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <select id="billCategory" onchange="onBillCategoryChange()" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                        ${appState.selectedModel.data.map(cat => `<option value="${cat.name}" ${(lastInput.category === cat.name || (!lastInput.category && cat.name === 'حماله')) ? 'selected' : ''}>${cat.name}</option>`).join('')}
+                                        <option value="مخصص" ${lastInput.category === 'مخصص' ? 'selected' : ''}>مخصص</option>
+                                    </select>
+                                </div>
+                                <div id="billNormalRow" class="grid grid-cols-1 md:grid-cols-4 gap-4 ${lastInput.category === 'مخصص' ? 'hidden' : ''}">
+                                    <select id="billSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+                                    <input type="number" id="billQuantity" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                    <input type="text" id="billTag" placeholder="الوسم (اختياري)" value="${escapeHtml(lastInput.tag || '')}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                </div>
+                                <div id="billCustomRow" class="grid grid-cols-1 md:grid-cols-3 gap-4 ${lastInput.category === 'مخصص' ? '' : 'hidden'}">
+                                    <select id="billCustomSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                        <option value="" ${lastInput.size === '' ? 'selected' : ''}>—</option>
+                                        ${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                    </select>
+                                    <input type="number" id="billQuantityCustom" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                    <input type="number" id="billCustomPrice" min="0.01" step="0.01" placeholder="سعر الوحدة" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                </div>
+                                <div id="billCustomNameRow" class="grid grid-cols-1 md:grid-cols-2 gap-4 ${lastInput.category === 'مخصص' ? '' : 'hidden'}">
+                                    <input type="text" id="billCustomName" placeholder="اسم الفئة (مثال: بنطلون دبل ابيض)" value="${escapeHtml(lastInput.customName || '')}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                    <input type="text" id="billTagCustom" placeholder="الوسم (اختياري)" value="${escapeHtml(lastInput.tag || '')}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                </div>
+                                <div class="flex justify-end">
+                                    <button onclick="addBillItem();" class="px-8 py-3 rounded-lg font-semibold text-white text-lg" style="background-color: ${config.accent_color};">إضافة</button>
+                                </div>
                             </div>
                         </div>
-                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-right py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center">${item.unitPrice.toFixed(2)}</td><td class="text-center">${item.quantity.toFixed(2)}</td><td class="text-center">${item.size}</td><td>${item.category}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
+                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-center py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center">${item.unitPrice.toFixed(2)}</td><td class="text-center">${item.quantity.toFixed(2)}</td><td class="text-center">${item.size}</td><td class="text-center">${escapeHtml(item.category)}${item.tag ? ' <span class="text-xs opacity-60">' + escapeHtml(item.tag) + '</span>' : ''}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
                     </div>`;
             }
 
@@ -2009,7 +2058,7 @@
                                                     <td class="text-center font-semibold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.quantity.toFixed(2)}</td>
                                                     <td class="text-center" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.unitPrice.toFixed(2)}</td>
                                                     <td class="text-center" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">
-                                                        <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-white" style="background-color: ${config.primary_color};">${escapeHtml(item.category)}</span>
+                                                        <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-white" style="background-color: ${config.primary_color};">${escapeHtml(item.category)}${item.tag ? ' ' + escapeHtml(item.tag) : ''}</span>
                                                     </td>
                                                     <td class="text-center font-semibold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.size}</td>
                                                 </tr>
