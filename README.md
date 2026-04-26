@@ -1,107 +1,108 @@
 # White Gold Factory Management System (نظام إدارة مصنع الملابس)
 
-![Version](https://img.shields.io/badge/version-3.0-blue.svg)
+![Version](https://img.shields.io/badge/version-3.1-blue.svg)
 ![Status](https://img.shields.io/badge/status-active-success.svg)
 ![Platform](https://img.shields.io/badge/platform-web-orange.svg)
 
-## 📄 Overview
+## Overview
 
-The **White Gold Factory Management System** is a web-based Single Page Application (SPA) designed to streamline operations for clothing manufacturing businesses. It provides a focused set of tools for managing pricing models, creating bills, generating branded invoices, and keeping data in the browser with a lightweight mock SDK layer.
+The **White Gold Factory Management System** is a single-page Arabic web app for clothing factory operations. The current build centers on three core areas: pricing-model management, bill creation and invoice output, and factory branding/settings.
 
-Built with a focus on usability and flexibility, the system features a fully responsive Arabic interface (`RTL`), making it ideal for local factory management in the MENA region.
+The interface is fully RTL and designed to run directly from `index.html`. It includes a landing page, authenticated dashboard, pricing tools, bill workflow, invoice preview/print/share actions, and a settings page for company branding.
 
-## ✨ Key Features
+## Key Features
 
-### 💰 Pricing Management
-*   **Dynamic Modeling:** Create and manage pricing models directly in the browser.
-*   **Size & Category Matrix:** Supports sizes 22-56 and the factory categories used in the app UI.
-*   **Excel Integration:** Import pricing models from `.xlsx` files using SheetJS.
-*   **Bulk Operations:** Quick-fill prices, duplicate models, and batch edit values.
-*   **Auto-Seeding:** Ships with seeded models that match the current index page data set.
+### Pricing Models
+* Create pricing matrices in the browser.
+* Work with sizes 22 to 56 in steps of 2.
+* Use the factory categories built into the app: حماله, نصف كم, كم, كلسون, شورت, سليب.
+* Import pricing models from `.xlsx` files through SheetJS.
+* Duplicate, edit, bulk-fill, and clear model prices.
 
-### 🧾 Invoicing & Billing
-*   **Smart Bill Flow:** Select Model → Select Client → Add Items → Auto-calculate Totals.
-*   **Custom Bill Items:** Supports both standard catalog items and custom bill lines.
-*   **Print-Ready Invoices:** Generates branded invoices and supports printing, PDF download, and PDF sharing through `html2pdf.js`.
-*   **Sales Archive:** Searchable history of generated bills with edit and delete actions.
+### Billing and Invoices
+* Build bills in the flow: select model, enter client name, add items, then save.
+* Add both standard catalog items and custom bill lines.
+* Generate printable invoices with `html2pdf.js` support for download and sharing.
+* Use the current bill template registry with the v7 billing template and fallback template.
+* View, edit, and delete saved bills from the archive.
 
-### 📊 Dashboard & Analytics
-*   **Real-time Overview:** Visual cards displaying total sales, bill counts, and average transaction value.
-*   **Activity Feed:** Recent transactions list for quick monitoring.
-*   **Performance Tracking:** Visual progress bars for pricing model completion.
+### Dashboard and Reporting
+* Show recent bills and monthly totals.
+* Display quick summary cards for sales and activity.
+* Include a lightweight analysis mode for billing insights.
 
-### ⚙️ Customization & Settings
-*   **Branding:** Control company name, phone, address, footer text, and uploaded logo.
-*   **Theming:** Supports primary, secondary, accent, background, and text color configuration.
-*   **Local Logo Handling:** Uses a bundled data URI fallback so the logo still appears in local file mode and PDF output.
+### Branding and Settings
+* Configure company name, phone, address, footer text, and logo.
+* Use a bundled logo fallback so the invoice still renders in local-file mode.
+* Adjust app colors and text configuration through the element settings layer.
 
-## 🛠️ Technological Stack
+## Data Storage and Auth
 
-*   **Frontend Core:** HTML5, CSS3, Vanilla JavaScript (ES6+).
-*   **UI Framework:** [Tailwind CSS](https://tailwindcss.com/) (via CDN) for modern, utility-first styling.
-*   **Architecture:** Single Page Application (SPA) with client-side routing.
-*   **Data Persistence:** LocalStorage API with a custom Mock SDK wrapper (simulating backend CRUD operations).
-*   **Localization:** Native Arabic (RTL) support.
+The app supports two data paths:
 
-## 🚀 Getting Started
+* Google Drive sync through Google Identity Services and the Drive API when the browser context is online and authenticated.
+* A localStorage-based mock SDK fallback when Google services are unavailable.
 
-### Prerequisites
-*   A modern web browser (Google Chrome, Microsoft Edge, Firefox, or Safari).
-*   No server installation required for local usage.
+Session state is stored locally so the app can restore authentication between visits when available.
 
-### Installation
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/YOUR_USERNAME/white_gold_web.git
-    ```
-2.  **Navigate to the project folder:**
-    ```bash
-    cd white_gold_web
-    ```
-3.  **Launch the Application:**
-    Open the `index.html` file directly in your web browser.
+## Technology
 
-### Initial Setup
-1.  Upon first launch, the system will load seeded pricing models if available. Otherwise, use "Import from Excel" via the `.xlsx` feature.
-2.  Log in using the default dashboard access (or create a new admin user via the interface).
-3.  Navigate to **Settings** to configure your factory/company details and logo.
+* HTML5, CSS3, and Vanilla JavaScript.
+* Tailwind CSS loaded from CDN.
+* `html2pdf.js` for invoice export.
+* SheetJS for Excel import.
+* Google Identity Services for Drive-based auth.
 
-## 📂 Project Structure
+## Getting Started
+
+### Requirements
+* A modern browser such as Chrome, Edge, Firefox, or Safari.
+* No backend server is required for local use.
+
+### Run Locally
+1. Open `index.html` in a browser.
+2. Sign in with Google if you want Drive-backed persistence.
+3. Otherwise the app will fall back to localStorage automatically.
+
+### First Use
+1. Open the app and let the seeded pricing models load if available.
+2. Go to Pricing to create or import a model.
+3. Go to Settings to update company details and logo.
+
+## Project Structure
 
 ```
 white_gold_web/
-├── index.html           # Main application file (Core logic & UI)
-├── Logo white gold-Final-2.svg  # Factory logo used in the app and PDF output
-├── assets/
-│   ├── png/             # Category icons used in the product cards and bill items
-│   └── ...
-├── v3_Billing_only/     
-│   ├── Billing_v8.html  # Standalone billing build aligned with the current bill flow
-│   └── bill_templates/  # Bill render templates and logo data URI helper
-├── scripts/             # Legacy modular scripts kept for reference
-├── v2/                  # Archived invoices and older HTML prototypes
-└── README.md            # Project documentation
+├── index.html                 # Main SPA entry point and app logic
+├── README.md                  # Project overview and usage notes
+├── SECURITY.md                # Security guidance
+├── assets/                    # Category icons and supporting assets
+├── Logo white gold-*.svg      # Logo assets used by the app
+├── claude version/            # Alternate template/runtime helpers
+├── v2/                        # Archived HTML artifacts
+└── v3_Billing_only/           # Billing-focused build and template files
 ```
 
-## 📝 Usage Guidelines
+## Usage Notes
 
-*   **Defining Prices:** Go to the "Pricing" section. You must have at least one active Pricing Model. You can either construct it manually or import directly using your Excel (`.xlsx`) files.
-*   **Creating Bills:** Navigate to "New Bill". Select the Pricing Model, enter the Client Name, add standard or custom items, then save, print, download, or share the invoice PDF.
-*   **Data Backup:** Since data is stored in the browser's LocalStorage, avoid clearing your browser cache to prevent data loss. For production use, a backend integration is recommended.
+* Pricing models are required before creating a bill.
+* Bill items can be standard catalog items or custom items.
+* Invoice PDF generation uses the active billing template and falls back automatically if needed.
+* Because local persistence is browser-based, clearing site data will remove saved records unless Drive sync is being used.
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome.
 
-1.  Fork the project.
-2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
+1. Fork the project.
+2. Create a feature branch.
+3. Commit your changes.
+4. Push the branch.
+5. Open a pull request.
 
-## 📄 License
+## License
 
 This project is licensed for private use by White Gold Factory.
 
 ---
-*Generated for White Gold Factory Management System*
+Generated for White Gold Factory Management System
