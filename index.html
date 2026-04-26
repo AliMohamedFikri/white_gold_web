@@ -8,7 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 
     <!-- Security Headers -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com;">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com;">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -502,20 +503,92 @@
             box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
         }
 
+        /* ============================================
+   CATEGORY ICON — ASPECT RATIO RESPECTING
+   ============================================ */
+
         .landing-category-icon {
+            position: relative;
             width: 100%;
-            aspect-ratio: 1 / 1;
+            /* Remove aspect-ratio: 1 / 1 to let image breathe */
             overflow: hidden;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            /* Optional: set a max-height so very tall images don't dominate */
+            max-height: 220px;
+        }
+
+        .landing-category-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            z-index: 0;
             border-radius: 12px;
         }
 
-        .landing-category-icon img {
-            width: 100% !important;
-            height: 100% !important;
-            margin-left: 0 !important;
-            object-fit: cover;
+        .landing-category-icon img,
+        .landing-category-icon .category-icon-img {
+            width: auto !important;
+            height: auto !important;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
             display: block;
+            margin: 0 !important;
             filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.18));
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .landing-category-icon img {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Stop shimmer once image loads */
+        .landing-category-icon img:not([src=""])~ ::before,
+        .landing-category-icon img[src]~ ::before {
+            display: none;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .landing-category-icon:hover img {
+            transform: scale(1.05);
+        }
+
+        /* --- Pricing Model View / Edit Tables --- */
+        /* If icons appear inside table cells, keep them small and crisp */
+        .bill-table td .category-icon-img,
+        .analysis-card .category-icon-img,
+        .card-shadow .category-icon-img {
+            width: 40px !important;
+            height: 40px !important;
+            object-fit: contain;
+            vertical-align: middle;
+            display: inline-block;
+            border-radius: 8px;
+        }
+
+        /* Sticky header in view/edit model: align icon with text */
+        .bill-table td .flex,
+        .analysis-card .flex {
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .landing-about-panel {
@@ -554,6 +627,464 @@
 
         @view-transition {
             navigation: auto;
+        }
+
+        /* ================ */
+
+        /* ============================================
+   PREMIUM SAAS UI UPGRADE — WHITE GOLD SYSTEM
+   ============================================ */
+
+        /* --- 1. GLASSMORPHISM --- */
+        .glass-sidebar {
+            background: linear-gradient(180deg, rgba(102, 126, 234, 0.88) 0%, rgba(118, 75, 162, 0.88) 100%);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-left: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: -10px 0 40px rgba(31, 38, 135, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.06);
+            border-radius: 1.5rem;
+            /* 24px */
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 48px rgba(31, 38, 135, 0.12);
+            border-color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .glass-tinted {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.85), rgba(118, 75, 162, 0.85));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+            border-radius: 1.5rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-tinted:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3);
+        }
+
+        /* --- 2. TYPOGRAPHY & HIERARCHY --- */
+        .text-hero {
+            font-family: 'Cairo', sans-serif;
+            line-height: 1.15;
+            /* Tight for large Arabic headlines */
+            letter-spacing: -0.02em;
+            /* Slight display compression */
+        }
+
+        .text-subdata {
+            font-family: 'Cairo', sans-serif;
+            line-height: 1.65;
+            /* Relaxed for readability */
+            letter-spacing: 0;
+            font-feature-settings: "tnum";
+            /* Tabular nums for data */
+        }
+
+        /* --- 3. STAGGER FADE-IN --- */
+        @keyframes staggerFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.96);
+                filter: blur(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+
+        .stagger-item {
+            opacity: 0;
+            animation: staggerFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            /* Control delay via inline style: --stagger-index */
+            animation-delay: calc(var(--stagger-index, 0) * 100ms);
+        }
+
+        /* --- 4. INTERACTIVE COMPONENTS --- */
+        /* Neumorphic Size Badges */
+        .size-badge-neo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            color: #475569;
+            box-shadow:
+                4px 4px 10px rgba(163, 177, 198, 0.5),
+                -4px -4px 10px rgba(255, 255, 255, 0.9);
+            border-radius: 9999px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .size-badge-neo::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 9999px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        }
+
+        .size-badge-neo:hover {
+            transform: scale(1.08);
+            color: #667eea;
+        }
+
+        .size-badge-neo:hover::after {
+            opacity: 1;
+        }
+
+        .size-badge-neo:active,
+        .size-badge-neo.pressed {
+            box-shadow:
+                inset 3px 3px 6px rgba(163, 177, 198, 0.5),
+                inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+            transform: scale(0.94);
+            color: #764ba2;
+            font-weight: 800;
+        }
+
+        /* Glowing Pulse for Bill Total Box */
+        @keyframes glowPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.35), 0 8px 24px rgba(15, 23, 42, 0.06);
+            }
+
+            50% {
+                box-shadow: 0 0 40px 0 rgba(102, 126, 234, 0.25), 0 8px 24px rgba(15, 23, 42, 0.06);
+            }
+        }
+
+        .glow-pulse {
+            animation: glowPulse 3s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glow-pulse::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.06) 0%, transparent 60%);
+            animation: rotateGradient 8s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes rotateGradient {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- 5. DYNAMIC MESH GRADIENT BACKGROUND --- */
+        .mesh-bg-container {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+            background: #f8fafc;
+        }
+
+        .mesh-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.55;
+            will-change: transform;
+            animation: meshMove 20s infinite alternate ease-in-out;
+        }
+
+        .mesh-blob-1 {
+            width: 65vw;
+            height: 65vw;
+            max-width: 900px;
+            max-height: 900px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.35) 0%, transparent 70%);
+            top: -15%;
+            right: -10%;
+            animation-duration: 22s;
+        }
+
+        .mesh-blob-2 {
+            width: 55vw;
+            height: 55vw;
+            max-width: 800px;
+            max-height: 800px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.3) 0%, transparent 70%);
+            bottom: -15%;
+            left: -10%;
+            animation-duration: 28s;
+            animation-delay: -6s;
+        }
+
+        .mesh-blob-3 {
+            width: 45vw;
+            height: 45vw;
+            max-width: 600px;
+            max-height: 600px;
+            background: radial-gradient(circle, rgba(72, 187, 120, 0.2) 0%, transparent 70%);
+            top: 40%;
+            left: 25%;
+            animation-duration: 24s;
+            animation-delay: -12s;
+        }
+
+        @keyframes meshMove {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+            }
+
+            33% {
+                transform: translate(40px, -60px) scale(1.1) rotate(5deg);
+            }
+
+            66% {
+                transform: translate(-30px, 30px) scale(0.9) rotate(-5deg);
+            }
+
+            100% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+            }
+        }
+
+        /* ============================================
+   ENHANCED ABOUT SECTION — WHITE GOLD
+   ============================================ */
+
+        .about-section {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .about-section::before {
+            content: '';
+            position: absolute;
+            top: -10%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+            animation: meshMove 25s infinite alternate ease-in-out;
+        }
+
+        .about-section::after {
+            content: '';
+            position: absolute;
+            bottom: -10%;
+            left: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+            animation: meshMove 20s infinite alternate-reverse ease-in-out;
+        }
+
+        .about-header {
+            position: relative;
+            z-index: 10;
+        }
+
+        .about-title-gradient {
+            background: linear-gradient(135deg, #1e293b 0%, #667eea 50%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .about-subtitle {
+            color: #64748b;
+            line-height: 1.8;
+            max-width: 640px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .about-bento-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 1.25rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        @media (min-width: 768px) {
+            .about-bento-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .about-bento-grid {
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: auto auto;
+            }
+
+            .about-bento-wide {
+                grid-column: span 2;
+            }
+
+            .about-bento-tall {
+                grid-row: span 2;
+            }
+        }
+
+        .about-card {
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            text-align: right;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .about-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 40px rgba(102, 126, 234, 0.1);
+            border-color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.88);
+        }
+
+        .about-card-accent {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9), rgba(118, 75, 162, 0.9));
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .about-card-accent:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.95), rgba(118, 75, 162, 0.95));
+            box-shadow: 0 16px 40px rgba(102, 126, 234, 0.25);
+        }
+
+        .about-card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            margin-bottom: 1.25rem;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            box-shadow: inset 0 0 0 1px rgba(102, 126, 234, 0.15);
+        }
+
+        .about-card-accent .about-card-icon {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+        }
+
+        .about-card h3 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 0.75rem;
+            color: #0f172a;
+        }
+
+        .about-card-accent h3 {
+            color: #ffffff;
+        }
+
+        .about-card p {
+            font-size: 0.95rem;
+            line-height: 1.75;
+            color: #475569;
+        }
+
+        .about-card-accent p {
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .about-stat-number {
+            font-size: 2.5rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .about-card-accent .about-stat-number {
+            background: none;
+            color: #ffffff;
+            -webkit-background-clip: unset;
+        }
+
+        .about-stat-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .about-card-accent .about-stat-label {
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .about-divider {
+            width: 64px;
+            height: 4px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            margin: 0 auto 2rem;
+        }
+
+        /* Decorative corner glow on cards */
+        .about-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at top right, rgba(102, 126, 234, 0.06), transparent 50%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .about-card:hover::before {
+            opacity: 1;
         }
     </style>
     <base target="_blank">
@@ -1977,7 +2508,7 @@
                       <p class="text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">المقاسات المتوفرة:</p>
                       <div class="flex flex-wrap gap-2">
                         ${SIZES.slice(0, 8).map(size => `
-                          <span class="size-badge px-3 py-1 rounded-full text-xs md:text-sm font-semibold shadow-sm" style="background-color: ${config.primary_color || defaultConfig.primary_color}; color: white;">
+                          <span class="size-badge-neo px-4 py-1.5 text-xs md:text-sm font-bold">
                             ${size}
                           </span>
                         `).join('')}
@@ -1990,20 +2521,87 @@
             </div>
           </section>
 
-          <!-- About Section -->
-                    <section id="about" class="w-full py-12 md:py-20 px-4 md:px-8 relative z-10">
-            <div class="max-w-4xl mx-auto text-center">
-                            <div class="landing-about-panel">
-                                <h2 class="text-3xl md:text-5xl font-bold mb-6" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</h2>
-                                <p class="text-lg md:text-xl leading-relaxed mb-6" style="color: ${config.text_color || defaultConfig.text_color};">
-                                    ${escapeHtml(companyName)} الذهب الأبيض هو مصنع رائد في تصنيع الملابس عالية الجودة. نفخر بتقديم أفضل المنتجات التي تجمع بين الجودة والأسعار المنافسة.
-                                </p>
-                                <p class="text-lg md:text-xl leading-relaxed" style="color: ${config.text_color || defaultConfig.text_color};">
-                                    نستخدم أحدث التقنيات وأفضل المواد لضمان رضا عملائنا الكرام. فريقنا من المحترفين ذوي الخبرة الطويلة في هذا المجال يعمل على تلبية جميع احتياجاتكم.
-                                </p>
-                            </div>
+                    <!-- About Section -->
+        <section id="about" class="about-section w-full py-16 md:py-28 px-4 md:px-8 relative z-10" style="background-color: ${config.background_color || defaultConfig.background_color};">
+            <div class="max-w-6xl mx-auto">
+                
+                <!-- Header -->
+                <div class="about-header text-center mb-12 md:mb-16">
+                    <div class="about-divider"></div>
+                    <h2 class="about-title-gradient text-4xl md:text-6xl font-extrabold mb-6 py-4">مصنع الذهب الأبيض</h2>
+                    <p class="about-subtitle text-lg md:text-xl font-medium">
+                        منذ أكثر من ١٥ عاماً، نصنع الثقة. نجمع بين إرث الصناعة التقليدية ودقة التقنيات الحديثة لتقديم ملابس جاهزة تلبي أعلى معايير الجودة العالمية.
+                    </p>
+                </div>
+
+                <!-- Bento Grid -->
+                <div class="about-bento-grid">
+                    
+                    <!-- Main Story Card (Wide) -->
+                    <div class="about-card about-bento-wide about-bento-tall">
+                        <div class="about-card-icon">🏭</div>
+                        <h3>من نحن</h3>
+                        <p class="mb-4">
+                            مصنع الذهب الأبيض للملابس الجاهزة هو واحد من أبرز مصانع العاشر من رمضان المتخصصة في إنتاج الملابس الداخلية والخارجية بجميع المقاسات. نحن لا نصنع منتجات فحسب، بل نصنع شراكات طويلة الأمد مع تجار الجملة والموزعين.
+                        </p>
+                        <p>
+                            نؤمن بأن الجودة ليست خياراً بل هي أساس. لذلك نختار أقمشتنا بعناية فائقة ونراقب كل مرحلة إنتاج بدقة متناهية لضمان منتج نهائي يستحق ثقتكم.
+                        </p>
+                    </div>
+
+                    <!-- Stats Card (Accent) -->
+                    <div class="about-card about-card-accent">
+                        <div class="about-card-icon">📅</div>
+                        <div class="about-stat-number">+15</div>
+                        <div class="about-stat-label">عاماً من الخبرة في الصناعة</div>
+                    </div>
+
+                    <!-- Quality Card -->
+                    <div class="about-card">
+                        <div class="about-card-icon">✨</div>
+                        <h3>جودة لا تُضاهى</h3>
+                        <p>
+                            نستخدم أقمشة مصرية عالية الجودة مختارة بعناية، مع خيوط متينة وطلاءات ألوان ثابتة تتحمل الغسيل المتكرر دون بهتان.
+                        </p>
+                    </div>
+
+                    <!-- Pricing Card -->
+                    <div class="about-card">
+                        <div class="about-card-icon">💎</div>
+                        <h3>أسعار تنافسية</h3>
+                        <p>
+                            بفضل سير عملنا المحسّن والإنتاج الضخم، نقدم أفضل الأسعار في السوق دون المساس بجودة المنتج النهائي.
+                        </p>
+                    </div>
+
+                    <!-- Speed Card -->
+                    <div class="about-card">
+                        <div class="about-card-icon">⚡</div>
+                        <h3>سرعة في التنفيذ</h3>
+                        <p>
+                            نظام إدارة حديث يضمن تسليم الطلبات في المواعيد المحددة بدقة، مع مرونة في استقبال الطلبات المخصصة والطارئة.
+                        </p>
+                    </div>
+
+                    <!-- Clients Stat (Accent) -->
+                    <div class="about-card about-card-accent">
+                        <div class="about-card-icon">🤝</div>
+                        <div class="about-stat-number">+500</div>
+                        <div class="about-stat-label">عميل موزع حول الجمهورية</div>
+                    </div>
+
+                    <!-- Sizes Card -->
+                    <div class="about-card about-bento-wide">
+                        <div class="about-card-icon">📐</div>
+                        <h3>تشكيلة مقاسات شاملة</h3>
+                        <p>
+                            ننتج مقاسات تبدأ من ٢٢ حتى ٥٦ لتغطية كافة الفئات العمرية والأحجام. نماذج تسعير مرنة (A, B, C) تتيح لك اختيار ما يناسب سوقك المستهدف.
+                        </p>
+                    </div>
+
+                </div>
             </div>
-          </section>
+        </section>
 
           <!-- Contact Section -->
                     <section id="contact" class="w-full py-12 md:py-20 px-4 md:px-8 relative z-10" style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
@@ -2092,9 +2690,8 @@
             ${appState.isSidebarOpen ? `<div class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onclick="toggleSidebar()"></div>` : ''}
 
             <!-- Sidebar -->
-            <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-lg no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses}" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
+            <div class="fixed inset-y-0 right-0 z-50 w-64 h-full shadow-2xl no-print transition-transform duration-300 ease-in-out md:relative md:block ${sidebarClasses} glass-sidebar">    
                 <div class="p-6 h-full overflow-y-auto flex flex-col">
-                    
                     <!-- Logo & Title -->
                     <div class="flex items-center justify-between gap-3 mb-8">
                         <div class="flex items-center gap-3">
@@ -2132,8 +2729,14 @@
             </div>
 
             <!-- Main Content -->
-            <div class="flex-1 h-full overflow-hidden flex flex-col">
-                <div class="flex-1 overflow-auto p-4 md:p-8">
+            <div class="flex-1 h-full overflow-hidden flex flex-col relative">
+                <!-- Animated Mesh Background (Dashboard only) -->
+                <div class="mesh-bg-container" aria-hidden="true">
+                    <div class="mesh-blob mesh-blob-1"></div>
+                    <div class="mesh-blob mesh-blob-2"></div>
+                    <div class="mesh-blob mesh-blob-3"></div>
+                </div>
+                <div class="flex-1 overflow-auto p-4 md:p-8 relative z-10">
                     ${renderCurrentView()}
                 </div>
             </div>
@@ -2172,10 +2775,11 @@
 
             return `
                 <div class="fade-in">
-                    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                        <h1 class="text-4xl font-bold" style="color: ${config.text_color};">لوحة التحكم</h1>
+                    <!-- Hero Title -->
+                    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 stagger-item" style="--stagger-index: 0">
+                        <h1 class="text-3xl md:text-4xl font-extrabold text-hero text-slate-800">لوحة التحكم</h1>
                         <button onclick="appState.analysisMode = !appState.analysisMode; render()"
-                                class="px-6 py-2.5 rounded-xl font-bold transition-all ${appState.analysisMode ? 'text-white shadow-lg' : 'bg-white text-slate-600 border shadow-sm'}"
+                                class="px-6 py-2.5 rounded-xl font-bold transition-all ${appState.analysisMode ? 'text-white shadow-lg' : 'bg-white/60 text-slate-600 border border-white/50 shadow-sm backdrop-blur-sm'} ..."
                                 style="${appState.analysisMode ? `background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});` : ''}">
                             ${appState.analysisMode ? '✕ إغلاق التحليل' : '📊 التحليل الشهري'}
                         </button>
@@ -2183,13 +2787,35 @@
 
                     ${analysisHtml}
 
+                    <!-- Stat Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="card-shadow rounded-xl p-6 hover-scale" style="background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});"><div class="text-white"><div class="text-4xl mb-2">💰</div><h3 class="text-lg font-semibold opacity-90 mb-1">نماذج التسعير</h3><p class="text-4xl font-bold">${appState.pricingModels.length}</p></div></div>
-                        <div class="card-shadow rounded-xl p-6 hover-scale" style="background: linear-gradient(135deg, ${config.accent_color}, #38a169);"><div class="text-white"><div class="text-4xl mb-2">📄</div><h3 class="text-lg font-semibold opacity-90 mb-1">إجمالي الفواتير</h3><p class="text-4xl font-bold">${appState.bills.length}</p></div></div>
-                        <div class="card-shadow rounded-xl p-6 hover-scale bg-white"><button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group"><div class="text-5xl group-hover:scale-110 transition-transform">➕</div><span class="text-xl font-bold" style="color: ${config.primary_color};">إنشاء فاتورة جديدة</span></button></div>
+                        <div class="glass-tinted rounded-2xl p-6 hover-scale stagger-item" style="--stagger-index: 1">
+                            <div class="text-white">
+                                <div class="text-4xl mb-2">💰</div>
+                                <h3 class="text-lg font-semibold opacity-90 mb-1 text-subdata">نماذج التسعير</h3>
+                                <p class="text-4xl font-bold">${appState.pricingModels.length}</p>
+                            </div>
+                        </div>
+
+                        <div class="glass-tinted rounded-2xl p-6 hover-scale stagger-item" style="--stagger-index: 2">
+                            <div class="text-white">
+                                <div class="text-4xl mb-2">📄</div>
+                                <h3 class="text-lg font-semibold opacity-90 mb-1 text-subdata">إجمالي الفواتير</h3>
+                                <p class="text-4xl font-bold">${appState.bills.length}</p>
+                            </div>
+                        </div>
+
+                        <div class="glass-card rounded-2xl p-6 hover-scale stagger-item" style="--stagger-index: 3">
+                            <button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group">
+                                <div class="text-5xl group-hover:scale-110 transition-transform">➕</div>
+                                <span class="text-xl font-bold text-indigo-600">إنشاء فاتورة جديدة</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="card-shadow rounded-xl p-6 bg-white">
-                        <h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">الفواتير الأخيرة</h2>
+
+                    <!-- Recent Bills Table -->
+                    <div class="glass-card rounded-2xl p-6 stagger-item" style="--stagger-index: 4">
+                        <h2 class="text-2xl font-bold mb-6 text-slate-800">الفواتير الأخيرة</h2>
                         ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">📄</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
                             <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الحالة</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
                             <tbody>${recentBills.map(bill => `<tr class="border-b"><td class="py-3 px-4">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center">${syncManager.getBadge(bill)}</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>`}
@@ -2435,87 +3061,89 @@
                         </div>
                     </div>
 
-                    <div id="view-bill-container" class="w-full">
-                        <div id="printable-bill" class="bill-wrapper card-shadow rounded-2xl overflow-hidden max-w-4xl mx-auto" style="background:#ffffff;position:relative;">
-                            <div class="bill-accent-bar" style="height:6px;width:100%;border-radius:3px 3px 0 0;background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);"></div>
+                    <div class="bill-total-box glow-pulse" style="position:relative;overflow:hidden;background:#ffffff;border:1px solid #d1d5db;border-radius:18px;padding:20px 24px;">
+                        <div id="view-bill-container" class="w-full">
+                            <div id="printable-bill" class="bill-wrapper card-shadow rounded-2xl overflow-hidden max-w-4xl mx-auto" style="background:#ffffff;position:relative;">
+                                <div class="bill-accent-bar" style="height:6px;width:100%;border-radius:3px 3px 0 0;background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);"></div>
 
-                            <div class="p-2 md:p-5 relative">
-                                <div class="bill-watermark" style="position:absolute;top:20%;left:20%;transform:translate(10%,100px) rotate(-30deg);font-size:4rem;opacity:0.05;pointer-events:none;font-weight:999;">الذهب الأبيض</div>
+                                <div class="p-2 md:p-5 relative">
+                                    <div class="bill-watermark" style="position:absolute;top:20%;left:20%;transform:translate(10%,100px) rotate(-30deg);font-size:4rem;opacity:0.05;pointer-events:none;font-weight:999;">الذهب الأبيض</div>
 
-                                <div class="bill-header" style="display:grid;grid-template-columns:1fr;gap:1.5rem;align-items:start;">
-                                    <div class="bill-logo-frame h-24 md:h-32 w-24 md:w-32 shrink-0 bg-white rounded-xl shadow-sm" style="display:inline-flex;align-items:center;justify-content:center;">
-                                        <img src="${logoSrc}" alt="Logo" class="bill-logo-image" style="display:block;width:100%;height:100%;object-fit:contain;" />
-                                    </div>
+                                    <div class="bill-header" style="display:grid;grid-template-columns:1fr;gap:1.5rem;align-items:start;">
+                                        <div class="bill-logo-frame h-24 md:h-32 w-24 md:w-32 shrink-0 bg-white rounded-xl shadow-sm" style="display:inline-flex;align-items:center;justify-content:center;">
+                                            <img src="${logoSrc}" alt="Logo" class="bill-logo-image" style="display:block;width:100%;height:100%;object-fit:contain;" />
+                                        </div>
 
-                                    <div class="text-right">
-                                        <h2 class="text-xl md:text-3xl font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
-                                        <div class="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
-                                            <span>📞 ${escapeHtml(appState.companySettings.phone)}</span>
-                                            <span>📍 ${escapeHtml(appState.companySettings.address)}</span>
+                                        <div class="text-right">
+                                            <h2 class="text-xl md:text-3xl font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
+                                            <div class="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
+                                                <span>📞 ${escapeHtml(appState.companySettings.phone)}</span>
+                                                <span>📍 ${escapeHtml(appState.companySettings.address)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="text-left bg-gray-50 rounded-xl p-4 md:p-5 border" style="border-color: #e2e8f0;">
+                                            <div class="mb-3">
+                                                <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">رقم الفاتورة</p>
+                                                <p class="text-lg md:text-2xl font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">التاريخ: ${formattedDate}</p>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div class="text-left bg-gray-50 rounded-xl p-4 md:p-5 border" style="border-color: #e2e8f0;">
-                                        <div class="mb-3">
-                                            <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">رقم الفاتورة</p>
-                                            <p class="text-lg md:text-2xl font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p>
-                                        </div>
+                                    ${clientName ? `
+                                    <div class="mb-2 flex items-center gap-3 px-5 py-4 rounded-xl" style="background: linear-gradient(135deg, ${config.primary_color}08 0%, ${config.secondary_color}08 100%); border: 1px solid ${config.primary_color}20;">
                                         <div>
-                                            <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">التاريخ: ${formattedDate}</p>
+                                            <p class="text-[10px] md:text-xs font-semibold" style="color: #94a3b8;">العميل</p>
+                                            <p class="text-lg md:text-xl font-bold" style="color: ${config.primary_color};">أ/ ${escapeHtml(clientName)}</p>
                                         </div>
-                                    </div>
-                                </div>
+                                    </div>` : ''}
 
-                                ${clientName ? `
-                                <div class="mb-2 flex items-center gap-3 px-5 py-4 rounded-xl" style="background: linear-gradient(135deg, ${config.primary_color}08 0%, ${config.secondary_color}08 100%); border: 1px solid ${config.primary_color}20;">
-                                    <div>
-                                        <p class="text-[10px] md:text-xs font-semibold" style="color: #94a3b8;">العميل</p>
-                                        <p class="text-lg md:text-xl font-bold" style="color: ${config.primary_color};">أ/ ${escapeHtml(clientName)}</p>
-                                    </div>
-                                </div>` : ''}
-
-                                <div class="mb-2 overflow-x-auto rounded-xl border" style="border-color: #e2e8f0;">
-                                    <table class="bill-table min-w-[520px]" style="width:100%;border-collapse:collapse;">
-                                        <thead>
-                                            <tr>
-                                                <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">الإجمالي</th>
-                                                <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">الكمية</th>
-                                                <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">سعر الوحدة</th>
-                                                <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">الفئة</th>
-                                                <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">المقاس</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${bill.items.map((item) => `
+                                    <div class="mb-2 overflow-x-auto rounded-xl border" style="border-color: #e2e8f0;">
+                                        <table class="bill-table min-w-[520px]" style="width:100%;border-collapse:collapse;">
+                                            <thead>
                                                 <tr>
-                                                    <td class="text-center font-bold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color: ${config.accent_color};">${item.total.toFixed(2)}</td>
-                                                    <td class="text-center font-semibold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.quantity.toFixed(2)}</td>
-                                                    <td class="text-center" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.unitPrice.toFixed(2)}</td>
-                                                    <td class="text-center" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">
-                                                        <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-white" style="background-color: ${config.primary_color};">${escapeHtml(item.category)}${item.tag ? ' ' + escapeHtml(item.tag) : ''}</span>
-                                                    </td>
-                                                    <td class="text-center font-semibold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.size}</td>
+                                                    <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">الإجمالي</th>
+                                                    <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">الكمية</th>
+                                                    <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">سعر الوحدة</th>
+                                                    <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">الفئة</th>
+                                                    <th class="text-center" style="background:#f8fafc;font-weight:700;font-size:0.8rem;padding:10px 12px;border-bottom:2px solid #e2e8f0;color:${config.text_color};">المقاس</th>
                                                 </tr>
-                                            `).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody>
+                                                ${bill.items.map((item) => `
+                                                    <tr>
+                                                        <td class="text-center font-bold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;color: ${config.accent_color};">${item.total.toFixed(2)}</td>
+                                                        <td class="text-center font-semibold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.quantity.toFixed(2)}</td>
+                                                        <td class="text-center" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.unitPrice.toFixed(2)}</td>
+                                                        <td class="text-center" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">
+                                                            <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-white" style="background-color: ${config.primary_color};">${escapeHtml(item.category)}${item.tag ? ' ' + escapeHtml(item.tag) : ''}</span>
+                                                        </td>
+                                                        <td class="text-center font-semibold" style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${item.size}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
 
-                                <div class="bill-total-box" style="position:relative;overflow:hidden;background:#ffffff;border:1px solid #d1d5db;border-radius:18px;padding:20px 24px;box-shadow:0 8px 20px rgba(15,23,42,0.08);">
-                                    <div class="flex justify-between items-center">
-                                        <div class="relative z-10">
-                                            <h3 class="bill-total-label" style="font-size:1.15rem;font-weight:800;color:#000;margin-top:2px;">الإجمالي الكلي</h3>
-                                        </div>
-                                        <div class="text-left relative z-10">
-                                            <p class="bill-total-value" style="font-size:clamp(2rem,5.6vw,3.6rem);line-height:1;font-weight:900;color:#000;">${bill.billTotal.toFixed(2)}</p>
-                                            <p class="bill-total-currency" style="font-size:0.82rem;font-weight:700;color:#000;margin-top:6px;">جنيه مصري</p>
+                                    <div class="bill-total-box" style="position:relative;overflow:hidden;background:#ffffff;border:1px solid #d1d5db;border-radius:18px;padding:20px 24px;box-shadow:0 8px 20px rgba(15,23,42,0.08);">
+                                        <div class="flex justify-between items-center">
+                                            <div class="relative z-10">
+                                                <h3 class="bill-total-label" style="font-size:1.15rem;font-weight:800;color:#000;margin-top:2px;">الإجمالي الكلي</h3>
+                                            </div>
+                                            <div class="text-left relative z-10">
+                                                <p class="bill-total-value" style="font-size:clamp(2rem,5.6vw,3.6rem);line-height:1;font-weight:900;color:#000;">${bill.billTotal.toFixed(2)}</p>
+                                                <p class="bill-total-currency" style="font-size:0.82rem;font-weight:700;color:#000;margin-top:6px;">جنيه مصري</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div class="bill-footer-line mt-2 pt-2 text-center" style="border-top:2px dashed #e2e8f0;">
-                                    <p class="text-sm font-semibold" style="color: #64748b;">${escapeHtml(appState.companySettings.footer)}</p>
-                                    <p class="text-xs mt-2" style="color: #cbd5e0;">تم إنشاء هذه الفاتورة إلكترونيا - ${formattedDate}</p>
+                                    <div class="bill-footer-line mt-2 pt-2 text-center" style="border-top:2px dashed #e2e8f0;">
+                                        <p class="text-sm font-semibold" style="color: #64748b;">${escapeHtml(appState.companySettings.footer)}</p>
+                                        <p class="text-xs mt-2" style="color: #cbd5e0;">تم إنشاء هذه الفاتورة إلكترونيا - ${formattedDate}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2560,15 +3188,13 @@
                 'سليب': 'سليب',
                 'نصف كم': 'نصفكم',
                 'شورت': 'شورت',
-                'حماله': 'حماله', // This matches your uploaded file
+                'حماله': 'حماله',
                 'كلسون': 'كلسون',
                 'كم': 'كم',
             };
-
             const iconFile = icons[category] || 'default';
-
-            // Returning an <img> tag so the browser renders the image
-            return `<img src="assets/png/${iconFile}.JPEG" alt="" style="width: 200px; height: 200px; vertical-align: middle; margin-left: 8px;">`;
+            // Let CSS control sizing; only apply a semantic class here
+            return `<img src="assets/png/${iconFile}.JPEG" alt="${category}" class="category-icon-img" loading="lazy">`;
         }
         function scrollToProducts() {
             document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
