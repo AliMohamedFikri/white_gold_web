@@ -6,9 +6,87 @@
 
 ## Overview
 
-The **White Gold Factory Management System** is a single-page Arabic web app for clothing factory operations. The current build centers on three core areas: pricing-model management, bill creation and invoice output, and factory branding/settings.
+The **White Gold Factory Management System** is a single-page Arabic web app for clothing factory operations. It is built with pure HTML, CSS, and JavaScript, designed to run as a static site on GitHub Pages, and uses Google Drive as the primary storage layer.
 
 The interface is fully RTL and designed to run directly from `index.html`. It includes a landing page, authenticated dashboard, pricing tools, bill workflow, invoice preview/print/share actions, and a settings page for company branding.
+
+# 📄 Billing App (Zero-Cost Architecture)
+
+A lightweight billing web app built with **pure HTML, CSS, and JavaScript**, hosted on **GitHub Pages**, and using **Google Drive as storage**.
+
+## 🚀 Goals
+
+- ✅ Zero backend cost
+- ✅ Fast static website
+- ✅ Persistent bill storage
+- ✅ Scalable data structure
+- ✅ Accurate historical billing (no data corruption)
+
+---
+
+# 🏗️ Architecture
+
+| Layer | Technology |
+|-------------|------------------|
+| Frontend | HTML, CSS, JS |
+| Hosting | GitHub Pages |
+| Storage | Google Drive |
+| Data Format | JSON |
+
+---
+
+# 📦 Storage Strategy (Enterprise-Level)
+
+To balance:
+- ⚡ Performance
+- 💾 Small size
+- 🔒 Historical accuracy
+
+We use:
+
+> ✅ **Mapping Table + Versioning + Snapshot**
+
+---
+
+# 🧠 Core Idea
+
+Each bill:
+1. References a **pricing model**
+2. Uses **compact mapping (indexes instead of names)**
+3. Stores a **snapshot of price at billing time**
+
+---
+
+# 📊 Data Structure
+
+## 1. Pricing Model (Versioned)
+
+```json
+{
+	"id": "model_1",
+	"version": 3,
+	"categories": [
+		{ "name": "سليب" },
+		{ "name": "نصف كم" },
+		{ "name": "شورت" }
+	]
+}
+```
+
+## 2. Bill Schema
+
+```json
+{
+	"id": "bill_001",
+	"date": "2026-04-26",
+	"m": "model_1",
+	"mv": 3,
+	"items": [
+		{ "c": 1, "s": 46, "q": 2, "p": 650 },
+		{ "t": "c", "n": "بنطلون", "q": 4, "p": 115 }
+	]
+}
+```
 
 ## Key Features
 
