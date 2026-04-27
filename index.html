@@ -1103,157 +1103,10 @@
 
     <div id="app" class="h-full w-full overflow-auto"></div>
     <script>
-        // ========== Product Image Cache (IndexedDB) ==========
-        const ProductImageCache = {
-            _dbName: 'whiteGoldProductImages',
-            _storeName: 'images',
-            _db: null,
-            _memoryCache: {}, // In-memory lookup for fast fallback
-
-            async _getDb() {
-                if (this._db) return this._db;
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(this._dbName, 1);
-                    request.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains(this._storeName)) {
-                            db.createObjectStore(this._storeName, { keyPath: 'productName' });
-                        }
-                    };
-                    request.onsuccess = (e) => {
-                        this._db = e.target.result;
-                        resolve(this._db);
-                    };
-                    request.onerror = (e) => reject(e.target.error);
-                });
-            },
-
-            async save(productName, imageDataUri) {
-                try {
-                    const db = await this._getDb();
-                    return new Promise((resolve, reject) => {
-                        const tx = db.transaction(this._storeName, 'readwrite');
-                        tx.objectStore(this._storeName).put({ productName, imageDataUri, updatedAt: Date.now() });
-                        tx.oncomplete = () => {
-                            this._memoryCache[productName] = imageDataUri;
-                            resolve(true);
-                        };
-                        tx.onerror = (e) => reject(e.target.error);
-                    });
-                } catch (e) {
-                    console.warn('ProductImageCache.save failed:', e);
-                    return false;
-                }
-            },
-
-            async get(productName) {
-                // Check memory cache first (synchronous fallback)
-                if (this._memoryCache[productName]) return this._memoryCache[productName];
-                try {
-                    const db = await this._getDb();
-                    return new Promise((resolve, reject) => {
-                        const tx = db.transaction(this._storeName, 'readonly');
-                        const req = tx.objectStore(this._storeName).get(productName);
-                        req.onsuccess = () => {
-                            const result = req.result?.imageDataUri || null;
-                            if (result) this._memoryCache[productName] = result;
-                            resolve(result);
-                        };
-                        req.onerror = (e) => reject(e.target.error);
-                    });
-                } catch (e) {
-                    console.warn('ProductImageCache.get failed:', e);
-                    return null;
-                }
-            },
-
-            // Check memory cache synchronously (no await needed)
-            getSync(productName) {
-                return this._memoryCache[productName] || null;
-            },
-
-            async remove(productName) {
-                delete this._memoryCache[productName];
-                try {
-                    const db = await this._getDb();
-                    return new Promise((resolve, reject) => {
-                        const tx = db.transaction(this._storeName, 'readwrite');
-                        tx.objectStore(this._storeName).delete(productName);
-                        tx.oncomplete = () => resolve(true);
-                        tx.onerror = (e) => reject(e.target.error);
-                    });
-                } catch (e) {
-                    console.warn('ProductImageCache.remove failed:', e);
-                    return false;
-                }
-            },
-
-            async getAll() {
-                try {
-                    const db = await this._getDb();
-                    return new Promise((resolve, reject) => {
-                        const tx = db.transaction(this._storeName, 'readonly');
-                        const req = tx.objectStore(this._storeName).getAll();
-                        req.onsuccess = () => {
-                            const results = req.result || [];
-                            // Pre-populate memory cache
-                            for (const item of results) {
-                                this._memoryCache[item.productName] = item.imageDataUri;
-                            }
-                            resolve(results);
-                        };
-                        req.onerror = (e) => reject(e.target.error);
-                    });
-                } catch (e) {
-                    return [];
-                }
-            },
-
-            // Preload all images into memory cache (call at init)
-            async preloadAll() {
-                await this.getAll();
-            }
-        };
-
-        /**
-         * Resolve a product image: tries filesystem path first, falls back to IndexedDB.
-         * Returns the image src (filesystem path or data URI) for use in <img> tags.
-         * For the filesystem path, we just return it — the browser will load it.
-         * For IndexedDB, we resolve asynchronously and update the img element.
-         */
-        function getProductImageSrc(product) {
-            if (!product.image) return '';
-            // If it's a filesystem path (assets/...), return it directly
-            if (product.image.startsWith('assets/') || product.image.startsWith('./') || product.image.startsWith('/')) {
-                return product.image;
-            }
-            // Legacy: data URI already — return directly (will be migrated to IndexedDB on save)
-            if (product.image.startsWith('data:')) {
-                return product.image;
-            }
-            return product.image;
-        }
-
-        /**
-         * Set up fallback for an <img> element: if the filesystem path 404s, try IndexedDB.
-         * Uses synchronous memory cache first, then async IndexedDB as second fallback.
-         */
         function setupImageFallback(imgElement, productName) {
-            if (!imgElement || !productName) return;
-            imgElement.addEventListener('error', async function() {
-                // Try synchronous memory cache first (instant)
-                const cached = ProductImageCache.getSync(productName);
-                if (cached) {
-                    imgElement.src = cached;
-                    imgElement.removeAttribute('onerror');
-                    return;
-                }
-                // Try async IndexedDB as second fallback
-                const dbCached = await ProductImageCache.get(productName);
-                if (dbCached) {
-                    imgElement.src = dbCached;
-                    imgElement.removeAttribute('onerror');
-                }
+            if (!imgElement) return;
+            imgElement.addEventListener('error', function() {
+                imgElement.style.display = 'none';
             }, { once: true });
         }
 
@@ -1802,9 +1655,7 @@
             pricingModels: [],
             bills: [],
             categories: ["حماله", "نصف كم", "كم", "كلسون", "شورت", "سليب"],
-            products: [],
             selectedModel: null,
-            editingProduct: null,
             editingModel: null,
             viewingModel: null,
             billItems: [],
@@ -1927,46 +1778,6 @@
                                 : (Array.isArray(version.data) ? version.data : [])
                         }));
                 });
-
-                // Load products from storage
-                const productsEntry = data.find(d => d.type === 'products');
-                if (productsEntry && Array.isArray(productsEntry.products)) {
-                    appState.products = productsEntry.products;
-                    // Migrate base64 images to IndexedDB + convert to path-only references
-                    let migrated = false;
-                    for (const p of appState.products) {
-                        if (p.image && p.image.startsWith('data:')) {
-                            // Save base64 to IndexedDB cache and convert to path
-                            ProductImageCache.save(p.name, p.image);
-                            p.image = 'assets/png/' + p.name + '.PNG';
-                            migrated = true;
-                        } else if (p.image && p.image.startsWith('assets/')) {
-                            // Already a path — good, nothing to do
-                        } else if (p.image && !p.image.startsWith('data:')) {
-                            // Ensure consistent path format
-                            if (!p.image.startsWith('assets/')) {
-                                p.image = 'assets/png/' + p.image;
-                            }
-                        }
-                    }
-                    if (migrated && appState.isAuthenticated) {
-                        // Persist the cleaned-up products (path-only) to storage
-                        saveProducts(appState.products).then(() => {
-                            console.log('Products migrated: base64 images → assets path + IndexedDB cache');
-                        });
-                    }
-                    // Sync categories from products for backward compatibility
-                    appState.categories = appState.products.map(p => p.name);
-                } else if (!appState._productsInitialized && appState.products.length === 0) {
-                    // Initialize products from hardcoded categories (first time only)
-                    appState._productsInitialized = true;
-                    appState.products = appState.categories.map(name => ({
-                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                        name: name,
-                        sizes: [...SIZES],
-                        image: 'assets/png/' + ({ 'حماله': 'حماله', 'نصف كم': 'نصفكم', 'كم': 'كم', 'كلسون': 'كلسون', 'شورت': 'شورت', 'سليب': 'سليب' }[name] || 'default') + '.PNG'
-                    }));
-                }
 
                 appState.allPricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
                     const versions = Array.isArray(group.data) ? group.data : [];
@@ -2762,7 +2573,7 @@
               <!-- Desktop Menu -->
               <div class="hidden md:flex gap-6 items-center">
                                 <a href="#" onclick="event.preventDefault(); appState.currentView = 'landing'; render();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">الرئيسية</a>
-                                <a href="#" onclick="event.preventDefault(); scrollToProducts();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">المنتجات</a>
+                                <a href="#" onclick="event.preventDefault(); document.getElementById('products').scrollIntoView({ behavior: 'smooth' });" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">المنتجات</a>
                                 <a href="#" onclick="event.preventDefault(); scrollToAbout();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">من نحن</a>
                                 <a href="#" onclick="event.preventDefault(); scrollToContact();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">تواصل معنا</a>
                                 <button onclick="appState.currentView = '${appState.isAuthenticated ? 'dashboard' : 'login'}'; render();" 
@@ -2782,7 +2593,7 @@
             ${appState.isMobileMenuOpen ? `
                         <div class="absolute top-full left-0 w-full bg-white shadow-xl md:hidden z-50 flex flex-col fade-in border-t border-gray-100">
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); appState.currentView = 'landing'; render();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">الرئيسية</a>
-                <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToProducts();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">المنتجات</a>
+                <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); document.getElementById('products').scrollIntoView({ behavior: 'smooth' });" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">المنتجات</a>
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToAbout();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</a>
                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToContact();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">تواصل معنا</a>
                 <div class="p-4">
@@ -2828,20 +2639,15 @@
                             <h2 class="text-3xl md:text-5xl font-bold text-center mb-3 md:mb-5" style="color: ${config.text_color || defaultConfig.text_color};">منتجاتنا</h2>
                             <p class="text-center mb-10 md:mb-14 opacity-70" style="color: ${config.text_color || defaultConfig.text_color};">تشكيلة مقاسات دقيقة لكل خط إنتاج</p>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                ${(appState.products.length > 0 ? appState.products : appState.categories.map(name => ({ name, sizes: SIZES, image: null }))).map((product, pIdx) => {
-                                    const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : SIZES;
+                ${appState.categories.map((categoryName, pIdx) => {
+                                    const sizes = SIZES;
                                     const overflowCount = sizes.length - 8;
-                                    const imgSrc = getProductImageSrc(product);
-                                    const safeName = (product.name || '').replace(/'/g, "\\'").replace(/\s+/g, '-');
                                     return `
                                     <div class="landing-product-card rounded-2xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
                                         <div class="landing-category-icon text-center mb-4 transform hover:scale-110 transition-transform">
-                      ${imgSrc
-                        ? `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${safeName}')">`
-                        : getCategoryIcon(product.name)
-                      }
+                      ${getCategoryIcon(categoryName)}
                     </div>
-                    <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(product.name)}</h3>
+                    <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(categoryName)}</h3>
                     <div class="mb-4">
                       <p class="text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">المقاسات المتوفرة:</p>
                       <div class="flex flex-wrap gap-2">
@@ -3027,11 +2833,11 @@
 
                     <!-- Navigation -->
                     <nav class="space-y-2 flex-1">
-                        ${['landing', 'dashboard', 'pricing', 'products', 'bills', 'storage', 'settings'].map(view => `
+                        ${['landing', 'dashboard', 'pricing', 'bills', 'storage', 'settings'].map(view => `
                             <button onclick="appState.currentView = '${view}'; appState.isSidebarOpen = false; render();"
                                 class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === view ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}"
                                 style="${appState.currentView === view ? `color: ${config.primary_color}` : ''}">
-                                ${view === 'landing' ? '🏠 الصفحة الرئيسية' : view === 'dashboard' ? '📊 لوحة التحكم' : view === 'pricing' ? '💰 إدارة الأسعار' : view === 'products' ? '📦 المنتجات' : view === 'bills' ? '📄 الفواتير' : view === 'storage' ? '💾 التخزين' : '⚙️ الإعدادات'}
+                                ${view === 'landing' ? '🏠 الصفحة الرئيسية' : view === 'dashboard' ? '📊 لوحة التحكم' : view === 'pricing' ? '💰 إدارة الأسعار' : view === 'bills' ? '📄 الفواتير' : view === 'storage' ? '💾 التخزين' : '⚙️ الإعدادات'}
                             </button>
                         `).join('')}
                     </nav>
@@ -3063,7 +2869,7 @@
         }
 
         function renderCurrentView() {
-            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, products: renderProducts, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, storage: renderStorage, settings: renderSettings };
+            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, storage: renderStorage, settings: renderSettings };
             return (views[appState.currentView] || renderDashboard)();
         }
 
@@ -3503,17 +3309,6 @@
                             <button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الإعدادات</span></button>
                         </form>
                     </div>
-                    <!-- GitHub Token -->
-                    <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl mt-6">
-                        <h2 class="text-2xl font-bold mb-4">🐙 رمز GitHub</h2>
-                        <p class="text-slate-500 text-sm mb-4">مطلوب لرفع صور المنتجات مباشرة إلى مستودع GitHub. يحتاج صلاحية <code class="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">repo</code>.</p>
-                        <div class="flex gap-2">
-                            <input type="password" id="githubTokenInput" value="${escapeHtml(getGithubToken())}" placeholder="ghp_xxxxxxxxxxxx"
-                                class="flex-1 px-4 py-3 border-2 rounded-lg font-mono text-sm" style="border-color: ${config.primary_color};">
-                            <button onclick="const token = document.getElementById('githubTokenInput').value.trim(); if(token) { localStorage.setItem('github_token', token); showToast('تم حفظ الرمز بنجاح', 'success'); } else { localStorage.removeItem('github_token'); showToast('تم إزالة الرمز', 'success'); }" class="px-4 py-3 rounded-lg font-bold text-white text-sm" style="background-color: ${config.primary_color};">💾 حفظ</button>
-                        </div>
-                        <p class="text-xs text-slate-400 mt-2">الرمز يُحفظ محلياً في المتصفح فقط ولا يُرسل لأي خادم خارج GitHub API.</p>
-                    </div>
                     <!-- Storage Button -->
                     <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl mt-6">
                         <h2 class="text-2xl font-bold mb-4">💾 إدارة التخزين</h2>
@@ -3526,663 +3321,6 @@
                 </div>`;
         }
 
-        // ========== Products Management ==========
-        async function saveProducts(products) {
-            if (!window.dataSdk) return { isOk: false };
-            setLoading('saveProducts', true);
-            try {
-                const existing = appState.products.length === 0 ? null : (await window.dataSdk.getRawData() || []).find(d => d.type === 'products');
-                if (existing && existing.__backendId) {
-                    const result = await window.dataSdk.update({ ...existing, products: products });
-                    return result;
-                } else {
-                    const result = await window.dataSdk.create({ type: 'products', products: products, updatedAt: new Date().toISOString() });
-                    return result;
-                }
-            } catch (e) {
-                console.error('Save products failed:', e);
-                showToast('فشل حفظ المنتجات', 'error');
-                return { isOk: false };
-            } finally {
-                setLoading('saveProducts', false);
-            }
-        }
-
-        function startAddProduct() {
-            appState.editingProduct = { id: '', name: '', sizes: [], image: '' };
-            appState.productFormStep = 1; // Step 1: Name
-            render();
-        }
-
-        function startEditProduct(productId) {
-            const product = appState.products.find(p => p.id === productId);
-            if (product) {
-                appState.editingProduct = { ...product };
-                appState.productFormStep = 1; // Start at step 1 for editing too
-                render();
-            }
-        }
-
-        function cancelEditProduct() {
-            appState.editingProduct = null;
-            appState.productFormStep = 0;
-            render();
-        }
-
-        // Step navigation — reads field values from DOM BEFORE switching step (no data loss)
-        function productFormNextStep() {
-            if (!appState.editingProduct) return;
-            const step = appState.productFormStep || 1;
-
-            if (step === 1) {
-                // Read name from input
-                const nameInput = document.getElementById('productName');
-                const name = nameInput ? sanitizeTextInput(nameInput.value).trim() : '';
-                if (!name) {
-                    showToast('أدخل اسم المنتج', 'error');
-                    nameInput?.focus();
-                    return;
-                }
-                const duplicate = appState.products.find(p => p.name === name && p.id !== appState.editingProduct.id);
-                if (duplicate) {
-                    showToast('يوجد منتج بنفس الاسم بالفعل', 'error');
-                    nameInput?.focus();
-                    return;
-                }
-                appState.editingProduct.name = name;
-                appState.productFormStep = 2;
-                render();
-            } else if (step === 2) {
-                // Image step — just move on (image is optional)
-                appState.productFormStep = 3;
-                render();
-            }
-        }
-
-        function productFormPrevStep() {
-            if (!appState.editingProduct) return;
-            const step = appState.productFormStep || 1;
-            if (step === 2) {
-                // Save current name before going back
-                const nameInput = document.getElementById('productNameHidden');
-                if (nameInput) appState.editingProduct.name = nameInput.value;
-                appState.productFormStep = 1;
-                render();
-            } else if (step === 3) {
-                appState.productFormStep = 2;
-                render();
-            }
-        }
-
-        async function handleProductImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            if (file.size > 2 * 1024 * 1024) {
-                showToast('حجم الصورة كبير جداً. الحد الأقصى 2 ميجابايت', 'error');
-                return;
-            }
-            try {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const dataUri = e.target.result;
-                    if (appState.editingProduct) {
-                        appState.editingProduct.image = dataUri;
-                        // Update image preview in-place without full re-render
-                        const previewContainer = document.querySelector('#productImagePreview');
-                        if (previewContainer) {
-                            previewContainer.innerHTML = '<img src="' + escapeHtml(dataUri) + '" alt="preview" class="h-full w-full object-contain">';
-                        }
-                        // Show remove button
-                        const removeBtn = document.getElementById('removeImageBtn');
-                        if (removeBtn) removeBtn.style.display = '';
-                        showToast('تم تحميل الصورة بنجاح', 'success');
-                    }
-                };
-                reader.readAsDataURL(file);
-            } catch (e) {
-                showToast('فشل تحميل الصورة', 'error');
-            }
-        }
-
-        function removeProductImage() {
-            if (appState.editingProduct) {
-                const oldName = appState.editingProduct.name;
-                appState.editingProduct.image = '';
-                ProductImageCache.remove(oldName);
-                render();
-            }
-        }
-
-        function addSizeToProduct() {
-            if (!appState.editingProduct) return;
-            const input = document.getElementById('newProductSize');
-            if (!input) return;
-            const val = parseInt(input.value);
-            if (isNaN(val) || val < 1) {
-                showToast('أدخل مقاساً صحيحاً', 'error');
-                return;
-            }
-            if (appState.editingProduct.sizes.includes(val)) {
-                showToast('هذا المقاس موجود بالفعل', 'error');
-                return;
-            }
-            appState.editingProduct.sizes.push(val);
-            appState.editingProduct.sizes.sort((a, b) => a - b);
-            input.value = '';
-            // Update only the sizes list, don't re-render the whole form
-            const container = document.getElementById('productSizesList');
-            const countEl = document.getElementById('productSizesCount');
-            const summaryCount = document.getElementById('productSizesCountSummary');
-            const summaryList = document.getElementById('summarySizesList');
-            const emptyMsg = document.getElementById('productSizesEmpty');
-            const sizeHtml = appState.editingProduct.sizes.map((size) => `
-                <span class="inline-flex items-center gap-1 size-badge-neo px-3 py-1.5 text-sm font-bold">
-                    ${size}
-                    <button type="button" onclick="removeSizeFromProduct(${size});" class="mr-1 text-red-400 hover:text-red-600 font-bold text-lg leading-none">&times;</button>
-                </span>
-            `).join('');
-            if (container) {
-                container.style.display = 'flex';
-                container.innerHTML = sizeHtml + `<span class="text-xs text-slate-400 self-center mr-2">${appState.editingProduct.sizes.length} مقاس</span>`;
-            }
-            if (countEl) countEl.textContent = appState.editingProduct.sizes.length;
-            if (summaryCount) summaryCount.textContent = appState.editingProduct.sizes.length;
-            if (summaryList) {
-                summaryList.innerHTML = appState.editingProduct.sizes.map(s => `<span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600">${s}</span>`).join('');
-            }
-            if (emptyMsg) emptyMsg.style.display = 'none';
-        }
-
-        function removeSizeFromProduct(size) {
-            if (!appState.editingProduct) return;
-            appState.editingProduct.sizes = appState.editingProduct.sizes.filter(s => s !== size);
-            // Update only the sizes list, don't re-render the whole form
-            const container = document.getElementById('productSizesList');
-            const countEl = document.getElementById('productSizesCount');
-            const summaryCount = document.getElementById('productSizesCountSummary');
-            const summaryList = document.getElementById('summarySizesList');
-            const emptyMsg = document.getElementById('productSizesEmpty');
-            if (container && appState.editingProduct.sizes.length > 0) {
-                container.style.display = 'flex';
-                container.innerHTML = appState.editingProduct.sizes.map((s) => `
-                    <span class="inline-flex items-center gap-1 size-badge-neo px-3 py-1.5 text-sm font-bold">
-                        ${s}
-                        <button type="button" onclick="removeSizeFromProduct(${s});" class="mr-1 text-red-400 hover:text-red-600 font-bold text-lg leading-none">&times;</button>
-                    </span>
-                `).join('') + `<span class="text-xs text-slate-400 self-center mr-2">${appState.editingProduct.sizes.length} مقاس</span>`;
-                if (emptyMsg) emptyMsg.style.display = 'none';
-            } else if (container) {
-                container.style.display = 'none';
-                container.innerHTML = '';
-                if (emptyMsg) emptyMsg.style.display = 'block';
-            }
-            if (countEl) countEl.textContent = appState.editingProduct.sizes.length;
-            if (summaryCount) summaryCount.textContent = appState.editingProduct.sizes.length;
-            if (summaryList) {
-                if (appState.editingProduct.sizes.length > 0) {
-                    summaryList.innerHTML = appState.editingProduct.sizes.map(s => `<span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600">${s}</span>`).join('');
-                } else {
-                    summaryList.innerHTML = '<span class="text-xs text-slate-400">لا توجد مقاسات</span>';
-                }
-            }
-        }
-
-        // ========== GitHub Image Upload ==========
-        // Uploads product image directly to GitHub repo assets/png/ folder via Contents API
-        const GITHUB_REPO = 'AliMohamedFikri/white_gold_web';
-        const GITHUB_API = 'https://api.github.com';
-
-        function getGithubToken() {
-            return localStorage.getItem('github_token') || '';
-        }
-
-        async function uploadImageToGitHub(dataUri, productName) {
-            const token = getGithubToken();
-            if (!token) {
-                showToast('يرجى إضافة رمز GitHub في الإعدادات أولاً', 'error');
-                return false;
-            }
-            try {
-                // Extract raw base64 from data URI (remove "data:image/...;base64," prefix)
-                const base64Match = dataUri.match(/^data:image\/\w+;base64,(.+)$/);
-                if (!base64Match) {
-                    showToast('صيغة الصورة غير صالحة', 'error');
-                    return false;
-                }
-                const base64Content = base64Match[1];
-                const filename = productName + '.PNG';
-                const path = 'assets/png/' + filename;
-
-                const response = await fetch(GITHUB_API + '/repos/' + GITHUB_REPO + '/contents/' + path, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': 'token ' + token,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/vnd.github.v3+json'
-                    },
-                    body: JSON.stringify({
-                        message: 'Add product image: ' + productName,
-                        content: base64Content,
-                        branch: 'master'
-                    })
-                });
-
-                if (response.ok) {
-                    showToast('تم رفع الصورة إلى المستودع بنجاح', 'success');
-                    return true;
-                } else {
-                    const errorData = await response.json().catch(() => ({}));
-                    if (response.status === 401) {
-                        showToast('رمز GitHub غير صالح أو منتهي الصلاحية', 'error');
-                    } else if (response.status === 403) {
-                        showToast('صلاحيات غير كافية على المستودع', 'error');
-                    } else {
-                        showToast('فشل رفع الصورة: ' + (errorData.message || 'خطأ غير معروف'), 'error');
-                    }
-                    console.error('GitHub upload failed:', response.status, errorData);
-                    return false;
-                }
-            } catch (e) {
-                console.error('GitHub upload error:', e);
-                showToast('خطأ في الاتصال بـ GitHub', 'error');
-                return false;
-            }
-        }
-
-        async function deleteImageFromGitHub(productName) {
-            const token = getGithubToken();
-            if (!token) return false;
-            try {
-                const filename = productName + '.PNG';
-                const path = 'assets/png/' + filename;
-
-                // First get the file SHA
-                const getResp = await fetch(GITHUB_API + '/repos/' + GITHUB_REPO + '/contents/' + path, {
-                    headers: {
-                        'Authorization': 'token ' + token,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-                if (!getResp.ok) return false;
-                const fileData = await getResp.json();
-
-                // Then delete it
-                const delResp = await fetch(GITHUB_API + '/repos/' + GITHUB_REPO + '/contents/' + path, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': 'token ' + token,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/vnd.github.v3+json'
-                    },
-                    body: JSON.stringify({
-                        message: 'Delete product image: ' + productName,
-                        sha: fileData.sha,
-                        branch: 'master'
-                    })
-                });
-                return delResp.ok;
-            } catch (e) {
-                console.error('GitHub delete error:', e);
-                return false;
-            }
-        }
-
-        async function saveProductForm(event) {
-            if (event) event.preventDefault();
-            const name = appState.editingProduct?.name?.trim();
-            if (!name) {
-                showToast('أدخل اسم المنتج', 'error');
-                return;
-            }
-
-            // Check duplicate name (excluding current product if editing)
-            const duplicate = appState.products.find(p => p.name === name && p.id !== (appState.editingProduct?.id));
-            if (duplicate) {
-                showToast('يوجد منتج بنفس الاسم بالفعل', 'error');
-                return;
-            }
-
-            if (appState.editingProduct && appState.editingProduct.id) {
-                // Editing existing product
-                const oldName = appState.products.find(p => p.id === appState.editingProduct.id)?.name;
-                appState.editingProduct.name = name;
-                const productData = { ...appState.editingProduct };
-
-                // If image is a data URI (newly uploaded), upload to GitHub + cache in IndexedDB
-                if (productData.image && productData.image.startsWith('data:')) {
-                    await ProductImageCache.save(name, productData.image);
-                    const uploaded = await uploadImageToGitHub(productData.image, name);
-                    if (uploaded) {
-                        productData.image = 'assets/png/' + name + '.PNG';
-                    } else {
-                        // GitHub upload failed — keep IndexedDB cache as fallback
-                        productData.image = 'assets/png/' + name + '.PNG';
-                    }
-                } else if (productData.image && productData.image.includes('/')) {
-                    const ext = productData.image.split('.').pop();
-                    productData.image = 'assets/png/' + name + '.' + ext;
-                }
-
-                // If product was renamed, migrate the image in IndexedDB
-                if (oldName && oldName !== name) {
-                    const cachedImage = await ProductImageCache.get(oldName);
-                    if (cachedImage) {
-                        await ProductImageCache.save(name, cachedImage);
-                        await ProductImageCache.remove(oldName);
-                    }
-                }
-
-                const products = appState.products.map(p => p.id === productData.id ? productData : p);
-                const result = await saveProducts(products);
-                if (result.isOk) {
-                    appState.products = products;
-                    appState.categories = products.map(p => p.name);
-                    appState.editingProduct = null;
-                    appState.productFormStep = 0;
-                    showToast('تم تحديث المنتج بنجاح', 'success');
-                    render();
-                }
-            } else {
-                // Adding new product
-                let imageRef = 'assets/png/' + name + '.PNG';
-                const rawImage = appState.editingProduct?.image || '';
-                if (rawImage.startsWith('data:')) {
-                    await ProductImageCache.save(name, rawImage);
-                    // Upload image to GitHub repo
-                    const uploaded = await uploadImageToGitHub(rawImage, name);
-                    if (!uploaded) {
-                        showToast('لم يتم رفع الصورة إلى المستودع، لكن تم حفظ المنتج محلياً', 'warning');
-                    }
-                } else if (rawImage) {
-                    imageRef = rawImage;
-                }
-
-                const newProduct = {
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                    name: name,
-                    sizes: appState.editingProduct?.sizes || [],
-                    image: imageRef
-                };
-                const products = [...appState.products, newProduct];
-                const result = await saveProducts(products);
-                if (result.isOk) {
-                    appState.products = products;
-                    appState.categories = products.map(p => p.name);
-                    appState.editingProduct = null;
-                    appState.productFormStep = 0;
-                    showToast('تم إضافة المنتج بنجاح', 'success');
-                    render();
-                }
-            }
-        }
-
-        async function deleteProduct(productId) {
-            const product = appState.products.find(p => p.id === productId);
-            if (!product) return;
-            if (!confirm('هل أنت متأكد من حذف "' + product.name + '"؟')) return;
-
-            const products = appState.products.filter(p => p.id !== productId);
-            const result = await saveProducts(products);
-            if (result.isOk) {
-                // Also remove image from IndexedDB cache and GitHub
-                if (product.name) {
-                    await ProductImageCache.remove(product.name);
-                    deleteImageFromGitHub(product.name); // Fire-and-forget, don't block
-                }
-                appState.products = products;
-                appState.categories = products.map(p => p.name);
-                if (appState.editingProduct?.id === productId) {
-                    appState.editingProduct = null;
-                }
-                showToast('تم حذف المنتج بنجاح', 'success');
-                render();
-            }
-        }
-
-        function reorderProduct(productId, direction) {
-            const idx = appState.products.findIndex(p => p.id === productId);
-            if (idx < 0) return;
-            const newIdx = idx + direction;
-            if (newIdx < 0 || newIdx >= appState.products.length) return;
-            const temp = appState.products[idx];
-            appState.products[idx] = appState.products[newIdx];
-            appState.products[newIdx] = temp;
-            // Auto-save reorder
-            saveProducts(appState.products).then(result => {
-                if (result.isOk) {
-                    appState.categories = appState.products.map(p => p.name);
-                    render();
-                }
-            });
-        }
-
-        function renderProductForm(editingProduct) {
-            const config = window.elementSdk?.config || defaultConfig;
-            const isNew = !editingProduct || !editingProduct.id;
-            const product = editingProduct || { id: '', name: '', sizes: [], image: '' };
-            const step = appState.productFormStep || 1;
-            const imgSrc = getProductImageSrc(product);
-            const safeName = (product.name || '').replace(/'/g, "\\'").replace(/\s+/g, '-');
-
-            // Step indicator
-            const steps = [
-                { num: 1, label: 'الاسم' },
-                { num: 2, label: 'الصورة' },
-                { num: 3, label: 'المقاسات' }
-            ];
-
-            const stepIndicator = `
-                <div class="flex items-center justify-center gap-2 mb-6">
-                    ${steps.map((s, i) => `
-                        <div class="flex items-center gap-2">
-                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${s.num === step ? 'text-white shadow-lg scale-110' : s.num < step ? 'text-white opacity-70' : 'bg-gray-200 text-gray-400'}"
-                                style="${s.num <= step ? 'background-color:' + config.primary_color : ''}">
-                                ${s.num < step ? '✓' : s.num}
-                            </div>
-                            ${i < steps.length - 1 ? `<div class="w-8 h-0.5 ${s.num < step ? '' : 'bg-gray-200'}" style="${s.num < step ? 'background-color:' + config.primary_color : ''}"></div>` : ''}
-                        </div>
-                    `).join('')}
-                    <span class="mr-4 text-sm font-semibold text-slate-500">${steps[step-1].label}</span>
-                </div>`;
-
-            // Step 1: Product Name
-            if (step === 1) {
-                return `
-                <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl fade-in">
-                    <h2 class="text-2xl font-bold mb-2">${isNew ? '➕ إضافة منتج جديد' : '✏️ تعديل المنتج'}</h2>
-                    <p class="text-sm text-slate-400 mb-4">الخطوة 1 من 3</p>
-                    ${stepIndicator}
-                    <div class="space-y-5">
-                        <div>
-                            <label class="block text-sm font-semibold mb-2">اسم المنتج</label>
-                            <input type="text" id="productName" value="${escapeHtml(product.name)}" placeholder="مثال: حماله، نصف كم..." autofocus
-                                class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none text-lg" style="border-color: ${config.primary_color};"
-                                onkeydown="if(event.key==='Enter'){event.preventDefault();productFormNextStep();}">
-                        </div>
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" onclick="productFormNextStep();" class="flex-1 py-3 rounded-lg font-bold text-white text-lg" style="background-color: ${config.primary_color};">
-                                التالي ← الصورة
-                            </button>
-                            <button type="button" onclick="cancelEditProduct();" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">إلغاء</button>
-                        </div>
-                    </div>
-                </div>`;
-            }
-
-            // Step 2: Product Image
-            if (step === 2) {
-                return `
-                <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl fade-in">
-                    <h2 class="text-2xl font-bold mb-2">${isNew ? '➕ إضافة منتج جديد' : '✏️ تعديل المنتج'}</h2>
-                    <p class="text-sm text-slate-400 mb-4">الخطوة 2 من 3 — "${escapeHtml(product.name)}"</p>
-                    <input type="hidden" id="productNameHidden" value="${escapeHtml(product.name)}">
-                    ${stepIndicator}
-                    <div class="space-y-5">
-                        <div>
-                            <label class="block text-sm font-semibold mb-2">صورة المنتج <span class="text-slate-400 font-normal">(اختياري)</span></label>
-                            <div class="flex items-center gap-4">
-                                <div id="productImagePreview" class="h-36 w-36 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden border-2" style="border-color: ${config.primary_color};">
-                                    ${imgSrc
-                                        ? `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" class="h-full w-full object-contain" onerror="setupImageFallback(this,'${safeName}')">`
-                                        : `<span class="text-4xl text-gray-300">📦</span>`
-                                    }
-                                </div>
-                                <div class="flex flex-col gap-2">
-                                    <input type="file" id="productImage" accept="image/png,image/jpeg,image/jpg,image/webp" onchange="handleProductImageUpload(event)" class="hidden">
-                                    <button type="button" onclick="document.getElementById('productImage').click()" class="px-4 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.primary_color};">📷 رفع صورة</button>
-                                    <button type="button" id="removeImageBtn" onclick="removeProductImage()" class="px-4 py-2 bg-red-100 text-red-600 rounded-lg font-semibold text-sm hover:bg-red-200" style="${product.image ? '' : 'display:none'}">إزالة الصورة</button>
-                                </div>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">PNG, JPG, WebP — الحد الأقصى 2 ميجابايت</p>
-                        </div>
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" onclick="productFormPrevStep();" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">→ السابق</button>
-                            <button type="button" onclick="productFormNextStep();" class="flex-1 py-3 rounded-lg font-bold text-white text-lg" style="background-color: ${config.primary_color};">
-                                التالي ← المقاسات
-                            </button>
-                            <button type="button" onclick="cancelEditProduct();" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">إلغاء</button>
-                        </div>
-                    </div>
-                </div>`;
-            }
-
-            // Step 3: Sizes + Save
-            if (step === 3) {
-                return `
-                <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl fade-in">
-                    <h2 class="text-2xl font-bold mb-2">${isNew ? '➕ إضافة منتج جديد' : '✏️ تعديل المنتج'}</h2>
-                    <p class="text-sm text-slate-400 mb-4">الخطوة 3 من 3 — "${escapeHtml(product.name)}"</p>
-                    ${stepIndicator}
-                    <div class="space-y-5">
-                        <div>
-                            <label class="block text-sm font-semibold mb-2">المقاسات</label>
-                            <div class="flex items-center gap-2 mb-3">
-                                <input type="number" id="newProductSize" placeholder="أدخل مقاس" min="1"
-                                    class="flex-1 px-4 py-2 border-2 rounded-lg text-center font-bold" style="border-color: ${config.primary_color};"
-                                    onkeydown="if(event.key==='Enter'){event.preventDefault();addSizeToProduct();}">
-                                <button type="button" onclick="addSizeToProduct();" class="px-4 py-2 rounded-lg font-bold text-white text-sm" style="background-color: ${config.primary_color};">+ إضافة</button>
-                                <button type="button" onclick="appState.editingProduct.sizes = [...SIZES]; addSizeToProduct(); document.getElementById('newProductSize') && (document.getElementById('newProductSize').value = '');"
-                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200">📋 مقاسات افتراضية</button>
-                            </div>
-                            <div id="productSizesList" class="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg" style="${product.sizes.length === 0 ? 'display:none' : ''}">
-                                ${product.sizes.map((size) => `
-                                    <span class="inline-flex items-center gap-1 size-badge-neo px-3 py-1.5 text-sm font-bold">
-                                        ${size}
-                                        <button type="button" onclick="removeSizeFromProduct(${size});" class="mr-1 text-red-400 hover:text-red-600 font-bold text-lg leading-none">&times;</button>
-                                    </span>
-                                `).join('')}
-                                <span class="text-xs text-slate-400 self-center mr-2" id="productSizesCount">${product.sizes.length} مقاس</span>
-                            </div>
-                            <p id="productSizesEmpty" class="text-sm text-slate-400" style="${product.sizes.length > 0 ? 'display:none' : ''}">لا توجد مقاسات — أضف مقاسات أو استخدم المقاسات الافتراضية</p>
-                        </div>
-
-                        <!-- Summary -->
-                        <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <p class="text-sm font-semibold text-slate-600 mb-2">ملخص المنتج:</p>
-                            <div class="flex items-center gap-4 mb-2">
-                                <span class="text-sm text-slate-500">الاسم:</span>
-                                <strong class="text-sm">${escapeHtml(product.name)}</strong>
-                            </div>
-                            <div class="flex items-center gap-4 mb-2">
-                                <span class="text-sm text-slate-500">الصورة:</span>
-                                <strong class="text-sm">${product.image ? '✅ مرفقة' : '❌ غير مرفقة'}</strong>
-                                ${product.image && imgSrc ? `<div class="h-8 w-8 rounded overflow-hidden border border-slate-200"><img src="${escapeHtml(imgSrc)}" alt="thumb" class="h-full w-full object-contain" onerror="this.parentElement.style.display='none'"></div>` : ''}
-                            </div>
-                            <div>
-                                <span class="text-sm text-slate-500">المقاسات (<span id="productSizesCountSummary">${product.sizes.length}</span>):</span>
-                                <div id="summarySizesList" class="flex flex-wrap gap-1 mt-1">
-                                    ${product.sizes.length > 0 ? product.sizes.map(s => `<span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-bold text-slate-600">${s}</span>`).join('') : '<span class="text-xs text-slate-400">لا توجد مقاسات</span>'}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" onclick="productFormPrevStep();" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">→ السابق</button>
-                            <button type="button" onclick="saveProductForm();" ${isLoading('saveProducts') ? 'disabled' : ''} class="flex-1 py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">
-                                ${isLoading('saveProducts') ? '<div class="loading-spinner"></div>' : ''}
-                                <span>${isNew ? '➕ إضافة المنتج' : '💾 حفظ التعديلات'}</span>
-                            </button>
-                            <button type="button" onclick="cancelEditProduct();" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">إلغاء</button>
-                        </div>
-                    </div>
-                </div>`;
-            }
-
-            return '';
-        }
-
-        function renderProducts() {
-            const config = window.elementSdk?.config || defaultConfig;
-            const products = appState.products;
-            const isEditing = appState.editingProduct !== null && appState.editingProduct !== undefined;
-
-            return `
-                <div class="fade-in">
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h1 class="text-4xl font-bold" style="color: ${config.text_color};">📦 المنتجات</h1>
-                            <p class="text-sm text-slate-500 mt-1">تعديل أو حذف المنتجات المعروضة على الصفحة الرئيسية</p>
-                        </div>
-                    </div>
-
-                    ${isEditing ? renderProductForm(appState.editingProduct) : ''}
-
-                    ${!isEditing ? `
-                    <!-- Products Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        ${products.map((product, idx) => {
-                            const pImgSrc = getProductImageSrc(product);
-                            const pSafeName = (product.name || '').replace(/'/g, "\\'").replace(/\s+/g, '-');
-                            return `
-                            <div class="card-shadow rounded-xl bg-white overflow-hidden hover:shadow-xl transition-shadow">
-                                <!-- Image -->
-                                <div class="landing-category-icon" style="max-height: 180px; margin: 0; border-radius: 0;">
-                                    ${pImgSrc
-                                        ? `<img src="${escapeHtml(pImgSrc)}" alt="${escapeHtml(product.name)}" class="category-icon-img" style="width: 100% !important; height: 100% !important; max-width: 100% !important;" onerror="setupImageFallback(this,'${pSafeName}')">`
-                                        : `<div class="flex items-center justify-center h-full w-full py-8">
-                                            <span class="text-5xl text-gray-300">📦</span>
-                                          </div>`
-                                    }
-                                </div>
-
-                                <!-- Info -->
-                                <div class="p-4">
-                                    <h3 class="text-lg font-bold text-slate-800 mb-2">${escapeHtml(product.name)}</h3>
-                                    <div class="flex flex-wrap gap-1.5 mb-3">
-                                        ${(product.sizes && product.sizes.length > 0 ? product.sizes.slice(0, 6) : []).map(size => `
-                                            <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-bold">${size}</span>
-                                        `).join('')}
-                                        ${(product.sizes && product.sizes.length > 6) ? `<span class="px-2 py-0.5 text-xs font-bold" style="color: ${config.primary_color};">+${product.sizes.length - 6}</span>` : ''}
-                                        ${(!product.sizes || product.sizes.length === 0) ? '<span class="text-xs text-slate-400">لا توجد مقاسات</span>' : ''}
-                                    </div>
-
-                                    <!-- Actions -->
-                                    <div class="flex items-center justify-between pt-3 border-t border-gray-100">
-                                        <div class="flex gap-1.5">
-                                            ${idx > 0 ? `<button onclick="reorderProduct('${product.id}', -1);" class="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-sm" title="تحريك لأعلى">▲</button>` : ''}
-                                            ${idx < products.length - 1 ? `<button onclick="reorderProduct('${product.id}', 1);" class="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-sm" title="تحريك لأسفل">▼</button>` : ''}
-                                        </div>
-                                        <div class="flex gap-2">
-                                            <button onclick="startEditProduct('${product.id}');" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">✏️ تعديل</button>
-                                            <button onclick="deleteProduct('${product.id}');" class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors">🗑️ حذف</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;}).join('')}
-                    </div>
-
-                    <!-- Empty State -->
-                    ${products.length === 0 ? `
-                        <div class="text-center py-16">
-                            <div class="text-6xl mb-4">📦</div>
-                            <h3 class="text-xl font-bold text-slate-600 mb-2">لا توجد منتجات</h3>
-                            <p class="text-slate-400 mb-6">يمكنك إضافة صور المنتجات مباشرة إلى مجلد assets في المستودع</p>
-                        </div>
-                    ` : ''}
-                    ` : ''}
-                </div>`;
-        }
 
         // ========== Storage Data Management ==========
         let _storageRawData = null;
@@ -4586,35 +3724,80 @@
                         </div>
                     ` : ''}
 
-                    <!-- Pricing Models (with versions) -->
+                    <!-- Pricing Models (with versions always visible) -->
                     ${pricingGroups.length > 0 ? `
                         <div class="mb-6">
                             <h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">💰 نماذج التسعير</h2>
-                            <div class="space-y-4">
+                            <div class="space-y-5">
                                 ${pricingGroups.map(group => {
                                     const versions = Array.isArray(group.data) ? group.data : [];
                                     const activeCount = versions.filter(v => !v.isDeleted).length;
                                     const deletedCount = versions.filter(v => v.isDeleted).length;
-                                    const isGroupExpanded = _storageExpandedItem === group.__backendId;
                                     return `
-                                        <div class="card-shadow rounded-xl bg-white overflow-hidden">
-                                            <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-indigo-50 to-white cursor-pointer hover:from-indigo-100 transition-colors" onclick="storageToggleExpand('${group.__backendId}')">
+                                        <div class="card-shadow rounded-2xl bg-white overflow-hidden">
+                                            <!-- Model Name Header -->
+                                            <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-l from-indigo-50 to-white border-b border-indigo-100">
                                                 <div class="flex items-center gap-3 flex-1 min-w-0">
-                                                    <span class="text-lg font-bold text-indigo-700">${escapeHtml(group.pricingModelName || 'بدون اسم')}</span>
-                                                    <span class="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-bold">${activeCount} نشط</span>
-                                                    ${deletedCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">${deletedCount} محذوف</span>` : ''}
+                                                    <span class="text-xl font-black text-indigo-800">${escapeHtml(group.pricingModelName || 'بدون اسم')}</span>
+                                                    <span class="px-2.5 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-bold">${activeCount} نشط</span>
+                                                    ${deletedCount > 0 ? `<span class="px-2.5 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">${deletedCount} محذوف</span>` : ''}
                                                 </div>
-                                                <div class="flex items-center gap-2">
-                                                    <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف الكل</button>
-                                                    <span class="text-slate-400 transition-transform ${isGroupExpanded ? 'rotate-180' : ''}">▼</span>
-                                                </div>
+                                                <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف الكل</button>
                                             </div>
-                                            ${isGroupExpanded ? `
-                                                <div class="p-4 border-t border-gray-100 space-y-2">
-                                                    ${versions.length === 0 ? '<p class="text-sm text-slate-400 text-center py-4">لا توجد إصدارات</p>' : ''}
-                                                    ${versions.map(v => buildEntryCard(v, true)).join('')}
-                                                </div>
-                                            ` : ''}
+                                            <!-- Versions List (always visible) -->
+                                            <div class="divide-y divide-gray-100">
+                                                ${versions.length === 0 ? '<p class="text-sm text-slate-400 text-center py-6">لا توجد إصدارات</p>' : ''}
+                                                ${versions.map((v, vIdx) => {
+                                                    const isExpanded = _storageExpandedItem === v.__backendId;
+                                                    const isActive = !v.isDeleted;
+                                                    const versionLabel = 'إصدار ' + (vIdx + 1);
+                                                    const catCount = Array.isArray(v.data) ? v.data.length : 0;
+                                                    const pricedCount = Array.isArray(v.data) ? v.data.reduce((s, c) => s + (Array.isArray(c.prices) ? c.prices.filter(p => p.price > 0).length : 0), 0) : 0;
+                                                    const vDate = v.updatedAt || v.createdAt || '';
+                                                    const dateStr = vDate ? new Date(vDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                                                    const jsonStr = JSON.stringify(v, null, 2);
+                                                    const truncated = jsonStr.length > 500 ? jsonStr.substring(0, 500) + '\n...' : jsonStr;
+                                                    const escapedJson = escapeHtml(truncated).replace(/\n/g, '&#10;');
+                                                    return `
+                                                    <div class="transition-all ${isActive ? '' : 'opacity-60'} ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}">
+                                                        <!-- Version Header Row (always visible) -->
+                                                        <div class="flex items-center justify-between px-5 py-3 cursor-pointer" onclick="storageToggleExpand('${v.__backendId}')">
+                                                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                                                <span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'}">${vIdx + 1}</span>
+                                                                <div class="flex-1 min-w-0">
+                                                                    <div class="flex items-center gap-2">
+                                                                        <span class="font-bold text-sm text-slate-800">${versionLabel}</span>
+                                                                        ${isActive ? '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-bold">نشط</span>' : '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">محذوف</span>'}
+                                                                    </div>
+                                                                    <div class="flex items-center gap-3 mt-0.5">
+                                                                        <span class="text-xs text-slate-400">${catCount} فئة</span>
+                                                                        <span class="text-xs text-slate-400">${pricedCount} سعر مسعر</span>
+                                                                        ${dateStr ? `<span class="text-xs text-slate-400">${dateStr}</span>` : ''}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                                                                <button onclick="event.stopPropagation(); storageToggleEdit('${v.__backendId}');" id="storage-btn-edit-${v.__backendId}" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
+                                                                <button onclick="event.stopPropagation(); storageSaveEdit('${v.__backendId}');" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
+                                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${v.__backendId}');" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
+                                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${v.__backendId}');" class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
+                                                                <span class="text-slate-400 mr-1 transition-transform text-xs ${isExpanded ? 'rotate-180' : ''}">▼</span>
+                                                            </div>
+                                                        </div>
+                                                        <!-- Expandable JSON Viewer/Editor -->
+                                                        ${isExpanded ? `
+                                                            <div class="px-5 pb-4 bg-white border-t border-gray-100">
+                                                                <div id="storage-viewer-${v.__backendId}">
+                                                                    <pre class="text-xs text-slate-600 bg-slate-50 rounded-lg p-4 overflow-auto max-h-96 whitespace-pre-wrap font-mono" dir="ltr">${escapedJson}</pre>
+                                                                </div>
+                                                                <div id="storage-editor-${v.__backendId}" style="display:none;" class="mb-3">
+                                                                    <textarea id="storage-json-editor-${v.__backendId}" class="w-full h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea>
+                                                                </div>
+                                                            </div>
+                                                        ` : ''}
+                                                    </div>`;
+                                                }).join('')}
+                                            </div>
                                         </div>`;
                                 }).join('')}
                             </div>
@@ -4679,10 +3862,6 @@
             // Let CSS control sizing; only apply a semantic class here
             return `<img id="${uid}" src="${imgSrc}" alt="${category}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${category.replace(/'/g, "\\'")}')">`;
         }
-        function scrollToProducts() {
-            document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
-        }
-
         function scrollToAbout() {
             document.getElementById('about').scrollIntoView({ behavior: 'smooth' });
         }
@@ -4881,41 +4060,10 @@
         }
 
 
-        // ========== Public Products Loader ==========
-        // Loads products from localStorage for landing page (works without login)
-        async function loadPublicProducts() {
-            try {
-                const raw = storageGet('app_data');
-                if (!raw) return;
-                const data = JSON.parse(raw);
-                const productsEntry = data.find(d => d.type === 'products');
-                if (productsEntry && Array.isArray(productsEntry.products)) {
-                    appState.products = productsEntry.products;
-                    // Migrate any remaining base64 images to IndexedDB
-                    for (const p of appState.products) {
-                        if (p.image && p.image.startsWith('data:')) {
-                            ProductImageCache.save(p.name, p.image);
-                            p.image = 'assets/png/' + p.name + '.PNG';
-                        }
-                    }
-                    appState.categories = appState.products.map(p => p.name);
-                    console.log('Public products loaded:', appState.products.length);
-                }
-            } catch (e) {
-                console.warn('loadPublicProducts failed:', e);
-            }
-        }
-
         // Initialize
         async function init() {
             initSecurityLayer();
             await initOptionalSdks();
-
-            // Preload product images from IndexedDB into memory cache (for instant fallback)
-            await ProductImageCache.preloadAll();
-
-            // Load products for public landing page BEFORE first render
-            await loadPublicProducts();
 
             try {
                 await loadBillTemplate(BILL_FALLBACK_TEMPLATE_VERSION);
