@@ -1786,7 +1786,7 @@
                         id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                         name: name,
                         sizes: [...SIZES],
-                        image: 'assets/png/' + ({ 'حماله': 'حماله', 'نصف كم': 'نصفكم', 'كم': 'كم', 'كلسون': 'كلسون', 'شورت': 'شورت', 'سليب': 'سليب' }[name] || 'default') + '.JPEG'
+                        image: 'assets/png/' + ({ 'حماله': 'حماله', 'نصف كم': 'نصفكم', 'كم': 'كم', 'كلسون': 'كلسون', 'شورت': 'شورت', 'سليب': 'سليب' }[name] || 'default') + '.PNG'
                     }));
                 }
 
@@ -2145,6 +2145,9 @@
                     letterRendering: true,
                     logging: false,
                     onclone: (clonedDoc) => {
+                        // Apply pdf-capture-mode to the CLONE only — keeps the visible DOM untouched
+                        const clonedContainer = clonedDoc.getElementById('view-bill-container');
+                        if (clonedContainer) clonedContainer.classList.add('pdf-capture-mode');
                         const bill = clonedDoc.getElementById('printable-bill');
                         if (bill) {
                             bill.style.setProperty('width', '1100px', 'important');
@@ -2288,13 +2291,13 @@
             if (appState.currentBillPdfBlob && appState.currentBillPdfBlob.size > 0) return;
             if (appState.loadingStates.sharing) return;
 
-            const { container, element } = getBillPdfElements();
-            if (!container || !element) return;
+            const { element } = getBillPdfElements();
+            if (!element) return;
 
             const filename = `invoice_${appState.currentBill.billNumber}.pdf`;
             const opt = buildBillPdfOptions(filename);
 
-            container.classList.add('pdf-capture-mode');
+            // No classList changes on the visible DOM — onclone handles the clone.
             try {
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 const blob = await runHtml2PdfWithFallback(element, opt, 'blob');
@@ -2306,8 +2309,6 @@
                 }
             } catch (e) {
                 console.warn('[preGenerateBillPdf] failed:', e);
-            } finally {
-                container.classList.remove('pdf-capture-mode');
             }
         }
 
@@ -2553,12 +2554,15 @@
                 attachEventListeners();
             }
 
+            // Pre-generate PDF in the background so Share works on first click.
+            // Uses a short delay to let the bill view render first, and
+            // onclone applies pdf-capture-mode to the clone — visible DOM stays clean.
             if (appState.currentView === 'viewBill') {
                 setTimeout(() => {
-                    if (appState.currentView === 'viewBill' && !appState.currentBillPdfBlob) {
+                    if (appState.currentView === 'viewBill') {
                         requestAnimationFrame(() => preGenerateBillPdf());
                     }
-                });
+                }, 300);
             }
         }
 
@@ -3951,13 +3955,24 @@
             const config = window.elementSdk?.config || defaultConfig;
             const raw = _storageRawData;
             if (!raw) {
-                // Trigger data load and show loading
-                setTimeout(() => {
+                // Single-shot async load: no setLoading (avoids cascading renders).
+                // Guarded by _storageLoading to prevent duplicate loads.
+                if (!window._storageLoading) {
+                    window._storageLoading = true;
                     (async () => {
-                        await loadStorageRawData();
-                        render();
+                        try {
+                            const data = await window.dataSdk?.getRawData?.() || [];
+                            _storageRawData = data;
+                        } catch (e) {
+                            console.error('Failed to load raw data:', e);
+                            showToast('فشل تحميل بيانات التخزين', 'error');
+                            _storageRawData = [];
+                        } finally {
+                            window._storageLoading = false;
+                            render(); // Exactly ONE re-render after data is ready
+                        }
                     })();
-                }, 50);
+                }
                 return `
                     <div class="fade-in">
                         <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">💾 بيانات التخزين</h1>
@@ -4152,7 +4167,7 @@
             };
             const iconFile = icons[category] || 'default';
             // Let CSS control sizing; only apply a semantic class here
-            return `<img src="assets/png/${iconFile}.JPEG" alt="${category}" class="category-icon-img" loading="lazy">`;
+            return `<img src="assets/png/${iconFile}.PNG" alt="${category}" class="category-icon-img" loading="lazy">`;
         }
         function scrollToProducts() {
             document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
