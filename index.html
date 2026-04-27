@@ -1049,7 +1049,6 @@
             background: none;
             color: #ffffff;
             -webkit-background-clip: unset;
-            background-clip: text;
         }
 
         .about-stat-label {
@@ -1103,6 +1102,122 @@
 
     <div id="app" class="h-full w-full overflow-auto"></div>
     <script>
+        // ========== Product Image Cache (IndexedDB) ==========
+        const ProductImageCache = {
+            _dbName: 'whiteGoldProductImages',
+            _storeName: 'images',
+            _db: null,
+
+            async _getDb() {
+                if (this._db) return this._db;
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this._dbName, 1);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this._storeName)) {
+                            db.createObjectStore(this._storeName, { keyPath: 'productName' });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this._db = e.target.result;
+                        resolve(this._db);
+                    };
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            },
+
+            async save(productName, imageDataUri) {
+                try {
+                    const db = await this._getDb();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(this._storeName, 'readwrite');
+                        tx.objectStore(this._storeName).put({ productName, imageDataUri, updatedAt: Date.now() });
+                        tx.oncomplete = () => resolve(true);
+                        tx.onerror = (e) => reject(e.target.error);
+                    });
+                } catch (e) {
+                    console.warn('ProductImageCache.save failed:', e);
+                    return false;
+                }
+            },
+
+            async get(productName) {
+                try {
+                    const db = await this._getDb();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(this._storeName, 'readonly');
+                        const req = tx.objectStore(this._storeName).get(productName);
+                        req.onsuccess = () => resolve(req.result?.imageDataUri || null);
+                        req.onerror = (e) => reject(e.target.error);
+                    });
+                } catch (e) {
+                    console.warn('ProductImageCache.get failed:', e);
+                    return null;
+                }
+            },
+
+            async remove(productName) {
+                try {
+                    const db = await this._getDb();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(this._storeName, 'readwrite');
+                        tx.objectStore(this._storeName).delete(productName);
+                        tx.oncomplete = () => resolve(true);
+                        tx.onerror = (e) => reject(e.target.error);
+                    });
+                } catch (e) {
+                    console.warn('ProductImageCache.remove failed:', e);
+                    return false;
+                }
+            },
+
+            async getAll() {
+                try {
+                    const db = await this._getDb();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(this._storeName, 'readonly');
+                        const req = tx.objectStore(this._storeName).getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = (e) => reject(e.target.error);
+                    });
+                } catch (e) {
+                    return [];
+                }
+            }
+        };
+
+        /**
+         * Resolve a product image: tries filesystem path first, falls back to IndexedDB.
+         * Returns the image src (filesystem path or data URI) for use in <img> tags.
+         * For the filesystem path, we just return it — the browser will load it.
+         * For IndexedDB, we resolve asynchronously and update the img element.
+         */
+        function getProductImageSrc(product) {
+            if (!product.image) return '';
+            // If it's a filesystem path (assets/...), return it directly
+            if (product.image.startsWith('assets/') || product.image.startsWith('./') || product.image.startsWith('/')) {
+                return product.image;
+            }
+            // Legacy: data URI already — return directly (will be migrated to IndexedDB on save)
+            if (product.image.startsWith('data:')) {
+                return product.image;
+            }
+            return product.image;
+        }
+
+        /**
+         * Set up fallback for an <img> element: if the filesystem path 404s, try IndexedDB.
+         */
+        function setupImageFallback(imgElement, productName) {
+            if (!imgElement || !productName) return;
+            imgElement.addEventListener('error', async function() {
+                const cached = await ProductImageCache.get(productName);
+                if (cached) {
+                    imgElement.src = cached;
+                }
+            }, { once: true });
+        }
+
         function loadOptionalSdkScript(src) {
             return new Promise((resolve, reject) => {
                 const script = document.createElement('script');
@@ -1778,6 +1893,29 @@
                 const productsEntry = data.find(d => d.type === 'products');
                 if (productsEntry && Array.isArray(productsEntry.products)) {
                     appState.products = productsEntry.products;
+                    // Migrate base64 images to IndexedDB + convert to path-only references
+                    let migrated = false;
+                    for (const p of appState.products) {
+                        if (p.image && p.image.startsWith('data:')) {
+                            // Save base64 to IndexedDB cache and convert to path
+                            ProductImageCache.save(p.name, p.image);
+                            p.image = 'assets/png/' + p.name + '.PNG';
+                            migrated = true;
+                        } else if (p.image && p.image.startsWith('assets/')) {
+                            // Already a path — good, nothing to do
+                        } else if (p.image && !p.image.startsWith('data:')) {
+                            // Ensure consistent path format
+                            if (!p.image.startsWith('assets/')) {
+                                p.image = 'assets/png/' + p.image;
+                            }
+                        }
+                    }
+                    if (migrated && appState.isAuthenticated) {
+                        // Persist the cleaned-up products (path-only) to storage
+                        saveProducts(appState.products).then(() => {
+                            console.log('Products migrated: base64 images → assets path + IndexedDB cache');
+                        });
+                    }
                     // Sync categories from products for backward compatibility
                     appState.categories = appState.products.map(p => p.name);
                 } else if (!appState._productsInitialized && appState.products.length === 0) {
@@ -2146,9 +2284,6 @@
                     letterRendering: true,
                     logging: false,
                     onclone: (clonedDoc) => {
-                        // Apply pdf-capture-mode to the CLONE only — keeps the visible DOM untouched
-                        const clonedContainer = clonedDoc.getElementById('view-bill-container');
-                        if (clonedContainer) clonedContainer.classList.add('pdf-capture-mode');
                         const bill = clonedDoc.getElementById('printable-bill');
                         if (bill) {
                             bill.style.setProperty('width', '1100px', 'important');
@@ -2292,13 +2427,13 @@
             if (appState.currentBillPdfBlob && appState.currentBillPdfBlob.size > 0) return;
             if (appState.loadingStates.sharing) return;
 
-            const { element } = getBillPdfElements();
-            if (!element) return;
+            const { container, element } = getBillPdfElements();
+            if (!container || !element) return;
 
             const filename = `invoice_${appState.currentBill.billNumber}.pdf`;
             const opt = buildBillPdfOptions(filename);
 
-            // No classList changes on the visible DOM — onclone handles the clone.
+            container.classList.add('pdf-capture-mode');
             try {
                 await new Promise(resolve => requestAnimationFrame(resolve));
                 const blob = await runHtml2PdfWithFallback(element, opt, 'blob');
@@ -2310,6 +2445,8 @@
                 }
             } catch (e) {
                 console.warn('[preGenerateBillPdf] failed:', e);
+            } finally {
+                container.classList.remove('pdf-capture-mode');
             }
         }
 
@@ -2555,15 +2692,12 @@
                 attachEventListeners();
             }
 
-            // Pre-generate PDF in the background so Share works on first click.
-            // Uses a short delay to let the bill view render first, and
-            // onclone applies pdf-capture-mode to the clone — visible DOM stays clean.
             if (appState.currentView === 'viewBill') {
                 setTimeout(() => {
-                    if (appState.currentView === 'viewBill') {
+                    if (appState.currentView === 'viewBill' && !appState.currentBillPdfBlob) {
                         requestAnimationFrame(() => preGenerateBillPdf());
                     }
-                }, 300);
+                });
             }
         }
 
@@ -2664,14 +2798,16 @@
                             <h2 class="text-3xl md:text-5xl font-bold text-center mb-3 md:mb-5" style="color: ${config.text_color || defaultConfig.text_color};">منتجاتنا</h2>
                             <p class="text-center mb-10 md:mb-14 opacity-70" style="color: ${config.text_color || defaultConfig.text_color};">تشكيلة مقاسات دقيقة لكل خط إنتاج</p>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                ${(appState.products.length > 0 ? appState.products : appState.categories.map(name => ({ name, sizes: SIZES, image: null }))).map(product => {
+                ${(appState.products.length > 0 ? appState.products : appState.categories.map(name => ({ name, sizes: SIZES, image: null }))).map((product, pIdx) => {
                                     const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : SIZES;
                                     const overflowCount = sizes.length - 8;
+                                    const imgSrc = getProductImageSrc(product);
+                                    const safeName = (product.name || '').replace(/'/g, "\\'").replace(/\s+/g, '-');
                                     return `
                                     <div class="landing-product-card rounded-2xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
                                         <div class="landing-category-icon text-center mb-4 transform hover:scale-110 transition-transform">
-                      ${product.image
-                        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="category-icon-img" loading="lazy">`
+                      ${imgSrc
+                        ? `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${safeName}')">`
                         : getCategoryIcon(product.name)
                       }
                     </div>
@@ -3417,11 +3553,16 @@
             }
             try {
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = async (e) => {
                     const dataUri = e.target.result;
                     if (appState.editingProduct) {
-                        appState.editingProduct.image = dataUri;
+                        const productName = appState.editingProduct.name || 'untitled';
+                        // Save the image to IndexedDB cache
+                        await ProductImageCache.save(productName, dataUri);
+                        // Store only the path in the product data
+                        appState.editingProduct.image = 'assets/png/' + productName + '.PNG';
                         render();
+                        showToast('تم حفظ الصورة بنجاح. المسار: assets/png/' + productName + '.PNG', 'success');
                     }
                 };
                 reader.readAsDataURL(file);
@@ -3432,7 +3573,9 @@
 
         function removeProductImage() {
             if (appState.editingProduct) {
+                const oldName = appState.editingProduct.name;
                 appState.editingProduct.image = '';
+                ProductImageCache.remove(oldName);
                 render();
             }
         }
@@ -3481,8 +3624,22 @@
 
             if (appState.editingProduct && appState.editingProduct.id) {
                 // Editing existing product
+                const oldName = appState.products.find(p => p.id === appState.editingProduct.id)?.name;
                 appState.editingProduct.name = name;
                 const productData = { ...appState.editingProduct };
+                // Ensure image path matches product name
+                if (productData.image && productData.image.includes('/')) {
+                    const ext = productData.image.split('.').pop();
+                    productData.image = 'assets/png/' + name + '.' + ext;
+                }
+                // If product was renamed, migrate the image in IndexedDB
+                if (oldName && oldName !== name) {
+                    const cachedImage = await ProductImageCache.get(oldName);
+                    if (cachedImage) {
+                        await ProductImageCache.save(name, cachedImage);
+                        await ProductImageCache.remove(oldName);
+                    }
+                }
 
                 const products = appState.products.map(p => p.id === productData.id ? productData : p);
                 const result = await saveProducts(products);
@@ -3499,7 +3656,7 @@
                     id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                     name: name,
                     sizes: appState.editingProduct?.sizes || [],
-                    image: appState.editingProduct?.image || ''
+                    image: appState.editingProduct?.image || 'assets/png/' + name + '.PNG'
                 };
                 const products = [...appState.products, newProduct];
                 const result = await saveProducts(products);
@@ -3521,6 +3678,10 @@
             const products = appState.products.filter(p => p.id !== productId);
             const result = await saveProducts(products);
             if (result.isOk) {
+                // Also remove image from IndexedDB cache
+                if (product.name) {
+                    await ProductImageCache.remove(product.name);
+                }
                 appState.products = products;
                 appState.categories = products.map(p => p.name);
                 if (appState.editingProduct?.id === productId) {
@@ -3552,6 +3713,8 @@
             const config = window.elementSdk?.config || defaultConfig;
             const isNew = !editingProduct || !editingProduct.id;
             const product = editingProduct || { id: '', name: '', sizes: [], image: '' };
+            const imgSrc = getProductImageSrc(product);
+            const safeName = (product.name || '').replace(/'/g, "\\'").replace(/\s+/g, '-');
 
             return `
                 <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl fade-in">
@@ -3568,8 +3731,8 @@
                             <label class="block text-sm font-semibold mb-2">صورة المنتج</label>
                             <div class="flex items-center gap-4">
                                 <div class="h-28 w-28 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden border-2" style="border-color: ${config.primary_color};">
-                                    ${product.image
-                                        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="h-full w-full object-contain">`
+                                    ${imgSrc
+                                        ? `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(product.name)}" class="h-full w-full object-contain" onerror="setupImageFallback(this,'${safeName}')">`
                                         : `<span class="text-3xl text-gray-300">📦</span>`
                                     }
                                 </div>
@@ -3639,12 +3802,15 @@
 
                     <!-- Products Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        ${products.map((product, idx) => `
+                        ${products.map((product, idx) => {
+                            const pImgSrc = getProductImageSrc(product);
+                            const pSafeName = (product.name || '').replace(/'/g, "\\'").replace(/\s+/g, '-');
+                            return `
                             <div class="card-shadow rounded-xl bg-white overflow-hidden hover:shadow-xl transition-shadow">
                                 <!-- Image -->
                                 <div class="landing-category-icon" style="max-height: 180px; margin: 0; border-radius: 0;">
-                                    ${product.image
-                                        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="category-icon-img" style="width: 100% !important; height: 100% !important; max-width: 100% !important;">`
+                                    ${pImgSrc
+                                        ? `<img src="${escapeHtml(pImgSrc)}" alt="${escapeHtml(product.name)}" class="category-icon-img" style="width: 100% !important; height: 100% !important; max-width: 100% !important;" onerror="setupImageFallback(this,'${pSafeName}')">`
                                         : `<div class="flex items-center justify-center h-full w-full py-8">
                                             <span class="text-5xl text-gray-300">📦</span>
                                           </div>`
@@ -3675,7 +3841,7 @@
                                     </div>
                                 </div>
                             </div>
-                        `).join('')}
+                        `;}).join('')}
                     </div>
 
                     <!-- Empty State -->
@@ -3956,24 +4122,13 @@
             const config = window.elementSdk?.config || defaultConfig;
             const raw = _storageRawData;
             if (!raw) {
-                // Single-shot async load: no setLoading (avoids cascading renders).
-                // Guarded by _storageLoading to prevent duplicate loads.
-                if (!window._storageLoading) {
-                    window._storageLoading = true;
+                // Trigger data load and show loading
+                setTimeout(() => {
                     (async () => {
-                        try {
-                            const data = await window.dataSdk?.getRawData?.() || [];
-                            _storageRawData = data;
-                        } catch (e) {
-                            console.error('Failed to load raw data:', e);
-                            showToast('فشل تحميل بيانات التخزين', 'error');
-                            _storageRawData = [];
-                        } finally {
-                            window._storageLoading = false;
-                            render(); // Exactly ONE re-render after data is ready
-                        }
+                        await loadStorageRawData();
+                        render();
                     })();
-                }
+                }, 50);
                 return `
                     <div class="fade-in">
                         <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">💾 بيانات التخزين</h1>
@@ -4167,8 +4322,11 @@
                 'كم': 'كم',
             };
             const iconFile = icons[category] || 'default';
+            const imgSrc = 'assets/png/' + iconFile + '.PNG';
+            // Use a unique id so we can attach fallback listener after render
+            const uid = 'cat-icon-' + category.replace(/\s+/g, '-');
             // Let CSS control sizing; only apply a semantic class here
-            return `<img src="assets/png/${iconFile}.PNG" alt="${category}" class="category-icon-img" loading="lazy">`;
+            return `<img id="${uid}" src="${imgSrc}" alt="${category}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${category.replace(/'/g, "\\'")}')">`;
         }
         function scrollToProducts() {
             document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
@@ -4372,10 +4530,38 @@
         }
 
 
+        // ========== Public Products Loader ==========
+        // Loads products from localStorage for landing page (works without login)
+        async function loadPublicProducts() {
+            try {
+                const raw = storageGet('app_data');
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                const productsEntry = data.find(d => d.type === 'products');
+                if (productsEntry && Array.isArray(productsEntry.products)) {
+                    appState.products = productsEntry.products;
+                    // Migrate any remaining base64 images to IndexedDB
+                    for (const p of appState.products) {
+                        if (p.image && p.image.startsWith('data:')) {
+                            ProductImageCache.save(p.name, p.image);
+                            p.image = 'assets/png/' + p.name + '.PNG';
+                        }
+                    }
+                    appState.categories = appState.products.map(p => p.name);
+                    console.log('Public products loaded:', appState.products.length);
+                }
+            } catch (e) {
+                console.warn('loadPublicProducts failed:', e);
+            }
+        }
+
         // Initialize
         async function init() {
             initSecurityLayer();
             await initOptionalSdks();
+
+            // Load products for public landing page BEFORE first render
+            await loadPublicProducts();
 
             try {
                 await loadBillTemplate(BILL_FALLBACK_TEMPLATE_VERSION);
