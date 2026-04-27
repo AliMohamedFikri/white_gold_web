@@ -1,8 +1,9 @@
 (function () {
-    const LOGO_PATH = 'Logo%20white%20gold-Final-2.svg';
+    // Logo resolution: settings logo → preloaded logoDataUri → centralized global → file path fallback
+    const LOGO_PATH = 'assets/Logo%20white%20gold-Final-2.svg';
 
     function getLogoSource(appState) {
-        return appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || LOGO_PATH;
+        return appState.companySettings?.logo || appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || LOGO_PATH;
     }
 
     function renderViewBill(context) {

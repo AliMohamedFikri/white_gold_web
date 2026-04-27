@@ -69,7 +69,8 @@
 .pdf-capture-mode .bill-watermark { display: none; }
 `;
 
-    const LOGO_PATH = 'Logo%20white%20gold-Final-2.svg';
+    // Logo resolution: settings logo → preloaded logoDataUri → centralized global → resolved file path → inline fallback
+    const LOGO_PATH = 'assets/Logo%20white%20gold-Final-2.svg';
     const FALLBACK_LOGO_DATA_URI = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='32' fill='%23ffffff'/%3E%3Ccircle cx='128' cy='104' r='62' fill='%23d4af37'/%3E%3Ccircle cx='128' cy='104' r='46' fill='none' stroke='%23222222' stroke-width='10'/%3E%3Ctext x='128' y='119' text-anchor='middle' font-size='44' font-weight='700' font-family='Arial, sans-serif' fill='%23000000'%3EWG%3C/text%3E%3Crect x='54' y='188' width='148' height='16' rx='8' fill='%231f2937'/%3E%3C/svg%3E";
 
     function getResolvedLogoPath() {
@@ -105,7 +106,7 @@
     }
 
     function getLogoSource(appState) {
-        return appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || getResolvedLogoPath();
+        return appState.companySettings?.logo || appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || getResolvedLogoPath();
     }
 
     function renderViewBill(context) {
