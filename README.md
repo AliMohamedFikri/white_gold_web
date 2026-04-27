@@ -185,8 +185,7 @@ white_gold_web/
 ├── assets/
 │   ├── Logo white gold-Final-2.svg         # Default company logo
 │   └── png/                                # Category icons (سليب.JPEG, نصفكم.JPEG, etc.)
-├── v3_Billing_only/
-│   └── bill_templates/
+├── bill_templates/
 		├── logo_data_uri.js                # Centralized default logo path (single source of truth)
 │       ├── template_v7.js                  # v7 bill template (default, modern design)
 │       └── template_fallback.js            # Fallback bill template (simple design)
