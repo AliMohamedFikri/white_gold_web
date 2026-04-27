@@ -1,32 +1,6 @@
 ﻿[
     {
         "type": "pricingModel",
-        "pricingModelName": "D",
-        "data": [
-            {
-                "pricingModelData": "[{\"name\":\"كلسون\",\"prices\":[{\"size\":22,\"price\":205},{\"size\":24,\"price\":235},{\"size\":26,\"price\":265},{\"size\":28,\"price\":295},{\"size\":30,\"price\":325},{\"size\":32,\"price\":355},{\"size\":34,\"price\":390},{\"size\":36,\"price\":425},{\"size\":38,\"price\":460},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]},{\"name\":\"كم\",\"prices\":[{\"size\":22,\"price\":260},{\"size\":24,\"price\":285},{\"size\":26,\"price\":315},{\"size\":28,\"price\":345},{\"size\":30,\"price\":390},{\"size\":32,\"price\":435},{\"size\":34,\"price\":480},{\"size\":36,\"price\":530},{\"size\":38,\"price\":580},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]}]",
-                "createdAt": "2026-04-27T12:52:45.210Z",
-                "updatedAt": "2026-04-27T12:52:46.250Z",
-                "__backendId": "1777294366250",
-                "isDeleted": true
-            },
-            {
-                "pricingModelData": "[{\"name\":\"كلسون\",\"prices\":[{\"size\":22,\"price\":205},{\"size\":24,\"price\":235},{\"size\":26,\"price\":265},{\"size\":28,\"price\":295},{\"size\":30,\"price\":325},{\"size\":32,\"price\":355},{\"size\":34,\"price\":390},{\"size\":36,\"price\":425},{\"size\":38,\"price\":460},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]},{\"name\":\"كم\",\"prices\":[{\"size\":22,\"price\":260},{\"size\":24,\"price\":285},{\"size\":26,\"price\":315},{\"size\":28,\"price\":345},{\"size\":30,\"price\":390},{\"size\":32,\"price\":435},{\"size\":34,\"price\":480},{\"size\":36,\"price\":530},{\"size\":38,\"price\":580},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]}]",
-                "createdAt": "2026-04-27T13:04:56.466Z",
-                "updatedAt": "2026-04-27T13:04:57.266Z",
-                "__backendId": "1777295097266",
-                "isDeleted": true
-            },
-            {
-                "pricingModelData": "[{\"name\":\"كلسون\",\"prices\":[{\"size\":22,\"price\":205},{\"size\":24,\"price\":235},{\"size\":26,\"price\":265},{\"size\":28,\"price\":295},{\"size\":30,\"price\":325},{\"size\":32,\"price\":355},{\"size\":34,\"price\":390},{\"size\":36,\"price\":425},{\"size\":38,\"price\":460},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]},{\"name\":\"كم\",\"prices\":[{\"size\":22,\"price\":260},{\"size\":24,\"price\":285},{\"size\":26,\"price\":315},{\"size\":28,\"price\":345},{\"size\":30,\"price\":390},{\"size\":32,\"price\":435},{\"size\":34,\"price\":480},{\"size\":36,\"price\":530},{\"size\":38,\"price\":580},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]}]",
-                "createdAt": "2026-04-27T13:31:11.697Z",
-                "updatedAt": "2026-04-27T13:31:12.480Z",
-                "__backendId": "1777296672480"
-            }
-        ]
-    },
-    {
-        "type": "pricingModel",
         "pricingModelName": "A",
         "data": [
             {
@@ -169,5 +143,333 @@
         "bc": "الشيخ ناجح",
         "updatedAt": "2026-04-27T14:29:19.521Z",
         "__backendId": "1777300160257"
+    },
+    {
+        "type": "pricingModel",
+        "pricingModelName": "D",
+        "data": [
+            {
+                "pricingModelData": "[{\"name\":\"كلسون\",\"prices\":[{\"size\":22,\"price\":205},{\"size\":24,\"price\":235},{\"size\":26,\"price\":265},{\"size\":28,\"price\":295},{\"size\":30,\"price\":325},{\"size\":32,\"price\":355},{\"size\":34,\"price\":390},{\"size\":36,\"price\":425},{\"size\":38,\"price\":460},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]},{\"name\":\"كم\",\"prices\":[{\"size\":22,\"price\":260},{\"size\":24,\"price\":285},{\"size\":26,\"price\":315},{\"size\":28,\"price\":345},{\"size\":30,\"price\":390},{\"size\":32,\"price\":435},{\"size\":34,\"price\":480},{\"size\":36,\"price\":530},{\"size\":38,\"price\":580},{\"size\":40,\"price\":0},{\"size\":42,\"price\":0},{\"size\":44,\"price\":0},{\"size\":46,\"price\":0},{\"size\":48,\"price\":0},{\"size\":50,\"price\":0},{\"size\":52,\"price\":0},{\"size\":54,\"price\":0},{\"size\":56,\"price\":0}]}]",
+                "createdAt": "2026-04-27T14:55:41.333Z",
+                "updatedAt": "2026-04-27T14:55:53.209Z",
+                "__backendId": "1777301753209"
+            }
+        ]
+    },
+    {
+        "type": "products",
+        "products": [
+            {
+                "id": "1777302387126osoil",
+                "name": "حماله",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/حماله.JPEG"
+            },
+            {
+                "id": "1777302387126hac5c",
+                "name": "نصف كم",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/نصفكم.JPEG"
+            },
+            {
+                "id": "1777302387126xhz2l",
+                "name": "كم",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/كم.JPEG"
+            },
+            {
+                "id": "177730238712646e3q",
+                "name": "كلسون",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/كلسون.JPEG"
+            },
+            {
+                "id": "1777302387126jfmmc",
+                "name": "شورت",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/شورت.JPEG"
+            },
+            {
+                "id": "1777302387126vjohy",
+                "name": "سليب",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/سليب.JPEG"
+            }
+        ],
+        "updatedAt": "2026-04-27T15:10:52.186Z",
+        "__backendId": "1777302406237",
+        "createdAt": "2026-04-27T15:06:46.237Z"
+    },
+    {
+        "type": "products",
+        "products": [
+            {
+                "id": "1777302387126osoil",
+                "name": "حماله",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/حماله.JPEG"
+            },
+            {
+                "id": "1777302387126hac5c",
+                "name": "نصف كم",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/نصفكم.JPEG"
+            },
+            {
+                "id": "1777302387126xhz2l",
+                "name": "كم",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/كم.JPEG"
+            },
+            {
+                "id": "177730238712646e3q",
+                "name": "كلسون",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/كلسون.JPEG"
+            },
+            {
+                "id": "1777302387126jfmmc",
+                "name": "شورت",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/شورت.JPEG"
+            },
+            {
+                "id": "1777302387126vjohy",
+                "name": "سليب",
+                "sizes": [
+                    22,
+                    24,
+                    26,
+                    28,
+                    30,
+                    32,
+                    34,
+                    36,
+                    38,
+                    40,
+                    42,
+                    44,
+                    46,
+                    48,
+                    50,
+                    52,
+                    54,
+                    56
+                ],
+                "image": "assets/png/سليب.JPEG"
+            }
+        ],
+        "updatedAt": "2026-04-27T15:06:47.937Z",
+        "__backendId": "1777302408708",
+        "createdAt": "2026-04-27T15:06:48.708Z"
     }
 ]

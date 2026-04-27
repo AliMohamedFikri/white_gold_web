@@ -1486,6 +1486,14 @@
                     await writeDriveFile(data);
                     if (window._dataHandler) window._dataHandler.onDataChanged(data);
                     return { isOk: true };
+                },
+                getRawData: async () => {
+                    return await readDriveFile();
+                },
+                writeRawData: async (data) => {
+                    await writeDriveFile(data);
+                    if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                    return { isOk: true };
                 }
             };
         }
@@ -1584,6 +1592,14 @@
                     storageSet('app_data', JSON.stringify(data));
                     if (window._dataHandler) window._dataHandler.onDataChanged(data);
                     return { isOk: true };
+                },
+                getRawData: async () => {
+                    return JSON.parse(storageGet('app_data') || '[]');
+                },
+                writeRawData: async (data) => {
+                    storageSet('app_data', JSON.stringify(data));
+                    if (window._dataHandler) window._dataHandler.onDataChanged(data);
+                    return { isOk: true };
                 }
             };
         }
@@ -1631,7 +1647,9 @@
             pricingModels: [],
             bills: [],
             categories: ["حماله", "نصف كم", "كم", "كلسون", "شورت", "سليب"],
+            products: [],
             selectedModel: null,
+            editingProduct: null,
             editingModel: null,
             viewingModel: null,
             billItems: [],
@@ -1754,6 +1772,23 @@
                                 : (Array.isArray(version.data) ? version.data : [])
                         }));
                 });
+
+                // Load products from storage
+                const productsEntry = data.find(d => d.type === 'products');
+                if (productsEntry && Array.isArray(productsEntry.products)) {
+                    appState.products = productsEntry.products;
+                    // Sync categories from products for backward compatibility
+                    appState.categories = appState.products.map(p => p.name);
+                } else if (!appState._productsInitialized && appState.products.length === 0) {
+                    // Initialize products from hardcoded categories (first time only)
+                    appState._productsInitialized = true;
+                    appState.products = appState.categories.map(name => ({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                        name: name,
+                        sizes: [...SIZES],
+                        image: 'assets/png/' + ({ 'حماله': 'حماله', 'نصف كم': 'نصفكم', 'كم': 'كم', 'كلسون': 'كلسون', 'شورت': 'شورت', 'سليب': 'سليب' }[name] || 'default') + '.JPEG'
+                    }));
+                }
 
                 appState.allPricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
                     const versions = Array.isArray(group.data) ? group.data : [];
@@ -2624,25 +2659,31 @@
                             <h2 class="text-3xl md:text-5xl font-bold text-center mb-3 md:mb-5" style="color: ${config.text_color || defaultConfig.text_color};">منتجاتنا</h2>
                             <p class="text-center mb-10 md:mb-14 opacity-70" style="color: ${config.text_color || defaultConfig.text_color};">تشكيلة مقاسات دقيقة لكل خط إنتاج</p>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                ${appState.categories.map(category => `
+                ${(appState.products.length > 0 ? appState.products : appState.categories.map(name => ({ name, sizes: SIZES, image: null }))).map(product => {
+                                    const sizes = product.sizes && product.sizes.length > 0 ? product.sizes : SIZES;
+                                    const overflowCount = sizes.length - 8;
+                                    return `
                                     <div class="landing-product-card rounded-2xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
                                         <div class="landing-category-icon text-center mb-4 transform hover:scale-110 transition-transform">
-                      ${getCategoryIcon(category)}
+                      ${product.image
+                        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="category-icon-img" loading="lazy">`
+                        : getCategoryIcon(product.name)
+                      }
                     </div>
-                    <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${category}</h3>
+                    <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(product.name)}</h3>
                     <div class="mb-4">
                       <p class="text-sm font-semibold mb-2" style="color: ${config.text_color || defaultConfig.text_color};">المقاسات المتوفرة:</p>
                       <div class="flex flex-wrap gap-2">
-                        ${SIZES.slice(0, 8).map(size => `
+                        ${sizes.slice(0, 8).map(size => `
                           <span class="size-badge-neo px-4 py-1.5 text-xs md:text-sm font-bold">
                             ${size}
                           </span>
                         `).join('')}
-                        ${SIZES.length > 8 ? `<span class="px-3 py-1 text-xs md:text-sm font-semibold" style="color: ${config.primary_color || defaultConfig.primary_color};">+${SIZES.length - 8}</span>` : ''}
+                        ${overflowCount > 0 ? `<span class="px-3 py-1 text-xs md:text-sm font-semibold" style="color: ${config.primary_color || defaultConfig.primary_color};">+${overflowCount}</span>` : ''}
                       </div>
                     </div>
-                  </div>
-                `).join('')}
+                  </div>`;
+                }).join('')}
               </div>
             </div>
           </section>
@@ -2834,11 +2875,11 @@
 
                     <!-- Navigation -->
                     <nav class="space-y-2 flex-1">
-                        ${['landing', 'dashboard', 'pricing', 'bills', 'settings'].map(view => `
-                            <button onclick="appState.currentView = '${view}'; appState.isSidebarOpen = false; render();" 
-                                class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === view ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}" 
+                        ${['landing', 'dashboard', 'pricing', 'products', 'bills', 'storage', 'settings'].map(view => `
+                            <button onclick="appState.currentView = '${view}'; appState.isSidebarOpen = false; render();"
+                                class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === view ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}"
                                 style="${appState.currentView === view ? `color: ${config.primary_color}` : ''}">
-                                ${view === 'landing' ? '🏠 الصفحة الرئيسية' : view === 'dashboard' ? '📊 لوحة التحكم' : view === 'pricing' ? '💰 إدارة الأسعار' : view === 'bills' ? '📄 الفواتير' : '⚙️ الإعدادات'}
+                                ${view === 'landing' ? '🏠 الصفحة الرئيسية' : view === 'dashboard' ? '📊 لوحة التحكم' : view === 'pricing' ? '💰 إدارة الأسعار' : view === 'products' ? '📦 المنتجات' : view === 'bills' ? '📄 الفواتير' : view === 'storage' ? '💾 التخزين' : '⚙️ الإعدادات'}
                             </button>
                         `).join('')}
                     </nav>
@@ -2870,7 +2911,7 @@
         }
 
         function renderCurrentView() {
-            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, settings: renderSettings };
+            const views = { dashboard: renderDashboard, pricing: renderPricing, viewModel: renderViewModel, products: renderProducts, bills: renderBills, newBill: renderNewBill, viewBill: renderViewBill, storage: renderStorage, settings: renderSettings };
             return (views[appState.currentView] || renderDashboard)();
         }
 
@@ -3310,6 +3351,792 @@
                             <button type="submit" ${isLoading('saveSettings') ? 'disabled' : ''} class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveSettings') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الإعدادات</span></button>
                         </form>
                     </div>
+                    <!-- Storage Button -->
+                    <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl mt-6">
+                        <h2 class="text-2xl font-bold mb-4">💾 إدارة التخزين</h2>
+                        <p class="text-slate-500 text-sm mb-4">عرض وتعديل جميع البيانات المخزنة في ملف JSON، بما في ذلك الإصدارات المحذوفة من نماذج التسعير.</p>
+                        <button onclick="appState.currentView = 'storage'; _storageRawData = null; _storageExpandedItem = null; render();" class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <span>فتح بيانات التخزين</span>
+                            <span>←</span>
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        // ========== Products Management ==========
+        async function saveProducts(products) {
+            if (!window.dataSdk) return { isOk: false };
+            setLoading('saveProducts', true);
+            try {
+                const existing = appState.products.length === 0 ? null : (await window.dataSdk.getRawData() || []).find(d => d.type === 'products');
+                if (existing && existing.__backendId) {
+                    const result = await window.dataSdk.update({ ...existing, products: products });
+                    return result;
+                } else {
+                    const result = await window.dataSdk.create({ type: 'products', products: products, updatedAt: new Date().toISOString() });
+                    return result;
+                }
+            } catch (e) {
+                console.error('Save products failed:', e);
+                showToast('فشل حفظ المنتجات', 'error');
+                return { isOk: false };
+            } finally {
+                setLoading('saveProducts', false);
+            }
+        }
+
+        function startAddProduct() {
+            appState.editingProduct = { id: '', name: '', sizes: [], image: '' };
+            render();
+        }
+
+        function startEditProduct(productId) {
+            const product = appState.products.find(p => p.id === productId);
+            if (product) {
+                appState.editingProduct = { ...product };
+                render();
+            }
+        }
+
+        function cancelEditProduct() {
+            appState.editingProduct = null;
+            render();
+        }
+
+        async function handleProductImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('حجم الصورة كبير جداً. الحد الأقصى 2 ميجابايت', 'error');
+                return;
+            }
+            try {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const dataUri = e.target.result;
+                    if (appState.editingProduct) {
+                        appState.editingProduct.image = dataUri;
+                        render();
+                    }
+                };
+                reader.readAsDataURL(file);
+            } catch (e) {
+                showToast('فشل تحميل الصورة', 'error');
+            }
+        }
+
+        function removeProductImage() {
+            if (appState.editingProduct) {
+                appState.editingProduct.image = '';
+                render();
+            }
+        }
+
+        function addSizeToProduct() {
+            if (!appState.editingProduct) return;
+            const input = document.getElementById('newProductSize');
+            if (!input) return;
+            const val = parseInt(input.value);
+            if (isNaN(val) || val < 1) {
+                showToast('أدخل مقاساً صحيحاً', 'error');
+                return;
+            }
+            if (appState.editingProduct.sizes.includes(val)) {
+                showToast('هذا المقاس موجود بالفعل', 'error');
+                return;
+            }
+            appState.editingProduct.sizes.push(val);
+            appState.editingProduct.sizes.sort((a, b) => a - b);
+            input.value = '';
+            render();
+        }
+
+        function removeSizeFromProduct(size) {
+            if (!appState.editingProduct) return;
+            appState.editingProduct.sizes = appState.editingProduct.sizes.filter(s => s !== size);
+            render();
+        }
+
+        async function saveProductForm(event) {
+            event.preventDefault();
+            const nameInput = document.getElementById('productName');
+            if (!nameInput) return;
+            const name = sanitizeTextInput(nameInput.value).trim();
+            if (!name) {
+                showToast('أدخل اسم المنتج', 'error');
+                return;
+            }
+
+            // Check duplicate name (excluding current product if editing)
+            const duplicate = appState.products.find(p => p.name === name && p.id !== (appState.editingProduct?.id));
+            if (duplicate) {
+                showToast('يوجد منتج بنفس الاسم بالفعل', 'error');
+                return;
+            }
+
+            if (appState.editingProduct && appState.editingProduct.id) {
+                // Editing existing product
+                appState.editingProduct.name = name;
+                const productData = { ...appState.editingProduct };
+
+                const products = appState.products.map(p => p.id === productData.id ? productData : p);
+                const result = await saveProducts(products);
+                if (result.isOk) {
+                    appState.products = products;
+                    appState.categories = products.map(p => p.name);
+                    appState.editingProduct = null;
+                    showToast('تم تحديث المنتج بنجاح', 'success');
+                    render();
+                }
+            } else {
+                // Adding new product
+                const newProduct = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                    name: name,
+                    sizes: appState.editingProduct?.sizes || [],
+                    image: appState.editingProduct?.image || ''
+                };
+                const products = [...appState.products, newProduct];
+                const result = await saveProducts(products);
+                if (result.isOk) {
+                    appState.products = products;
+                    appState.categories = products.map(p => p.name);
+                    appState.editingProduct = null;
+                    showToast('تم إضافة المنتج بنجاح', 'success');
+                    render();
+                }
+            }
+        }
+
+        async function deleteProduct(productId) {
+            const product = appState.products.find(p => p.id === productId);
+            if (!product) return;
+            if (!confirm('هل أنت متأكد من حذف "' + product.name + '"؟')) return;
+
+            const products = appState.products.filter(p => p.id !== productId);
+            const result = await saveProducts(products);
+            if (result.isOk) {
+                appState.products = products;
+                appState.categories = products.map(p => p.name);
+                if (appState.editingProduct?.id === productId) {
+                    appState.editingProduct = null;
+                }
+                showToast('تم حذف المنتج بنجاح', 'success');
+                render();
+            }
+        }
+
+        function reorderProduct(productId, direction) {
+            const idx = appState.products.findIndex(p => p.id === productId);
+            if (idx < 0) return;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= appState.products.length) return;
+            const temp = appState.products[idx];
+            appState.products[idx] = appState.products[newIdx];
+            appState.products[newIdx] = temp;
+            // Auto-save reorder
+            saveProducts(appState.products).then(result => {
+                if (result.isOk) {
+                    appState.categories = appState.products.map(p => p.name);
+                    render();
+                }
+            });
+        }
+
+        function renderProductForm(editingProduct) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const isNew = !editingProduct || !editingProduct.id;
+            const product = editingProduct || { id: '', name: '', sizes: [], image: '' };
+
+            return `
+                <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl fade-in">
+                    <h2 class="text-2xl font-bold mb-6">${isNew ? '➕ إضافة منتج جديد' : '✏️ تعديل المنتج'}</h2>
+                    <form onsubmit="saveProductForm(event);" class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">اسم المنتج</label>
+                            <input type="text" id="productName" value="${escapeHtml(product.name)}" placeholder="مثال: حماله، نصف كم..." required
+                                class="w-full px-4 py-3 border-2 rounded-lg focus:outline-none" style="border-color: ${config.primary_color};">
+                        </div>
+
+                        <!-- Image -->
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">صورة المنتج</label>
+                            <div class="flex items-center gap-4">
+                                <div class="h-28 w-28 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden border-2" style="border-color: ${config.primary_color};">
+                                    ${product.image
+                                        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="h-full w-full object-contain">`
+                                        : `<span class="text-3xl text-gray-300">📦</span>`
+                                    }
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <input type="file" id="productImage" accept="image/png,image/jpeg,image/jpg,image/webp" onchange="handleProductImageUpload(event)" class="hidden">
+                                    <button type="button" onclick="document.getElementById('productImage').click()" class="px-4 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.primary_color};">📷 رفع صورة</button>
+                                    ${product.image ? `<button type="button" onclick="removeProductImage()" class="px-4 py-2 bg-red-100 text-red-600 rounded-lg font-semibold text-sm hover:bg-red-200">إزالة الصورة</button>` : ''}
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">PNG, JPG, WebP — الحد الأقصى 2 ميجابايت</p>
+                        </div>
+
+                        <!-- Sizes -->
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">المقاسات</label>
+                            <div class="flex items-center gap-2 mb-3">
+                                <input type="number" id="newProductSize" placeholder="أدخل مقاس" min="1"
+                                    class="flex-1 px-4 py-2 border-2 rounded-lg text-center font-bold" style="border-color: ${config.primary_color};"
+                                    onkeydown="if(event.key==='Enter'){event.preventDefault();addSizeToProduct();}">
+                                <button type="button" onclick="addSizeToProduct();" class="px-4 py-2 rounded-lg font-bold text-white text-sm" style="background-color: ${config.primary_color};">+ إضافة</button>
+                                <button type="button" onclick="appState.editingProduct.sizes = [...SIZES]; render();"
+                                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200">📋 مقاسات افتراضية</button>
+                            </div>
+                            ${product.sizes.length > 0 ? `
+                                <div class="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
+                                    ${product.sizes.map((size, idx) => `
+                                        <span class="inline-flex items-center gap-1 size-badge-neo px-3 py-1.5 text-sm font-bold">
+                                            ${size}
+                                            <button type="button" onclick="removeSizeFromProduct(${size});" class="mr-1 text-red-400 hover:text-red-600 font-bold text-lg leading-none">&times;</button>
+                                        </span>
+                                    `).join('')}
+                                    <span class="text-xs text-slate-400 self-center mr-2">${product.sizes.length} مقاس</span>
+                                </div>
+                            ` : '<p class="text-sm text-slate-400">لا توجد مقاسات — أضف مقاسات أو استخدم المقاسات الافتراضية</p>'}
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex gap-3 pt-2">
+                            <button type="submit" ${isLoading('saveProducts') ? 'disabled' : ''} class="flex-1 py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">
+                                ${isLoading('saveProducts') ? '<div class="loading-spinner"></div>' : ''}
+                                <span>${isNew ? '➕ إضافة المنتج' : '💾 حفظ التعديلات'}</span>
+                            </button>
+                            <button type="button" onclick="cancelEditProduct();" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors">إلغاء</button>
+                        </div>
+                    </form>
+                </div>`;
+        }
+
+        function renderProducts() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const products = appState.products;
+            const isEditing = appState.editingProduct !== null && appState.editingProduct !== undefined;
+
+            return `
+                <div class="fade-in">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                        <div>
+                            <h1 class="text-4xl font-bold" style="color: ${config.text_color};">📦 المنتجات</h1>
+                            <p class="text-sm text-slate-500 mt-1">إدارة المنتجات المعروضة على الصفحة الرئيسية</p>
+                        </div>
+                        <button onclick="startAddProduct();" class="px-6 py-3 rounded-lg font-bold text-white text-sm flex items-center gap-2 hover:shadow-lg transition-shadow" style="background-color: ${config.primary_color};">
+                            <span>➕ إضافة منتج</span>
+                        </button>
+                    </div>
+
+                    ${isEditing ? renderProductForm(appState.editingProduct) : ''}
+
+                    <!-- Products Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        ${products.map((product, idx) => `
+                            <div class="card-shadow rounded-xl bg-white overflow-hidden hover:shadow-xl transition-shadow">
+                                <!-- Image -->
+                                <div class="landing-category-icon" style="max-height: 180px; margin: 0; border-radius: 0;">
+                                    ${product.image
+                                        ? `<img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" class="category-icon-img" style="width: 100% !important; height: 100% !important; max-width: 100% !important;">`
+                                        : `<div class="flex items-center justify-center h-full w-full py-8">
+                                            <span class="text-5xl text-gray-300">📦</span>
+                                          </div>`
+                                    }
+                                </div>
+
+                                <!-- Info -->
+                                <div class="p-4">
+                                    <h3 class="text-lg font-bold text-slate-800 mb-2">${escapeHtml(product.name)}</h3>
+                                    <div class="flex flex-wrap gap-1.5 mb-3">
+                                        ${(product.sizes && product.sizes.length > 0 ? product.sizes.slice(0, 6) : []).map(size => `
+                                            <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-bold">${size}</span>
+                                        `).join('')}
+                                        ${(product.sizes && product.sizes.length > 6) ? `<span class="px-2 py-0.5 text-xs font-bold" style="color: ${config.primary_color};">+${product.sizes.length - 6}</span>` : ''}
+                                        ${(!product.sizes || product.sizes.length === 0) ? '<span class="text-xs text-slate-400">لا توجد مقاسات</span>' : ''}
+                                    </div>
+
+                                    <!-- Actions -->
+                                    <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                                        <div class="flex gap-1.5">
+                                            ${idx > 0 ? `<button onclick="reorderProduct('${product.id}', -1);" class="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-sm" title="تحريك لأعلى">▲</button>` : ''}
+                                            ${idx < products.length - 1 ? `<button onclick="reorderProduct('${product.id}', 1);" class="p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-sm" title="تحريك لأسفل">▼</button>` : ''}
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button onclick="startEditProduct('${product.id}');" class="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors">✏️ تعديل</button>
+                                            <button onclick="deleteProduct('${product.id}');" class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors">🗑️ حذف</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <!-- Empty State -->
+                    ${products.length === 0 && !isEditing ? `
+                        <div class="text-center py-16">
+                            <div class="text-6xl mb-4">📦</div>
+                            <h3 class="text-xl font-bold text-slate-600 mb-2">لا توجد منتجات</h3>
+                            <p class="text-slate-400 mb-6">أضف منتجات لعرضها على الصفحة الرئيسية</p>
+                            <button onclick="startAddProduct();" class="px-6 py-3 rounded-lg font-bold text-white" style="background-color: ${config.primary_color};">➕ إضافة منتج</button>
+                        </div>
+                    ` : ''}
+                </div>`;
+        }
+
+        // ========== Storage Data Management ==========
+        let _storageRawData = null;
+        let _storageExpandedItem = null; // backendId of the expanded item
+
+        function getTypeLabel(type) {
+            const labels = {
+                'pricingModel': '💰 نموذج تسعير',
+                'bill': '📄 فاتورة',
+                'settings': '⚙️ إعدادات',
+                'user': '👤 مستخدم'
+            };
+            return labels[type] || '📝 ' + (type || 'غير معروف');
+        }
+
+        function getTypeBadgeColor(type) {
+            const colors = {
+                'pricingModel': 'bg-indigo-100 text-indigo-800',
+                'bill': 'bg-emerald-100 text-emerald-800',
+                'settings': 'bg-amber-100 text-amber-800',
+                'user': 'bg-sky-100 text-sky-800'
+            };
+            return colors[type] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getEntryTitle(entry) {
+            if (entry.type === 'pricingModel') return entry.pricingModelName || 'بدون اسم';
+            if (entry.type === 'bill') return (entry.bn || entry.billNumber || 'بدون رقم') + ' — ' + (entry.bc || entry.billClientName || 'بدون اسم');
+            if (entry.type === 'settings') return 'إعدادات الشركة';
+            if (entry.type === 'user') return entry.name || entry.email || 'مستخدم';
+            return 'عنصر';
+        }
+
+        async function loadStorageRawData() {
+            if (!window.dataSdk || !window.dataSdk.getRawData) return [];
+            setLoading('loadStorage', true);
+            try {
+                const data = await window.dataSdk.getRawData();
+                _storageRawData = data;
+                return data;
+            } catch (e) {
+                console.error('Failed to load raw data:', e);
+                showToast('فشل تحميل بيانات التخزين', 'error');
+                return [];
+            } finally {
+                setLoading('loadStorage', false);
+            }
+        }
+
+        async function storageToggleExpand(backendId) {
+            _storageExpandedItem = _storageExpandedItem === backendId ? null : backendId;
+            render();
+        }
+
+        async function storageDeleteEntry(backendId) {
+            if (!confirm('هل أنت متأكد من حذف هذا العنصر نهائياً؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+            setLoading('storageDelete', true);
+            try {
+                const data = await loadStorageRawData();
+                const idx = data.findIndex(d => d.__backendId === backendId);
+                if (idx < 0) {
+                    // Check if it's inside a pricingModel group version
+                    for (const group of data) {
+                        if (group.type === 'pricingModel' && Array.isArray(group.data)) {
+                            const vIdx = group.data.findIndex(v => v.__backendId === backendId);
+                            if (vIdx >= 0) {
+                                group.data.splice(vIdx, 1);
+                                if (group.data.length === 0) {
+                                    const gIdx = data.indexOf(group);
+                                    data.splice(gIdx, 1);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    data.splice(idx, 1);
+                }
+                await window.dataSdk.writeRawData(data);
+                _storageRawData = data;
+                _storageExpandedItem = null;
+                showToast('تم الحذف بنجاح', 'success');
+                render();
+            } catch (e) {
+                console.error('Delete failed:', e);
+                showToast('فشل حذف العنصر', 'error');
+            } finally {
+                setLoading('storageDelete', false);
+            }
+        }
+
+        async function storageDeletePricingGroup(groupName) {
+            if (!confirm('هل أنت متأكد من حذف جميع إصدارات نموذج "' + groupName + '" نهائياً؟ لا يمكن التراجع.')) return;
+            setLoading('storageDelete', true);
+            try {
+                const data = await loadStorageRawData();
+                const filtered = data.filter(d => !(d.type === 'pricingModel' && d.pricingModelName === groupName));
+                await window.dataSdk.writeRawData(filtered);
+                _storageRawData = filtered;
+                _storageExpandedItem = null;
+                showToast('تم حذف النموذج بالكامل بنجاح', 'success');
+                render();
+            } catch (e) {
+                console.error('Delete group failed:', e);
+                showToast('فشل حذف النموذج', 'error');
+            } finally {
+                setLoading('storageDelete', false);
+            }
+        }
+
+        async function storageRestoreVersion(groupName, backendId) {
+            setLoading('storageRestore', true);
+            try {
+                const data = await loadStorageRawData();
+                const group = data.find(d => d.type === 'pricingModel' && d.pricingModelName === groupName);
+                if (group) {
+                    const version = group.data.find(v => v.__backendId === backendId);
+                    if (version) {
+                        delete version.isDeleted;
+                        await window.dataSdk.writeRawData(data);
+                        _storageRawData = data;
+                        showToast('تم استعادة الإصدار بنجاح', 'success');
+                        render();
+                        return;
+                    }
+                }
+                showToast('لم يتم العثور على الإصدار', 'error');
+            } catch (e) {
+                console.error('Restore failed:', e);
+                showToast('فشل استعادة الإصدار', 'error');
+            } finally {
+                setLoading('storageRestore', false);
+            }
+        }
+
+        async function storageSaveEdit(backendId) {
+            const editor = document.getElementById('storage-json-editor-' + backendId);
+            if (!editor) return;
+            let newData;
+            try {
+                newData = JSON.parse(editor.value);
+            } catch (e) {
+                showToast('JSON غير صالح — تأكد من الصيغة', 'error');
+                return;
+            }
+            setLoading('storageSave', true);
+            try {
+                const data = await loadStorageRawData();
+                // Find and replace the entry
+                let found = false;
+                // Top-level entry
+                const tIdx = data.findIndex(d => d.__backendId === backendId);
+                if (tIdx >= 0) {
+                    data[tIdx] = newData;
+                    found = true;
+                }
+                // Inside pricing model group version
+                if (!found) {
+                    for (const group of data) {
+                        if (group.type === 'pricingModel' && Array.isArray(group.data)) {
+                            const vIdx = group.data.findIndex(v => v.__backendId === backendId);
+                            if (vIdx >= 0) {
+                                group.data[vIdx] = newData;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!found) {
+                    showToast('لم يتم العثور على العنصر', 'error');
+                    return;
+                }
+                await window.dataSdk.writeRawData(data);
+                _storageRawData = data;
+                showToast('تم حفظ التعديلات بنجاح', 'success');
+                render();
+            } catch (e) {
+                console.error('Save edit failed:', e);
+                showToast('فشل حفظ التعديلات', 'error');
+            } finally {
+                setLoading('storageSave', false);
+            }
+        }
+
+        async function storageToggleEdit(backendId) {
+            // Make the editor visible for this entry
+            const viewer = document.getElementById('storage-viewer-' + backendId);
+            const editorWrap = document.getElementById('storage-editor-' + backendId);
+            const btnEdit = document.getElementById('storage-btn-edit-' + backendId);
+            if (viewer && editorWrap && btnEdit) {
+                const isEditing = editorWrap.style.display !== 'none';
+                viewer.style.display = isEditing ? 'block' : 'none';
+                editorWrap.style.display = isEditing ? 'none' : 'block';
+                btnEdit.textContent = isEditing ? '✏️ تعديل' : '👁️ عرض';
+                if (!isEditing) {
+                    let entry = null;
+                    if (_storageRawData) {
+                        entry = _storageRawData.find(d => d.__backendId === backendId);
+                    }
+                    if (!entry) {
+                        for (const group of (_storageRawData || [])) {
+                            if (group.type === 'pricingModel' && Array.isArray(group.data)) {
+                                const v = group.data.find(v => v.__backendId === backendId);
+                                if (v) { entry = v; break; }
+                            }
+                        }
+                    }
+                    if (entry) {
+                        document.getElementById('storage-json-editor-' + backendId).value = JSON.stringify(entry, null, 2);
+                    }
+                }
+            }
+        }
+
+        async function storageExportJSON() {
+            try {
+                const data = await loadStorageRawData();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'white_gold_app_data_backup.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('تم تصدير البيانات بنجاح', 'success');
+            } catch (e) {
+                console.error('Export failed:', e);
+                showToast('فشل تصدير البيانات', 'error');
+            }
+        }
+
+        async function storageImportJSON() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (!confirm('سيتم استبدال جميع البيانات الحالية بالملف المحدد. هل أنت متأكد؟')) return;
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    if (!Array.isArray(data)) {
+                        showToast('ملف JSON غير صالح — يجب أن يكون مصفوفة', 'error');
+                        return;
+                    }
+                    setLoading('storageImport', true);
+                    await window.dataSdk.writeRawData(data);
+                    _storageRawData = data;
+                    _storageExpandedItem = null;
+                    showToast('تم استيراد البيانات بنجاح', 'success');
+                    render();
+                } catch (e) {
+                    console.error('Import failed:', e);
+                    showToast('فشل استيراد البيانات — تأكد من صحة الملف', 'error');
+                } finally {
+                    setLoading('storageImport', false);
+                }
+            };
+            input.click();
+        }
+
+        function renderStorage() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const raw = _storageRawData;
+            if (!raw) {
+                // Trigger data load and show loading
+                setTimeout(() => {
+                    (async () => {
+                        await loadStorageRawData();
+                        render();
+                    })();
+                }, 50);
+                return `
+                    <div class="fade-in">
+                        <h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">💾 بيانات التخزين</h1>
+                        <div class="flex items-center gap-3 p-6 card-shadow rounded-xl bg-white">
+                            <div class="loading-spinner" style="border-top-color: ${config.primary_color};"></div>
+                            <span class="font-semibold text-slate-600">جاري تحميل البيانات...</span>
+                        </div>
+                    </div>`;
+            }
+
+            // Categorize entries
+            const settingsEntries = raw.filter(d => d.type === 'settings');
+            const pricingGroups = raw.filter(d => d.type === 'pricingModel');
+            const billEntries = raw.filter(d => d.type === 'bill');
+            const userEntries = raw.filter(d => d.type === 'user');
+            const otherEntries = raw.filter(d => !['settings', 'pricingModel', 'bill', 'user'].includes(d.type));
+
+            const totalVersions = pricingGroups.reduce((sum, g) => sum + (Array.isArray(g.data) ? g.data.length : 0), 0);
+            const deletedVersions = pricingGroups.reduce((sum, g) => sum + (Array.isArray(g.data) ? g.data.filter(v => v.isDeleted).length : 0), 0);
+
+            // Build entry card HTML
+            function buildEntryCard(entry, showActions = true) {
+                const isExpanded = _storageExpandedItem === entry.__backendId;
+                const jsonStr = JSON.stringify(entry, null, 2);
+                const truncated = jsonStr.length > 500 ? jsonStr.substring(0, 500) + '\n...' : jsonStr;
+                const escapedJson = escapeHtml(truncated).replace(/\n/g, '&#10;');
+
+                return `
+                    <div class="border border-gray-200 rounded-xl overflow-hidden transition-all ${isExpanded ? 'ring-2 ring-indigo-300' : ''}">
+                        <div class="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onclick="storageToggleExpand('${entry.__backendId}')">
+                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                <span class="px-2 py-1 rounded-lg text-xs font-bold ${getTypeBadgeColor(entry.type)}">${getTypeLabel(entry.type)}</span>
+                                <span class="font-semibold text-slate-700 truncate text-sm">${escapeHtml(getEntryTitle(entry))}</span>
+                                ${entry.isDeleted ? '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">محذوف</span>' : ''}
+                                ${entry.updatedAt ? '<span class="text-xs text-slate-400">' + new Date(entry.updatedAt).toLocaleDateString('ar-EG') + '</span>' : ''}
+                            </div>
+                            <span class="text-slate-400 mr-2 transition-transform ${isExpanded ? 'rotate-180' : ''}">▼</span>
+                        </div>
+                        ${isExpanded ? `
+                            <div class="p-4 bg-white border-t border-gray-100">
+                                <div id="storage-viewer-${entry.__backendId}">
+                                    <pre class="text-xs text-slate-600 bg-slate-50 rounded-lg p-4 overflow-auto max-h-96 whitespace-pre-wrap font-mono" dir="ltr">${escapedJson}</pre>
+                                </div>
+                                <div id="storage-editor-${entry.__backendId}" style="display:none;" class="mb-3">
+                                    <textarea id="storage-json-editor-${entry.__backendId}" class="w-full h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea>
+                                </div>
+                                ${showActions ? `
+                                    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+                                        <button id="storage-btn-edit-${entry.__backendId}" onclick="event.stopPropagation(); storageToggleEdit('${entry.__backendId}');" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
+                                        <button onclick="event.stopPropagation(); storageSaveEdit('${entry.__backendId}');" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
+                                        <button onclick="event.stopPropagation(); storageDeleteEntry('${entry.__backendId}');" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
+                                        ${entry.isDeleted ? `
+                                            <button onclick="event.stopPropagation(); storageRestoreVersion('${entry.pricingModelName || ''}', '${entry.__backendId}');" class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>
+                                        ` : ''}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+                    </div>`;
+            }
+
+            return `
+                <div class="fade-in">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                        <div>
+                            <h1 class="text-4xl font-bold" style="color: ${config.text_color};">💾 بيانات التخزين</h1>
+                            <p class="text-sm text-slate-500 mt-1">عرض وتعديل جميع البيانات المخزنة في ملف JSON</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="storageExportJSON();" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors">📤 تصدير JSON</button>
+                            <button onclick="storageImportJSON();" class="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm font-bold hover:bg-amber-200 transition-colors">📥 استيراد JSON</button>
+                            <button onclick="loadStorageRawData().then(() => render());" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-200 transition-colors">🔄 تحديث</button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div class="card-shadow rounded-xl p-4 bg-white text-center">
+                            <div class="text-3xl font-black text-indigo-600">${pricingGroups.length}</div>
+                            <div class="text-sm text-slate-500 font-semibold mt-1">نماذج التسعير</div>
+                            <div class="text-xs text-slate-400">${totalVersions} إصدار</div>
+                        </div>
+                        <div class="card-shadow rounded-xl p-4 bg-white text-center">
+                            <div class="text-3xl font-black text-emerald-600">${billEntries.length}</div>
+                            <div class="text-sm text-slate-500 font-semibold mt-1">الفواتير</div>
+                        </div>
+                        <div class="card-shadow rounded-xl p-4 bg-white text-center">
+                            <div class="text-3xl font-black text-red-600">${deletedVersions}</div>
+                            <div class="text-sm text-slate-500 font-semibold mt-1">إصدارات محذوفة</div>
+                        </div>
+                        <div class="card-shadow rounded-xl p-4 bg-white text-center">
+                            <div class="text-3xl font-black text-slate-600">${raw.length}</div>
+                            <div class="text-sm text-slate-500 font-semibold mt-1">إجمالي العناصر</div>
+                        </div>
+                    </div>
+
+                    <!-- Settings -->
+                    ${settingsEntries.length > 0 ? `
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">⚙️ الإعدادات</h2>
+                            <div class="space-y-2">
+                                ${settingsEntries.map(e => buildEntryCard(e)).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Pricing Models (with versions) -->
+                    ${pricingGroups.length > 0 ? `
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">💰 نماذج التسعير</h2>
+                            <div class="space-y-4">
+                                ${pricingGroups.map(group => {
+                                    const versions = Array.isArray(group.data) ? group.data : [];
+                                    const activeCount = versions.filter(v => !v.isDeleted).length;
+                                    const deletedCount = versions.filter(v => v.isDeleted).length;
+                                    const isGroupExpanded = _storageExpandedItem === group.__backendId;
+                                    return `
+                                        <div class="card-shadow rounded-xl bg-white overflow-hidden">
+                                            <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-l from-indigo-50 to-white cursor-pointer hover:from-indigo-100 transition-colors" onclick="storageToggleExpand('${group.__backendId}')">
+                                                <div class="flex items-center gap-3 flex-1 min-w-0">
+                                                    <span class="text-lg font-bold text-indigo-700">${escapeHtml(group.pricingModelName || 'بدون اسم')}</span>
+                                                    <span class="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-bold">${activeCount} نشط</span>
+                                                    ${deletedCount > 0 ? `<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">${deletedCount} محذوف</span>` : ''}
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف الكل</button>
+                                                    <span class="text-slate-400 transition-transform ${isGroupExpanded ? 'rotate-180' : ''}">▼</span>
+                                                </div>
+                                            </div>
+                                            ${isGroupExpanded ? `
+                                                <div class="p-4 border-t border-gray-100 space-y-2">
+                                                    ${versions.length === 0 ? '<p class="text-sm text-slate-400 text-center py-4">لا توجد إصدارات</p>' : ''}
+                                                    ${versions.map(v => buildEntryCard(v, true)).join('')}
+                                                </div>
+                                            ` : ''}
+                                        </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Bills -->
+                    ${billEntries.length > 0 ? `
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">📄 الفواتير</h2>
+                            <div class="space-y-2">
+                                ${billEntries.map(e => buildEntryCard(e)).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Users -->
+                    ${userEntries.length > 0 ? `
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">👤 المستخدمين</h2>
+                            <div class="space-y-2">
+                                ${userEntries.map(e => buildEntryCard(e)).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Other -->
+                    ${otherEntries.length > 0 ? `
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">📝 عناصر أخرى</h2>
+                            <div class="space-y-2">
+                                ${otherEntries.map(e => buildEntryCard(e)).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Empty State -->
+                    ${raw.length === 0 ? `
+                        <div class="text-center py-16">
+                            <div class="text-6xl mb-4">📭</div>
+                            <h3 class="text-xl font-bold text-slate-600 mb-2">لا توجد بيانات مخزنة</h3>
+                            <p class="text-slate-400">ابدأ بإضافة نماذج تسعير أو فواتير لتظهر هنا</p>
+                        </div>
+                    ` : ''}
                 </div>`;
         }
 
