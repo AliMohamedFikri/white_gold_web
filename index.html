@@ -3336,19 +3336,22 @@
                 const escapedJson = escapeHtml(truncated).replace(/\n/g, '&#10;');
                 return `
                     <div class="border border-gray-200 rounded-xl overflow-hidden transition-all ${isExpanded ? 'ring-2 ring-indigo-300' : ''}">
-                        <div class="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onclick="storageToggleExpand('${escapeHtml(entry.__backendId)}')">
-                            <div class="flex items-center gap-3 flex-1 min-w-0">
-                                <span class="px-2 py-1 rounded-lg text-xs font-bold ${getTypeBadgeColor(entry.type)}">${getTypeLabel(entry.type)}</span>
-                                <span class="font-semibold text-slate-700 truncate text-sm">${escapeHtml(getEntryTitle(entry))}</span>
-                                ${entry.isDeleted ? '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">محذوف</span>' : ''}
-                                ${entry.updatedAt ? '<span class="text-xs text-slate-400">' + new Date(entry.updatedAt).toLocaleDateString('ar-EG') + '</span>' : ''}
+                        <div class="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onclick="storageToggleExpand('${escapeHtml(entry.__backendId)}')">
+                            <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 flex-wrap">
+                                <span class="px-2 py-1 rounded-lg text-xs font-bold ${getTypeBadgeColor(entry.type)} shrink-0">${getTypeLabel(entry.type)}</span>
+                                <span class="font-semibold text-slate-700 truncate text-sm min-w-0">${escapeHtml(getEntryTitle(entry))}</span>
+                                ${entry.isDeleted ? '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold shrink-0">محذوف</span>' : ''}
                             </div>
-                            <span class="text-slate-400 mr-2 transition-transform ${isExpanded ? 'rotate-180' : ''}">▼</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                ${entry.updatedAt ? '<span class="text-xs text-slate-400 hidden sm:inline">' + new Date(entry.updatedAt).toLocaleDateString('ar-EG') + '</span>' : ''}
+                                <span class="text-slate-400 transition-transform text-sm ${isExpanded ? 'rotate-180' : ''}">▼</span>
+                            </div>
                         </div>
                         ${isExpanded ? `
-                            <div class="p-4 bg-white border-t border-gray-100">
-                                <div id="storage-viewer-${entry.__backendId}"><pre class="text-xs text-slate-600 bg-slate-50 rounded-lg p-4 overflow-auto max-h-96 whitespace-pre-wrap font-mono" dir="ltr">${escapedJson}</pre></div>
-                                <div id="storage-editor-${entry.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${entry.__backendId}" class="w-full h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
+                            <div class="p-3 sm:p-4 bg-white border-t border-gray-100">
+                                ${entry.updatedAt ? '<p class="text-xs text-slate-400 mb-2 sm:hidden">' + new Date(entry.updatedAt).toLocaleDateString('ar-EG') + '</p>' : ''}
+                                <div id="storage-viewer-${entry.__backendId}"><pre class="text-xs text-slate-600 bg-slate-50 rounded-lg p-3 sm:p-4 overflow-auto max-h-64 sm:max-h-96 whitespace-pre-wrap font-mono" dir="ltr">${escapedJson}</pre></div>
+                                <div id="storage-editor-${entry.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${entry.__backendId}" class="w-full h-48 sm:h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-2 sm:p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
                                 ${showActions ? `
                                     <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
                                         <button id="storage-btn-edit-${entry.__backendId}" onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
@@ -3370,12 +3373,12 @@
                             <button onclick="loadStorageRawData().then(() => render());" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-200 transition-colors">🔄 تحديث</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-                        <div class="card-shadow rounded-xl p-4 bg-white text-center"><div class="text-3xl font-black text-indigo-600">${pricingGroups.length}</div><div class="text-sm text-slate-500 font-semibold mt-1">نماذج التسعير</div><div class="text-xs text-slate-400">${totalVersions} إصدار</div></div>
-                        <div class="card-shadow rounded-xl p-4 bg-white text-center"><div class="text-3xl font-black text-emerald-600">${billEntries.length}</div><div class="text-sm text-slate-500 font-semibold mt-1">الفواتير</div></div>
-                        <div class="card-shadow rounded-xl p-4 bg-white text-center"><div class="text-3xl font-black text-red-600">${deletedVersions}</div><div class="text-sm text-slate-500 font-semibold mt-1">إصدارات محذوفة</div></div>
-                        <div class="card-shadow rounded-xl p-4 bg-white text-center"><div class="text-3xl font-black text-slate-600">${raw.length}</div><div class="text-sm text-slate-500 font-semibold mt-1">إجمالي العناصر</div></div>
-                        <div class="card-shadow rounded-xl p-4 bg-white text-center col-span-2 md:col-span-1"><div class="text-2xl font-black ${jsonSizeBytes > 1024 * 1024 ? 'text-red-600' : jsonSizeBytes > 100 * 1024 ? 'text-amber-600' : 'text-green-600'}">${jsonSizeFormatted}</div><div class="text-sm text-slate-500 font-semibold mt-1">حجم JSON</div></div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
+                        <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center"><div class="text-2xl sm:text-3xl font-black text-indigo-600">${pricingGroups.length}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">نماذج التسعير</div><div class="text-xs text-slate-400">${totalVersions} إصدار</div></div>
+                        <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center"><div class="text-2xl sm:text-3xl font-black text-emerald-600">${billEntries.length}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">الفواتير</div></div>
+                        <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center"><div class="text-2xl sm:text-3xl font-black text-red-600">${deletedVersions}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">إصدارات محذوفة</div></div>
+                        <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center"><div class="text-2xl sm:text-3xl font-black text-slate-600">${raw.length}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">إجمالي العناصر</div></div>
+                        <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center col-span-2 sm:col-span-1"><div class="text-xl sm:text-2xl font-black ${jsonSizeBytes > 1024 * 1024 ? 'text-red-600' : jsonSizeBytes > 100 * 1024 ? 'text-amber-600' : 'text-green-600'}">${jsonSizeFormatted}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">حجم JSON</div></div>
                     </div>
                     ${settingsEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">⚙️ الإعدادات</h2><div class="space-y-2">${settingsEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
                     ${pricingGroups.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">💰 نماذج التسعير</h2><div class="space-y-5">${pricingGroups.map(group => {
@@ -3383,13 +3386,13 @@
                         const activeCount = versions.filter(v => !v.isDeleted).length;
                         const deletedCount = versions.filter(v => v.isDeleted).length;
                         return `<div class="card-shadow rounded-2xl bg-white overflow-hidden">
-                            <div class="flex items-center justify-between px-5 py-4 bg-gradient-to-l from-indigo-50 to-white border-b border-indigo-100">
-                                <div class="flex items-center gap-3 flex-1 min-w-0">
-                                    <span class="text-xl font-black text-indigo-800">${escapeHtml(group.pricingModelName || 'بدون اسم')}</span>
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-bold">${activeCount} نشط</span>
-                                    ${deletedCount > 0 ? `<span class="px-2.5 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">${deletedCount} محذوف</span>` : ''}
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 bg-gradient-to-l from-indigo-50 to-white border-b border-indigo-100">
+                                <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 flex-wrap">
+                                    <span class="text-lg sm:text-xl font-black text-indigo-800 break-words">${escapeHtml(group.pricingModelName || 'بدون اسم')}</span>
+                                    <span class="px-2 py-0.5 sm:px-2.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-bold shrink-0">${activeCount} نشط</span>
+                                    ${deletedCount > 0 ? `<span class="px-2 py-0.5 sm:px-2.5 rounded-full text-xs bg-red-100 text-red-700 font-bold shrink-0">${deletedCount} محذوف</span>` : ''}
                                 </div>
-                                <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف الكل</button>
+                                <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="self-start sm:self-center px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors shrink-0">🗑️ حذف الكل</button>
                             </div>
                             <div class="divide-y divide-gray-100">
                                 ${versions.length === 0 ? '<p class="text-sm text-slate-400 text-center py-6">لا توجد إصدارات</p>' : ''}
@@ -3404,32 +3407,42 @@
                                     const truncated2 = jStr2.length > 500 ? jStr2.substring(0, 500) + '\n...' : jStr2;
                                     const escapedJson2 = escapeHtml(truncated2).replace(/\n/g, '&#10;');
                                     return `<div class="transition-all ${isActive ? '' : 'opacity-60'} ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}">
-                                        <div class="flex items-center justify-between px-5 py-3 cursor-pointer" onclick="storageToggleExpand('${escapeHtml(v.__backendId)}')">
-                                            <div class="flex items-center gap-3 flex-1 min-w-0">
-                                                <span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'}">${vIdx + 1}</span>
+                                        <div class="px-3 sm:px-5 py-3 cursor-pointer" onclick="storageToggleExpand('${escapeHtml(v.__backendId)}')">
+                                            <div class="flex items-center gap-2 sm:gap-3">
+                                                <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'}">${vIdx + 1}</span>
                                                 <div class="flex-1 min-w-0">
-                                                    <div class="flex items-center gap-2">
+                                                    <div class="flex items-center gap-2 flex-wrap">
                                                         <span class="font-bold text-sm text-slate-800">إصدار ${vIdx + 1}</span>
                                                         ${isActive ? '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 font-bold">نشط</span>' : '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-bold">محذوف</span>'}
+                                                        ${dateStr ? `<span class="text-xs text-slate-400 hidden sm:inline">${dateStr}</span>` : ''}
                                                     </div>
-                                                    <div class="flex items-center gap-3 mt-0.5">
+                                                    <div class="flex items-center gap-2 sm:gap-3 mt-0.5 flex-wrap">
                                                         <span class="text-xs text-slate-400">${catCount} فئة</span>
-                                                        <span class="text-xs text-slate-400">${pricedCount} سعر مسعر</span>
-                                                        ${dateStr ? `<span class="text-xs text-slate-400">${dateStr}</span>` : ''}
+                                                        <span class="text-xs text-slate-400">${pricedCount} سعر</span>
                                                     </div>
                                                 </div>
+                                                <span class="text-slate-400 transition-transform text-sm shrink-0 ${isExpanded ? 'rotate-180' : ''}">▼</span>
                                             </div>
-                                            <div class="flex items-center gap-2" onclick="event.stopPropagation()">
-                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
+                                            <!-- Mobile: action buttons below the row -->
+                                            <div class="flex flex-wrap gap-1.5 mt-2 sm:hidden" onclick="event.stopPropagation()">
+                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">✏️ تعديل</button>
+                                                <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold">💾 حفظ</button>
+                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-bold">🗑️ حذف</button>
+                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-bold">↩️ استعادة</button>` : ''}
+                                            </div>
+                                            <!-- Desktop: action buttons inline -->
+                                            <div class="hidden sm:flex items-center gap-2 float-left mt-0.5" onclick="event.stopPropagation()">
+                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}-d" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
                                                 <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
                                                 <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
                                                 ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
-                                                <span class="text-slate-400 mr-1 transition-transform text-xs ${isExpanded ? 'rotate-180' : ''}">▼</span>
                                             </div>
+                                            <div class="hidden sm:block clear-both"></div>
                                         </div>
-                                        ${isExpanded ? `<div class="px-5 pb-4 bg-white border-t border-gray-100">
-                                            <div id="storage-viewer-${v.__backendId}"><pre class="text-xs text-slate-600 bg-slate-50 rounded-lg p-4 overflow-auto max-h-96 whitespace-pre-wrap font-mono" dir="ltr">${escapedJson2}</pre></div>
-                                            <div id="storage-editor-${v.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${v.__backendId}" class="w-full h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
+                                        ${isExpanded ? `<div class="px-3 sm:px-5 pb-4 bg-white border-t border-gray-100">
+                                            ${dateStr ? `<p class="text-xs text-slate-400 mb-2 sm:hidden">${dateStr}</p>` : ''}
+                                            <div id="storage-viewer-${v.__backendId}"><pre class="text-xs text-slate-600 bg-slate-50 rounded-lg p-3 sm:p-4 overflow-auto max-h-64 sm:max-h-96 whitespace-pre-wrap font-mono" dir="ltr">${escapedJson2}</pre></div>
+                                            <div id="storage-editor-${v.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${v.__backendId}" class="w-full h-48 sm:h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-2 sm:p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
                                         </div>` : ''}
                                     </div>`;
                                 }).join('')}
