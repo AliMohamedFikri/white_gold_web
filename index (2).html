@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>مصنع الذهب الأبيض للملابس الجاهزة</title>
+    <meta name="description" content="مصنع الذهب الأبيض للملابس الجاهزة — أجود أنواع الملابس الداخلية والخارجية بجميع المقاسات.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
+        html { scroll-behavior: smooth; }
+        body { overflow-x: hidden; background: #0a0a1a; }
+
+        /* ===== NAV ===== */
+        .main-nav {
+            position: fixed; top: 0; right: 0; left: 0; z-index: 1000;
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            background: rgba(10, 10, 26, 0.75);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            transition: all 0.4s ease;
+        }
+        .main-nav.scrolled {
+            background: rgba(10, 10, 26, 0.95);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+        }
+        .nav-link {
+            position: relative; color: rgba(255,255,255,0.75);
+            transition: color 0.3s ease; font-weight: 600;
+        }
+        .nav-link:hover { color: #fff; }
+        .nav-link::after {
+            content: ''; position: absolute; bottom: -4px; right: 0;
+            width: 0; height: 2px;
+            background: linear-gradient(90deg, #667eea, #a78bfa);
+            transition: width 0.3s ease; border-radius: 2px;
+        }
+        .nav-link:hover::after { width: 100%; }
+
+        /* ===== HERO ===== */
+        .hero-section {
+            position: relative; min-height: 100vh; overflow: hidden;
+            background: linear-gradient(160deg, #0a0a1a 0%, #111132 40%, #1a1040 100%);
+        }
+        .hero-glow {
+            position: absolute; border-radius: 50%; filter: blur(100px);
+            pointer-events: none; opacity: 0.4;
+        }
+        .hero-glow-1 {
+            width: 600px; height: 600px; top: -200px; right: -100px;
+            background: radial-gradient(circle, rgba(102,126,234,0.35) 0%, transparent 70%);
+            animation: heroFloat 12s ease-in-out infinite;
+        }
+        .hero-glow-2 {
+            width: 500px; height: 500px; bottom: -150px; left: -100px;
+            background: radial-gradient(circle, rgba(118,75,162,0.3) 0%, transparent 70%);
+            animation: heroFloat 15s ease-in-out infinite reverse;
+        }
+        .hero-glow-3 {
+            width: 350px; height: 350px; top: 30%; left: 40%;
+            background: radial-gradient(circle, rgba(253,230,138,0.15) 0%, transparent 70%);
+            animation: heroFloat 18s ease-in-out infinite 3s;
+        }
+        @keyframes heroFloat {
+            0%,100% { transform: translate(0,0) scale(1); }
+            33% { transform: translate(30px,-40px) scale(1.1); }
+            66% { transform: translate(-20px,25px) scale(0.9); }
+        }
+        .hero-title-gradient {
+            background: linear-gradient(135deg, #ffffff 0%, #fde68a 50%, #ffffff 100%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            background-size: 200% 200%;
+            animation: shimmerText 4s ease-in-out infinite;
+        }
+        @keyframes shimmerText {
+            0%,100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .hero-chip {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1.25rem; border-radius: 9999px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: #fde68a; font-weight: 700; font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+        }
+        .hero-metric-card {
+            border-radius: 16px; padding: 1rem 1.25rem;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(10px); color: white;
+        }
+
+        /* ===== SCROLL ANIMATION SECTION ===== */
+        .scroll-animation-section {
+            position: relative; height: 400vh;
+            background: linear-gradient(180deg, #1a1040 0%, #0f0f2e 50%, #0a0a1a 100%);
+        }
+        .scroll-stage {
+            position: sticky; top: 0; height: 100vh; width: 100%;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Cotton Petals */
+        .cotton-petal {
+            position: absolute; pointer-events: none;
+            opacity: 0; will-change: transform, opacity;
+        }
+        .cotton-svg { filter: drop-shadow(0 0 15px rgba(255,255,255,0.3)); }
+
+        /* Fabric threads */
+        .fabric-canvas {
+            position: absolute; inset: 0; pointer-events: none;
+            opacity: 0; will-change: opacity;
+        }
+
+        /* Phase labels */
+        .phase-label {
+            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
+            color: rgba(255,255,255,0.9); font-size: 1.2rem; font-weight: 700;
+            letter-spacing: 0.05em; white-space: nowrap;
+            opacity: 0; transition: opacity 0.5s ease;
+            background: rgba(10,10,26,0.6); padding: 0.5rem 1.5rem;
+            border-radius: 9999px; border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px); z-index: 10;
+        }
+        .phase-label.visible { opacity: 1; }
+        .phase-label-icon { font-size: 1.4rem; margin-inline-end: 0.5rem; }
+
+        /* Progress bar */
+        .scroll-progress-bar {
+            position: fixed; bottom: 0; right: 0; left: 0; height: 4px;
+            background: linear-gradient(90deg, #667eea, #a78bfa, #fde68a);
+            transform-origin: right; transform: scaleX(0); z-index: 1001;
+        }
+
+        /* ===== PRODUCTS ===== */
+        .products-section {
+            position: relative; overflow: hidden;
+            background: linear-gradient(180deg, #0a0a1a 0%, #0f0f2e 100%);
+        }
+        .product-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.5rem; overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+        .product-card::before {
+            content: ''; position: absolute; inset: 0; border-radius: 1.5rem;
+            background: linear-gradient(135deg, rgba(102,126,234,0.08) 0%, transparent 60%);
+            opacity: 0; transition: opacity 0.5s ease; pointer-events: none;
+        }
+        .product-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: rgba(102,126,234,0.3);
+            box-shadow: 0 20px 60px rgba(102,126,234,0.15), 0 0 0 1px rgba(102,126,234,0.1);
+        }
+        .product-card:hover::before { opacity: 1; }
+        .product-img-wrap {
+            position: relative; width: 100%; aspect-ratio: 1; overflow: hidden;
+            background: linear-gradient(135deg, #f8f9fc 0%, #eef1f8 100%);
+            border-radius: 1.5rem 1.5rem 0 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .product-img-wrap img {
+            width: 75%; height: 75%; object-fit: contain;
+            filter: drop-shadow(0 10px 20px rgba(15,23,42,0.15));
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .product-card:hover .product-img-wrap img {
+            transform: scale(1.1) rotate(-2deg);
+        }
+        .product-name {
+            color: #fff; font-weight: 800; font-size: 1.35rem;
+        }
+        .size-pill {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0.25rem 0.65rem; border-radius: 9999px; font-size: 0.75rem;
+            font-weight: 700; color: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.2s ease;
+        }
+        .size-pill:hover {
+            background: rgba(102,126,234,0.2); color: #a78bfa;
+            border-color: rgba(102,126,234,0.3);
+        }
+
+        /* ===== ABOUT ===== */
+        .about-section {
+            position: relative; overflow: hidden;
+            background: linear-gradient(180deg, #0f0f2e 0%, #111132 100%);
+        }
+        .about-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.5rem; padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .about-card:hover {
+            transform: translateY(-6px);
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(102,126,234,0.2);
+            box-shadow: 0 16px 40px rgba(102,126,234,0.1);
+        }
+        .about-card-accent {
+            background: linear-gradient(135deg, rgba(102,126,234,0.9), rgba(118,75,162,0.9));
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .about-card-accent:hover {
+            background: linear-gradient(135deg, rgba(102,126,234,0.95), rgba(118,75,162,0.95));
+            box-shadow: 0 16px 40px rgba(102,126,234,0.25);
+        }
+        .about-stat-num {
+            font-size: 3rem; font-weight: 900; line-height: 1;
+            background: linear-gradient(135deg, #667eea, #a78bfa);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .about-card-accent .about-stat-num {
+            background: none; -webkit-background-clip: unset;
+            background-clip:text;
+            color: #fff;
+        }
+
+        /* ===== CONTACT ===== */
+        .contact-section {
+            position: relative;
+            background: linear-gradient(180deg, #111132 0%, #1a1040 100%);
+        }
+        .contact-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 1.5rem; padding: 2rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .contact-card:hover {
+            transform: translateY(-6px);
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        /* ===== FOOTER ===== */
+        .main-footer {
+            background: #070714;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .scroll-animation-section { height: 300vh; }
+            .hero-metrics-grid { grid-template-columns: 1fr !important; }
+            .phase-label { font-size: 0.9rem; bottom: 8%; }
+        }
+
+        /* ===== SMOOTH REVEALS ===== */
+        .reveal-up {
+            opacity: 0; transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-up.revealed { opacity: 1; transform: translateY(0); }
+
+        /* Floating particles in hero */
+        .particle {
+            position: absolute; border-radius: 50%;
+            background: rgba(255,255,255,0.15); pointer-events: none;
+            animation: particleFloat linear infinite;
+        }
+        @keyframes particleFloat {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+
+        /* Scroll indicator */
+        .scroll-indicator {
+            animation: scrollBounce 2s ease-in-out infinite;
+        }
+        @keyframes scrollBounce {
+            0%,100% { transform: translateY(0); }
+            50% { transform: translateY(10px); }
+        }
+
+        /* Nav mobile menu */
+        .mobile-menu {
+            position: absolute; top: 100%; right: 0; left: 0;
+            background: rgba(10,10,26,0.98);
+            border-top: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav class="main-nav" id="mainNav">
+    <div class="max-w-7xl mx-auto px-4 md:px-8 py-3 md:py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="h-10 md:h-12 w-10 md:w-12 flex items-center justify-center bg-white rounded-xl p-1 shadow-lg">
+                <img src="assets/png/حماله.PNG" alt="Logo" class="h-full w-full object-contain rounded-lg" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=\'font-weight:900;color:#667eea;font-size:1.2rem;\'>WG</span>';">
+            </div>
+            <div>
+                <h1 class="text-lg md:text-xl font-bold text-white">الذهب الأبيض</h1>
+                <p class="text-[10px] md:text-xs text-white/60 hidden md:block">مصنع الملابس الجاهزة</p>
+            </div>
+        </div>
+        <div class="hidden md:flex items-center gap-8">
+            <a href="#hero" class="nav-link">الرئيسية</a>
+            <a href="#products" class="nav-link">المنتجات</a>
+            <a href="#about" class="nav-link">من نحن</a>
+            <a href="#contact" class="nav-link">تواصل معنا</a>
+        </div>
+        <button id="mobileMenuBtn" class="md:hidden text-white text-2xl" onclick="toggleMobileMenu()">☰</button>
+    </div>
+    <div id="mobileMenu" class="mobile-menu hidden md:hidden">
+        <a href="#hero" class="block py-4 px-6 border-b border-white/5 text-white/80 hover:text-white hover:bg-white/5 font-semibold" onclick="closeMobileMenu()">الرئيسية</a>
+        <a href="#products" class="block py-4 px-6 border-b border-white/5 text-white/80 hover:text-white hover:bg-white/5 font-semibold" onclick="closeMobileMenu()">المنتجات</a>
+        <a href="#about" class="block py-4 px-6 border-b border-white/5 text-white/80 hover:text-white hover:bg-white/5 font-semibold" onclick="closeMobileMenu()">من نحن</a>
+        <a href="#contact" class="block py-4 px-6 text-white/80 hover:text-white hover:bg-white/5 font-semibold" onclick="closeMobileMenu()">تواصل معنا</a>
+    </div>
+</nav>
+
+<!-- ===== HERO SECTION ===== -->
+<section class="hero-section flex items-center justify-center" id="hero">
+    <div class="hero-glow hero-glow-1"></div>
+    <div class="hero-glow hero-glow-2"></div>
+    <div class="hero-glow hero-glow-3"></div>
+    <div id="heroParticles" aria-hidden="true"></div>
+
+    <div class="relative z-10 text-center px-4 max-w-5xl mx-auto">
+        <div class="hero-chip mb-6" id="heroChip">
+            <span>&#10024;</span>
+            <span>الجودة والتميز في كل قطعة</span>
+        </div>
+        <h2 class="hero-title-gradient text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight" id="heroTitle">
+            أفضل مصنع لتصنيع الملابس
+        </h2>
+        <p class="text-lg md:text-2xl text-white/80 mb-10 leading-relaxed max-w-3xl mx-auto" id="heroSub">
+            نقدم لكم أجود أنواع الملابس بأحدث التصاميم — من قطن الخامات الفاخرة إلى منتجاتكم المتميزة
+        </p>
+        <div class="grid grid-cols-3 gap-3 md:gap-5 max-w-2xl mx-auto mb-10 hero-metrics-grid" id="heroMetrics">
+            <div class="hero-metric-card">
+                <p class="text-xs md:text-sm opacity-70 mb-1">سنوات الخبرة</p>
+                <p class="text-lg md:text-xl font-bold">+15 عاماً</p>
+            </div>
+            <div class="hero-metric-card">
+                <p class="text-xs md:text-sm opacity-70 mb-1">تشكيلة المنتجات</p>
+                <p class="text-lg md:text-xl font-bold">تنوع شامل</p>
+            </div>
+            <div class="hero-metric-card">
+                <p class="text-xs md:text-sm opacity-70 mb-1">ضمان الجودة</p>
+                <p class="text-lg md:text-xl font-bold">أفضل الخامات</p>
+            </div>
+        </div>
+        <a href="#contact" class="inline-block px-8 md:px-10 py-3 md:py-4 rounded-xl text-lg md:text-xl font-bold text-white shadow-xl hover:shadow-2xl transition-all hover:scale-105" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            تواصل معنا
+        </a>
+        <div class="mt-16 scroll-indicator text-white/40">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mx-auto"><path d="M7 13l5 5 5-5"/><path d="M7 6l5 5 5-5"/></svg>
+        </div>
+    </div>
+</section>
+
+<!-- ===== SCROLL ANIMATION: COTTON → FABRIC → PRODUCTS ===== -->
+<section class="scroll-animation-section" id="scrollAnimation">
+    <div class="scroll-stage" id="scrollStage">
+        <!-- Phase Labels -->
+        <div class="phase-label" id="phaseCotton">
+            <span class="phase-label-icon">&#127807;</span>
+            القطن الخام — بداية الجودة
+        </div>
+        <div class="phase-label" id="phaseFabric">
+            <span class="phase-label-icon">&#129716;</span>
+            النسيج — تحول القطن إلى قماش
+        </div>
+        <div class="phase-label" id="phaseProducts">
+            <span class="phase-label-icon">&#128090;</span>
+            المنتجات — من القماش إلى الإبداع
+        </div>
+
+        <!-- Central animation canvas -->
+        <canvas id="animCanvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+
+        <!-- Product images that fly in during phase 3 -->
+        <div id="flyProducts" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+        </div>
+    </div>
+
+    <!-- Scroll progress bar -->
+    <div class="scroll-progress-bar" id="scrollProgress"></div>
+</section>
+
+<!-- ===== PRODUCTS SECTION ===== -->
+<section class="products-section py-16 md:py-28 px-4 md:px-8" id="products">
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-12 md:mb-16 reveal-up">
+            <p class="text-sm font-bold tracking-widest text-indigo-400 mb-3">تشكيلتنا المتميزة</p>
+            <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-4">منتجاتنا</h2>
+            <p class="text-white/50 text-lg">تشكيلة مقاسات دقيقة لكل خط إنتاج</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" id="productsGrid">
+            <!-- حماله -->
+            <div class="product-card reveal-up">
+                <div class="product-img-wrap">
+                    <img src="assets/png/حماله.PNG" alt="حمالة" loading="lazy">
+                </div>
+                <div class="p-5">
+                    <h3 class="product-name mb-3">حمالة</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="size-pill">36</span><span class="size-pill">38</span><span class="size-pill">40</span>
+                        <span class="size-pill">42</span><span class="size-pill">44</span><span class="size-pill">46</span>
+                        <span class="text-xs text-white/40 self-center">+المزيد</span>
+                    </div>
+                </div>
+            </div>
+            <!-- نصف كم -->
+            <div class="product-card reveal-up">
+                <div class="product-img-wrap">
+                    <img src="assets/png/نصفكم.PNG" alt="نصف كم" loading="lazy">
+                </div>
+                <div class="p-5">
+                    <h3 class="product-name mb-3">نصف كم</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="size-pill">22</span><span class="size-pill">24</span><span class="size-pill">26</span>
+                        <span class="size-pill">28</span><span class="size-pill">30</span><span class="size-pill">32</span>
+                        <span class="text-xs text-white/40 self-center">+المزيد</span>
+                    </div>
+                </div>
+            </div>
+            <!-- كم -->
+            <div class="product-card reveal-up">
+                <div class="product-img-wrap">
+                    <img src="assets/png/كم.PNG" alt="كم" loading="lazy">
+                </div>
+                <div class="p-5">
+                    <h3 class="product-name mb-3">كم</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="size-pill">22</span><span class="size-pill">24</span><span class="size-pill">26</span>
+                        <span class="size-pill">28</span><span class="size-pill">30</span><span class="size-pill">32</span>
+                        <span class="text-xs text-white/40 self-center">+المزيد</span>
+                    </div>
+                </div>
+            </div>
+            <!-- كلسون -->
+            <div class="product-card reveal-up">
+                <div class="product-img-wrap">
+                    <img src="assets/png/كلسون.PNG" alt="كلسون" loading="lazy">
+                </div>
+                <div class="p-5">
+                    <h3 class="product-name mb-3">كلسون</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="size-pill">22</span><span class="size-pill">24</span><span class="size-pill">26</span>
+                        <span class="size-pill">28</span><span class="size-pill">30</span><span class="size-pill">32</span>
+                        <span class="text-xs text-white/40 self-center">+المزيد</span>
+                    </div>
+                </div>
+            </div>
+            <!-- شورت -->
+            <div class="product-card reveal-up">
+                <div class="product-img-wrap">
+                    <img src="assets/png/شورت.PNG" alt="شورت" loading="lazy">
+                </div>
+                <div class="p-5">
+                    <h3 class="product-name mb-3">شورت</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="size-pill">22</span><span class="size-pill">24</span><span class="size-pill">26</span>
+                        <span class="size-pill">28</span><span class="size-pill">30</span><span class="size-pill">32</span>
+                        <span class="text-xs text-white/40 self-center">+المزيد</span>
+                    </div>
+                </div>
+            </div>
+            <!-- سليب -->
+            <div class="product-card reveal-up">
+                <div class="product-img-wrap">
+                    <img src="assets/png/سليب.PNG" alt="سليب" loading="lazy">
+                </div>
+                <div class="p-5">
+                    <h3 class="product-name mb-3">سليب</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="size-pill">22</span><span class="size-pill">24</span><span class="size-pill">26</span>
+                        <span class="size-pill">28</span><span class="size-pill">30</span><span class="size-pill">32</span>
+                        <span class="text-xs text-white/40 self-center">+المزيد</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== ABOUT SECTION ===== -->
+<section class="about-section py-16 md:py-28 px-4 md:px-8" id="about">
+    <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-12 md:mb-16 reveal-up">
+            <div class="w-16 h-1 rounded-full mx-auto mb-6" style="background: linear-gradient(90deg, #667eea, #764ba2);"></div>
+            <h2 class="text-4xl md:text-6xl font-extrabold mb-6" style="background: linear-gradient(135deg, #fff 0%, #667eea 50%, #764ba2 100%); -webkit-background-clip: text; background-clip: text; color: transparent;">
+                مصنع الذهب الأبيض
+            </h2>
+            <p class="text-white/50 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+                منذ أكثر من ١٥ عاماً، نصنع الثقة. نجمع بين إرث الصناعة التقليدية ودقة التقنيات الحديثة لتقديم ملابس جاهزة تلبي أعلى معايير الجودة العالمية.
+            </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div class="about-card lg:col-span-2 lg:row-span-2 reveal-up">
+                <div class="text-3xl mb-4">&#127981;</div>
+                <h3 class="text-xl font-extrabold text-white mb-3">من نحن</h3>
+                <p class="text-white/60 leading-relaxed mb-4">
+                    مصنع الذهب الأبيض للملابس الجاهزة هو واحد من أبرز مصانع العاشر من رمضان المتخصصة في إنتاج الملابس الداخلية بجميع المقاسات. نحن لا نصنع منتجات فحسب، بل نصنع شراكات طويلة الأمد مع تجار الجملة والموزعين.
+                </p>
+                <p class="text-white/60 leading-relaxed">
+                    نؤمن بأن الجودة ليست خياراً بل هي أساس. لذلك نختار أقمشتنا بعناية فائقة ونراقب كل مرحلة إنتاج بدقة متناهية لضمان منتج نهائي يستحق ثقتكم.
+                </p>
+            </div>
+            <div class="about-card about-card-accent reveal-up">
+                <div class="text-3xl mb-4">&#128197;</div>
+                <div class="about-stat-num">+15</div>
+                <p class="text-white/80 text-sm font-semibold mt-1">عاماً من الخبرة في الصناعة</p>
+            </div>
+            <div class="about-card reveal-up">
+                <div class="text-3xl mb-4">&#10024;</div>
+                <h3 class="text-xl font-extrabold text-white mb-2">جودة لا تُضاهى</h3>
+                <p class="text-white/60 text-sm leading-relaxed">نستخدم أقمشة مصرية عالية الجودة مختارة بعناية، مع خيوط متينة وطلاءات ألوان ثابتة تتحمل الغسيل المتكرر.</p>
+            </div>
+            <div class="about-card reveal-up">
+                <div class="text-3xl mb-4">&#128142;</div>
+                <h3 class="text-xl font-extrabold text-white mb-2">أسعار تنافسية</h3>
+                <p class="text-white/60 text-sm leading-relaxed">بفضل سير عملنا المحسّن والإنتاج الضخم، نقدم أفضل الأسعار في السوق دون المساس بجودة المنتج النهائي.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== CONTACT SECTION ===== -->
+<section class="contact-section py-16 md:py-28 px-4 md:px-8" id="contact">
+    <div class="max-w-4xl mx-auto text-center">
+        <h2 class="text-3xl md:text-5xl font-extrabold text-white mb-12 reveal-up">تواصل معنا</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12">
+            <div class="contact-card text-center reveal-up">
+                <div class="text-4xl mb-3">&#128222;</div>
+                <h3 class="text-xl font-bold text-white mb-2">الهاتف</h3>
+                <p class="text-white/60 text-lg" dir="ltr">+20 121 281 3475</p>
+            </div>
+            <div class="contact-card text-center reveal-up">
+                <div class="text-4xl mb-3">&#128172;</div>
+                <h3 class="text-xl font-bold text-white mb-2">واتساب</h3>
+                <a href="https://wa.me/201212813475" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 text-lg transition-colors hover:underline">تواصل عبر واتساب</a>
+            </div>
+            <div class="contact-card text-center reveal-up">
+                <div class="text-4xl mb-3">&#128205;</div>
+                <h3 class="text-xl font-bold text-white mb-2">الموقع</h3>
+                <p class="text-white/60 text-lg">العاشر من رمضان، الشرقية</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="main-footer py-8 px-4 md:px-8">
+    <div class="max-w-7xl mx-auto text-center">
+        <p class="text-white/60 text-base">شكراً لتعاملكم معنا</p>
+        <p class="text-white/30 text-xs mt-4">&copy; 2026 مصنع الذهب الأبيض للملابس. جميع الحقوق محفوظة.</p>
+    </div>
+</footer>
+
+<script>
+// ============================================================
+// NAVIGATION
+// ============================================================
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    const btn = document.getElementById('mobileMenuBtn');
+    menu.classList.toggle('hidden');
+    btn.textContent = menu.classList.contains('hidden') ? '☰' : '✕';
+}
+function closeMobileMenu() {
+    document.getElementById('mobileMenu').classList.add('hidden');
+    document.getElementById('mobileMenuBtn').textContent = '☰';
+}
+
+// Nav scroll effect
+window.addEventListener('scroll', () => {
+    const nav = document.getElementById('mainNav');
+    nav.classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// ============================================================
+// HERO FLOATING PARTICLES
+// ============================================================
+(function createHeroParticles() {
+    const container = document.getElementById('heroParticles');
+    if (!container) return;
+    for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const size = Math.random() * 4 + 2;
+        p.style.cssText = `
+            width:${size}px; height:${size}px;
+            left:${Math.random()*100}%;
+            bottom:${-Math.random()*20}%;
+            animation-duration:${8+Math.random()*12}s;
+            animation-delay:${Math.random()*8}s;
+        `;
+        container.appendChild(p);
+    }
+})();
+
+// ============================================================
+// SCROLL-DRIVEN ANIMATION: Cotton → Fabric → Products
+// ============================================================
+(function initScrollAnimation() {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const canvas = document.getElementById('animCanvas');
+    const ctx = canvas.getContext('2d');
+    const section = document.getElementById('scrollAnimation');
+    const progress = document.getElementById('scrollProgress');
+    const phaseCotton = document.getElementById('phaseCotton');
+    const phaseFabric = document.getElementById('phaseFabric');
+    const phaseProducts = document.getElementById('phaseProducts');
+
+    let W, H, dpr;
+    function resizeCanvas() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- Cotton petals data ---
+    const PETAL_COUNT = 18;
+    const petals = [];
+    for (let i = 0; i < PETAL_COUNT; i++) {
+        petals.push({
+            x: Math.random() * 1.2 - 0.1,
+            y: Math.random() * 1.2 - 0.1,
+            size: 30 + Math.random() * 50,
+            rotation: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.02,
+            driftX: (Math.random() - 0.5) * 0.3,
+            driftY: (Math.random() - 0.5) * 0.15,
+            opacity: 0.5 + Math.random() * 0.5,
+            fiberCount: 3 + Math.floor(Math.random() * 4)
+        });
+    }
+
+    // --- Fabric thread data ---
+    const WARP_COUNT = 30;
+    const WEFT_COUNT = 20;
+    const warpThreads = [];
+    const weftThreads = [];
+    for (let i = 0; i < WARP_COUNT; i++) {
+        warpThreads.push({ x: i / (WARP_COUNT - 1), phase: Math.random() * Math.PI * 2 });
+    }
+    for (let i = 0; i < WEFT_COUNT; i++) {
+        weftThreads.push({ y: i / (WEFT_COUNT - 1), phase: Math.random() * Math.PI * 2 });
+    }
+
+    // --- Product icons for phase 3 ---
+    const productImages = [];
+    const productNames = ['حماله', 'نصفكم', 'كم', 'كلسون', 'شورت', 'سليب'];
+    let imagesLoaded = 0;
+    productNames.forEach((name, i) => {
+        const img = new Image();
+        img.src = `assets/png/${name}.PNG`;
+        img.onload = () => { imagesLoaded++; };
+        img.onerror = () => { imagesLoaded++; };
+        productImages.push({ img, name, angle: (i / 6) * Math.PI * 2 });
+    });
+
+    // --- Draw a cotton boll / petal ---
+    function drawCottonPetal(cx, cy, size, rotation, opacity, fiberCount) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+        ctx.globalAlpha = opacity;
+
+        // Soft outer glow
+        const grad = ctx.createRadialGradient(0, 0, size * 0.1, 0, 0, size);
+        grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+        grad.addColorStop(0.4, 'rgba(255,255,250,0.5)');
+        grad.addColorStop(0.7, 'rgba(240,240,235,0.15)');
+        grad.addColorStop(1, 'rgba(220,220,215,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size, size * 0.85, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fiber strands inside
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 1;
+        for (let f = 0; f < fiberCount; f++) {
+            const angle = (f / fiberCount) * Math.PI * 2;
+            const r = size * (0.3 + Math.random() * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(
+                Math.cos(angle + 0.3) * r * 0.6,
+                Math.sin(angle + 0.3) * r * 0.6,
+                Math.cos(angle) * r,
+                Math.sin(angle) * r
+            );
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    // --- Draw fabric weave ---
+    function drawFabric(progress) {
+        const margin = 0.15;
+        const fabricW = W * (1 - 2 * margin);
+        const fabricH = H * (1 - 2 * margin);
+        const startX = W * margin;
+        const startY = H * margin;
+
+        ctx.save();
+
+        // Background fabric color — appears quickly and brightly
+        ctx.globalAlpha = Math.min(progress * 2.5, 1);
+        const bgGrad = ctx.createLinearGradient(startX, startY, startX + fabricW, startY + fabricH);
+        bgGrad.addColorStop(0, 'rgba(250,248,245,1)');
+        bgGrad.addColorStop(0.5, 'rgba(255,253,250,1)');
+        bgGrad.addColorStop(1, 'rgba(250,248,245,1)');
+        ctx.fillStyle = bgGrad;
+        // Soft shadow around fabric
+        ctx.shadowColor = 'rgba(102,126,234,0.3)';
+        ctx.shadowBlur = 40;
+        roundRect(ctx, startX, startY, fabricW, fabricH, 20);
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+
+        // Warp threads (vertical)
+        const warpReveal = Math.min(progress * 3, 1);
+        ctx.globalAlpha = progress * 0.8;
+        ctx.strokeStyle = 'rgba(180,170,160,0.7)';
+        ctx.lineWidth = 2;
+        warpThreads.forEach((thread, i) => {
+            const drawCount = Math.ceil(warpReveal * warpThreads.length);
+            if (i >= drawCount) return;
+            const x = startX + thread.x * fabricW;
+            ctx.beginPath();
+            ctx.moveTo(x, startY);
+            ctx.lineTo(x, startY + fabricH);
+            ctx.stroke();
+        });
+
+        // Weft threads (horizontal)
+        const weftReveal = Math.min(Math.max(progress - 0.2, 0) * 2.5, 1);
+        ctx.globalAlpha = progress * 0.7;
+        ctx.strokeStyle = 'rgba(160,150,140,0.6)';
+        ctx.lineWidth = 1.5;
+        weftThreads.forEach((thread, i) => {
+            const drawCount = Math.ceil(weftReveal * weftThreads.length);
+            if (i >= drawCount) return;
+            const y = startY + thread.y * fabricH;
+            ctx.beginPath();
+            ctx.moveTo(startX, y);
+            ctx.lineTo(startX + fabricW, y);
+            ctx.stroke();
+        });
+
+        // Cross-hatch pattern overlay
+        if (progress > 0.5) {
+            const patternAlpha = (progress - 0.5) * 2;
+            ctx.globalAlpha = patternAlpha * 0.3;
+            ctx.strokeStyle = 'rgba(160,150,140,0.4)';
+            ctx.lineWidth = 0.5;
+            const spacing = 15;
+            for (let x = startX; x < startX + fabricW; x += spacing) {
+                for (let y = startY; y < startY + fabricH; y += spacing) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + 4, y + 4);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Fabric texture shimmer
+        if (progress > 0.7) {
+            const shimmerAlpha = (progress - 0.7) * 3.3;
+            ctx.globalAlpha = shimmerAlpha * 0.15;
+            for (let i = 0; i < 12; i++) {
+                const sx = startX + Math.random() * fabricW;
+                const sy = startY + Math.random() * fabricH;
+                const sr = 20 + Math.random() * 40;
+                const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+                sg.addColorStop(0, 'rgba(255,255,255,0.8)');
+                sg.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = sg;
+                ctx.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+            }
+        }
+
+        ctx.restore();
+    }
+
+    // --- Draw product reveal ---
+    function drawProducts(progress, time) {
+        if (progress <= 0) return;
+        ctx.save();
+
+        const radius = Math.min(W, H) * 0.35;
+        const centerX = W / 2;
+        const centerY = H / 2;
+
+        productImages.forEach((p, i) => {
+            const angle = p.angle + time * 0.0003;
+            const targetX = centerX + Math.cos(angle) * radius;
+            const targetY = centerY + Math.sin(angle) * radius;
+            const startX = centerX;
+            const startY = centerY;
+
+            const px = startX + (targetX - startX) * progress;
+            const py = startY + (targetY - startY) * progress;
+            const imgSize = 40 + progress * 45;
+            const alpha = Math.min(progress * 3, 1); // faster fade-in
+
+            ctx.globalAlpha = alpha;
+
+            // Glow behind product - brighter
+            const glowGrad = ctx.createRadialGradient(px, py, 0, px, py, imgSize * 1.5);
+            glowGrad.addColorStop(0, 'rgba(102,126,234,0.5)');
+            glowGrad.addColorStop(0.5, 'rgba(118,75,162,0.2)');
+            glowGrad.addColorStop(1, 'rgba(102,126,234,0)');
+            ctx.fillStyle = glowGrad;
+            ctx.beginPath();
+            ctx.arc(px, py, imgSize * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White circle background for product
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.beginPath();
+            ctx.arc(px, py, imgSize + 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Product image
+            if (p.img.complete && p.img.naturalWidth > 0) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(px, py, imgSize, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(p.img, px - imgSize, py - imgSize, imgSize * 2, imgSize * 2);
+                ctx.restore();
+            } else {
+                // Fallback circle
+                ctx.fillStyle = 'rgba(102,126,234,0.4)';
+                ctx.beginPath();
+                ctx.arc(px, py, imgSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.font = `bold ${imgSize * 0.5}px Cairo`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(p.name.charAt(0), px, py);
+            }
+
+            // Border ring around product
+            ctx.strokeStyle = 'rgba(102,126,234,0.6)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(px, py, imgSize + 3, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Product name label
+            if (progress > 0.4) {
+                ctx.globalAlpha = Math.min((progress - 0.4) * 2.5, 1);
+                const labelY = py + imgSize + 20;
+                // Label background
+                ctx.fillStyle = 'rgba(10,10,26,0.7)';
+                const textWidth = ctx.measureText(p.name).width || 50;
+                roundRect(ctx, px - textWidth/2 - 10, labelY - 10, textWidth + 20, 24, 8);
+                ctx.fill();
+                // Label text
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 13px Cairo';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name, px, labelY + 5);
+            }
+        });
+
+        ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+    }
+
+    // --- Main animation frame driven by scroll ---
+    let animProgress = 0;
+    let lastTime = performance.now();
+
+    function renderFrame(timestamp) {
+        const dt = timestamp - lastTime;
+        lastTime = timestamp;
+
+        ctx.clearRect(0, 0, W, H);
+
+        const p = animProgress; // 0 → 1 over the scroll section
+
+        // Phase 1: Cotton (0 → 0.35)
+        if (p < 0.4) {
+            const cottonP = Math.min(p / 0.35, 1);
+            const cottonFade = p < 0.3 ? 1 : Math.max(0, 1 - (p - 0.3) / 0.1);
+
+            // Phase label
+            phaseCotton.classList.toggle('visible', cottonP > 0.05 && cottonFade > 0.1);
+            phaseFabric.classList.remove('visible');
+            phaseProducts.classList.remove('visible');
+
+            ctx.save();
+            ctx.globalAlpha = cottonFade;
+
+            // Update and draw petals
+            petals.forEach((petal, i) => {
+                // Gentle floating motion
+                const wobbleX = Math.sin(timestamp * 0.001 + i * 1.5) * 15;
+                const wobbleY = Math.cos(timestamp * 0.0008 + i * 1.2) * 10;
+                petal.rotation += petal.rotSpeed;
+
+                // Converge toward center as cottonP increases
+                const convergeFactor = cottonP * 0.3;
+                const baseX = petal.x * W + wobbleX;
+                const baseY = petal.y * H + wobbleY;
+                const targetX = W / 2;
+                const targetY = H / 2;
+                const drawX = baseX + (targetX - baseX) * convergeFactor;
+                const drawY = baseY + (targetY - baseY) * convergeFactor;
+
+                const scale = 1 - cottonP * 0.3;
+                drawCottonPetal(drawX, drawY, petal.size * scale, petal.rotation, petal.opacity * cottonFade, petal.fiberCount);
+            });
+
+            ctx.restore();
+        }
+
+        // Phase 2: Fabric (0.3 → 0.65)
+        if (p >= 0.25 && p < 0.7) {
+            const fabricStart = 0.25;
+            const fabricEnd = 0.65;
+            const fabricP = Math.min(Math.max((p - fabricStart) / (fabricEnd - fabricStart), 0), 1);
+            const fabricFade = p > 0.6 ? Math.max(0, 1 - (p - 0.6) / 0.1) : 1;
+
+            phaseCotton.classList.remove('visible');
+            phaseFabric.classList.toggle('visible', fabricP > 0.05 && fabricFade > 0.1);
+            phaseProducts.classList.remove('visible');
+
+            drawFabric(fabricP * fabricFade);
+        }
+
+        // Phase 3: Products (0.6 → 1.0)
+        if (p >= 0.55) {
+            const prodStart = 0.55;
+            const prodEnd = 1.0;
+            const prodP = Math.min(Math.max((p - prodStart) / (prodEnd - prodStart), 0), 1);
+
+            phaseCotton.classList.remove('visible');
+            phaseFabric.classList.remove('visible');
+            phaseProducts.classList.toggle('visible', prodP > 0.05);
+
+            drawProducts(prodP, timestamp);
+        }
+
+        requestAnimationFrame(renderFrame);
+    }
+
+    // Start the render loop
+    requestAnimationFrame(renderFrame);
+
+    // Link scroll to animProgress
+    ScrollTrigger.create({
+        trigger: section,
+        start: 'top top',
+        end: 'bottom bottom',
+        scrub: 0.5,
+        onUpdate: (self) => {
+            animProgress = self.progress;
+            // Update progress bar
+            progress.style.transform = `scaleX(${self.progress})`;
+        }
+    });
+
+    // Hero entrance animations
+    gsap.from('#heroChip', { opacity: 0, y: 30, duration: 0.8, delay: 0.2, ease: 'power3.out' });
+    gsap.from('#heroTitle', { opacity: 0, y: 50, duration: 1, delay: 0.4, ease: 'power3.out' });
+    gsap.from('#heroSub', { opacity: 0, y: 30, duration: 0.8, delay: 0.6, ease: 'power3.out' });
+    gsap.from('#heroMetrics', { opacity: 0, y: 30, duration: 0.8, delay: 0.8, ease: 'power3.out' });
+
+    // Product cards stagger animation
+    ScrollTrigger.batch('#productsGrid .product-card', {
+        onEnter: (elements) => {
+            gsap.fromTo(elements, 
+                { opacity: 0, y: 50, scale: 0.95 },
+                { opacity: 1, y: 0, scale: 1, duration: 0.8, stagger: 0.1, ease: 'power3.out' }
+            );
+        },
+        start: 'top 85%',
+        once: true
+    });
+
+    // Reveal animations for about and contact
+    const revealEls = document.querySelectorAll('.reveal-up');
+    revealEls.forEach(el => {
+        ScrollTrigger.create({
+            trigger: el,
+            start: 'top 88%',
+            onEnter: () => el.classList.add('revealed'),
+            once: true
+        });
+    });
+})();
+
+// ============================================================
+// SMOOTH SCROLL FOR ANCHOR LINKS
+// ============================================================
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+});
+</script>
+
+</body>
+</html>
