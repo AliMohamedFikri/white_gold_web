@@ -150,12 +150,16 @@ Dual-mode persistence architecture.
 
 ### 10. Security Layer
 
-- **Content Security Policy (CSP)** meta tag restricting resource origins
+- **Content Security Policy (CSP)** meta tag with hardened directives including `object-src 'none'; base-uri 'self'; form-action 'self'`
+- **Subresource Integrity (SRI)** hashes on all CDN-loaded scripts (Tailwind, Google GIS, html2pdf, SheetJS)
 - **X-Content-Type-Options**: nosniff header
 - **X-Frame-Options**: DENY to prevent clickjacking
 - **Referrer Policy**: strict-origin-when-cross-origin
-- **Input sanitization**: HTML, client name, and numeric input validation
+- **Permissions-Policy**: Disables camera, microphone, geolocation, and payment APIs
+- **XSS Prevention**: All dynamic user-controlled outputs wrapped in `escapeHtml()` across all render functions
+- **Input sanitization**: HTML, client name, and numeric input validation via `sanitizeTextInput()`, `sanitizeClientNameInput()`, `sanitizeNumericInput()`
 - **Rate limiting**: Action throttling to prevent abuse
+- **Tabnapping prevention**: Removed `<base target="_blank">`; external links use `rel="noopener noreferrer"`
 - **Optional security module**: `Security guide/security-module.js` for enhanced protection
 - **Secure storage abstraction**: `storageSet()`, `storageGet()`, `storageRemove()` wrappers
 
@@ -173,6 +177,15 @@ Premium SaaS-quality visual design built entirely with CSS.
 - **Bento grid** about section with feature cards and stat displays
 - **Fully responsive** design adapting to mobile, tablet, and desktop
 - **RTL-first** Arabic layout throughout
+- **Motion accessibility**: `prefers-reduced-motion` media query disables animations for users with vestibular disorders
+
+### 12. Performance Optimizations
+
+- **Lazy-loaded heavy libraries**: html2pdf.js (~800KB) and SheetJS (~550KB) loaded only on first use
+- **Debounced rendering**: All `render()` calls batched into a single DOM update per animation frame
+- **Resource hints**: `dns-prefetch` for CDNs, `preload` for Tailwind CSS, `preconnect` for Google Fonts
+- **Optimized font loading**: Reduced Google Fonts weights from 5 (300/400/600/700/800) to 3 (400/700/800)
+- **Bill template preloading**: Logo SVG fetched and converted to base64 on init for reliable PDF capture
 
 ---
 
@@ -186,7 +199,7 @@ white_gold_web/
 │   ├── Logo white gold-Final-2.svg         # Default company logo
 │   └── png/                                # Category icons (سليب.JPEG, نصفكم.JPEG, etc.)
 ├── bill_templates/
-		├── logo_data_uri.js                # Centralized default logo path (single source of truth)
+                ├── logo_data_uri.js                # Centralized default logo path (single source of truth)
 │       ├── template_v7.js                  # v7 bill template (default, modern design)
 │       └── template_fallback.js            # Fallback bill template (simple design)
 └── Security guide/

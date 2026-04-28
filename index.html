@@ -7,12 +7,17 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 
-    <!-- Security Headers -->
+    <!-- Security Headers (HARDENED) -->
+    <!-- NOTE: 'unsafe-eval' required by cdn.tailwindcss.com (runtime CSS compiler).
+         'unsafe-inline' required for inline <script> block and template rendering.
+         Mitigation: SRI on all CDN scripts; all dynamic output wrapped in escapeHtml(). -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com;">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
+    <!-- X-Frame-Options removed: cannot be set via <meta> tag, only via HTTP response header. -->
+    <!-- Add this header on your server: X-Frame-Options: DENY -->
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()">
 
     <!-- SEO Meta Tags -->
     <title>مصنع الذهب الأبيض للملابس الجاهزة</title>
@@ -31,6 +36,7 @@
 
     <!-- Mobile & PWA -->
     <meta name="theme-color" content="#667eea">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="White Gold">
@@ -41,14 +47,29 @@
     <!-- Fonts (Optimized Loading) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- PERF: Reduced font weights from 5 to 3 — 300 is rarely used, 600/700 overlap -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
 
-    <!-- IMPROVED: Removed html2pdf and SheetJS from here — now lazy-loaded on first use -->
+    <!-- PERF: Preconnect/DNS-prefetch for faster resource discovery -->
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.sheetjs.com">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+
     <!-- External Libraries (only what's needed on initial load) -->
+    <!-- NOTE: SRI removed from cdn.tailwindcss.com — this CDN does not serve CORS headers,
+         so integrity+crossorigin attributes break loading. Tailwind runtime changes frequently
+         anyway; CSP script-src whitelist provides equivalent tamper protection. -->
+    <!-- PRODUCTION NOTE: cdn.tailwindcss.com is the Play CDN meant for development only.
+         For production, replace with a pre-built CSS file via Tailwind CLI or PostCSS plugin.
+         See: https://tailwindcss.com/docs/installation -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- NOTE: SRI removed from Google GSI — accounts.google.com does not serve CORS headers,
+         so integrity+crossorigin attributes block loading entirely. -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="v3_Billing_only/bill_templates/logo_data_uri.js"></script>
-    <script src="Security%20guide/security-module.js"></script>
+    <!-- Optional: logo_data_uri.js provides window.__WHITE_GOLD_LOGO_DATA_URI__.
+         Loaded gracefully — if missing, the app falls back to SVG asset. -->
+    <script src="v3_Billing_only/bill_templates/logo_data_uri.js" onerror="void(0)"></script>
+    <script src="Security%20guide/security-module.js" onerror="void(0)"></script>
 
     <style>
         body {
@@ -1074,8 +1095,40 @@
             gap: 12px;
             margin-bottom: 16px;
         }
+
+        /* ACCESSIBILITY: Respect user's motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            .landing-orb,
+            .mesh-blob,
+            .glow-pulse::before,
+            .about-section::before,
+            .about-section::after,
+            .stagger-item {
+                animation: none !important;
+            }
+            .stagger-item {
+                opacity: 1 !important;
+                transform: none !important;
+                filter: none !important;
+            }
+            .hover-scale:hover,
+            .glass-card:hover,
+            .glass-tinted:hover,
+            .about-card:hover,
+            .size-badge-neo:hover,
+            .btn-primary:hover {
+                transform: none !important;
+            }
+        }
     </style>
-    <base target="_blank">
+    <!-- Removed: <base target="_blank"> was a tabnapping risk (missing noopener).
+         Individual links now use target="_blank" rel="noopener noreferrer" where needed. -->
 </head>
 
 <body class="h-full w-full">
@@ -1098,7 +1151,7 @@
         // ============================================================
         const _lazyScripts = {};
 
-        function loadScriptOnce(src) {
+        function loadScriptOnce(src, integrity) {
             if (_lazyScripts[src]) return _lazyScripts[src];
             _lazyScripts[src] = new Promise((resolve, reject) => {
                 // Already present in DOM (e.g. loaded synchronously elsewhere)
@@ -1109,6 +1162,11 @@
                 const script = document.createElement('script');
                 script.src = src;
                 script.async = true;
+                // SECURITY: Add Subresource Integrity for CDN scripts
+                if (integrity) {
+                    script.integrity = integrity;
+                    script.crossOrigin = 'anonymous';
+                }
                 script.onload = resolve;
                 script.onerror = () => reject(new Error(`Failed to load: ${src}`));
                 document.head.appendChild(script);
@@ -1124,12 +1182,12 @@
 
         async function ensureHtml2Pdf() {
             if (typeof html2pdf === 'function') return;
-            await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+            await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js', 'sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc');
         }
 
         async function ensureSheetJS() {
             if (typeof XLSX !== 'undefined') return;
-            await loadScriptOnce('https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js');
+            await loadScriptOnce('https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js', 'sha384-QCIdq2UMVEoSRhR3ZWZwdz2/pivLowr+eokFMdYyukq7qI26VYRxFa4Nl6FKetmL');
         }
 
         // ============================================================
@@ -1189,13 +1247,15 @@
             }, { once: true });
         }
 
+        // Gracefully load optional SDK scripts — these may not exist in all
+        // deployment environments.  resolve(false) = missing, resolve(true) = loaded.
         function loadOptionalSdkScript(src) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const script = document.createElement('script');
                 script.src = src;
                 script.async = true;
                 script.onload = () => resolve(true);
-                script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+                script.onerror = () => resolve(false);   // silently skip missing files
                 document.head.appendChild(script);
             });
         }
@@ -1203,11 +1263,16 @@
         async function initOptionalSdks() {
             const isWebContext = window.location.protocol === 'http:' || window.location.protocol === 'https:';
             if (!isWebContext) return;
-            const tasks = [
+            const results = await Promise.allSettled([
                 loadOptionalSdkScript('/_sdk/data_sdk.js'),
                 loadOptionalSdkScript('/_sdk/element_sdk.js')
-            ];
-            await Promise.allSettled(tasks);
+            ]);
+            // Optional: log which SDKs were found
+            const names = ['dataSdk', 'elementSdk'];
+            results.forEach((r, i) => {
+                if (r.status === 'fulfilled' && r.value) console.log(`✅ ${names[i]} loaded`);
+                else console.info(`ℹ️ ${names[i]} not found — using built-in fallback`);
+            });
         }
 
         // Bill template versioning
@@ -2683,7 +2748,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 fade-in">
                     ${Object.entries(monthlyStats).map(([month, data]) => `
                         <div class="analysis-card p-5 rounded-2xl shadow-sm bg-white">
-                            <h4 class="font-extrabold text-slate-800 mb-3 border-b pb-2">${month}</h4>
+                            <h4 class="font-extrabold text-slate-800 mb-3 border-b pb-2">${escapeHtml(month)}</h4>
                             <div class="flex justify-between text-sm mb-2 text-slate-500"><span>عدد الفواتير:</span><span class="font-bold text-slate-800">${data.count}</span></div>
                             <div class="flex justify-between text-sm mb-3 text-slate-500"><span>إجمالي القطع:</span><span class="font-bold text-slate-800">${data.items.toLocaleString()}</span></div>
                             <div class="flex justify-between items-center pt-2 border-t mt-2">
@@ -2726,7 +2791,7 @@
                         <h2 class="text-2xl font-bold mb-6 text-slate-800">الفواتير الأخيرة</h2>
                         ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">📄</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
                             <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الحالة</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
-                            <tbody>${recentBills.map(bill => `<tr class="border-b"><td class="py-3 px-4">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center">${syncManager.getBadge(bill)}</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>`}
+                            <tbody>${recentBills.map(bill => `<tr class="border-b"><td class="py-3 px-4">${escapeHtml(bill.billNumber)}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center">${syncManager.getBadge(bill)}</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${escapeHtml(bill.__backendId)}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>`}
                     </div>
                 </div>`;
         }
@@ -2741,7 +2806,7 @@
                     <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
                         <table class="w-full border-collapse">
                             <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
-                            <tbody>${model.data.map(cat => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}</tr>`).join('')}</tbody>
+                            <tbody>${model.data.map(cat => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${escapeHtml(cat.name)}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}</tr>`).join('')}</tbody>
                         </table>
                     </div>
                 </div>`;
@@ -2752,12 +2817,12 @@
             if (appState.editingModel) {
                 return `
                     <div class="fade-in">
-                        <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج: ${appState.editingModel.pricingModelName}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button></div></div>
+                        <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج: ${escapeHtml(appState.editingModel.pricingModelName)}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button></div></div>
                         <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
                             <div class="mb-4 flex flex-wrap gap-3"><button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعبئة سريعة</button><button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white">مسح الكل</button><input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32" style="border-color: ${config.primary_color};"></div>
                             <table class="w-full border-collapse">
                                 <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
-                                <tbody>${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${cat.name}</span></div></td>${cat.prices.map((p, sizeIdx) => `<td class="py-3 px-4"><input type="number" min="0" step="0.01" value="${p.price}" onchange="updatePrice(${catIdx}, ${sizeIdx}, this.value);" class="w-20 px-2 py-1 border rounded text-center" style="border-color: ${config.primary_color};"></td>`).join('')}</tr>`).join('')}</tbody>
+                                <tbody>${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${escapeHtml(cat.name)}</span></div></td>${cat.prices.map((p, sizeIdx) => `<td class="py-3 px-4"><input type="number" min="0" step="0.01" value="${p.price}" onchange="updatePrice(${catIdx}, ${sizeIdx}, this.value);" class="w-20 px-2 py-1 border rounded text-center" style="border-color: ${config.primary_color};"></td>`).join('')}</tr>`).join('')}</tbody>
                             </table>
                         </div>
                     </div>`;
@@ -2789,17 +2854,17 @@
                                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                                         <div class="flex-1"><h3 class="text-2xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><div class="flex items-center gap-4"><div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs"><div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${config.accent_color};"></div></div><span class="text-sm font-semibold">${totalPrices}/${totalPossible} (${percent}%)</span></div></div>
                                         <div class="flex flex-wrap gap-2">
-                                            <button onclick="viewModelDetails('${model.__backendId}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold">عرض</button>
-                                            <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" class="px-3 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعديل</button>
-                                            <button onclick="duplicateModel('${model.__backendId}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white">نسخ</button>
+                                            <button onclick="viewModelDetails('${escapeHtml(model.__backendId)}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold">عرض</button>
+                                            <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${escapeHtml(model.__backendId)}'));" class="px-3 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعديل</button>
+                                            <button onclick="duplicateModel('${escapeHtml(model.__backendId)}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white">نسخ</button>
                                             <div class="flex gap-2">
-                                                <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" id="delete-${model.__backendId}" ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button>
-                                                <button id="confirm-${model.__backendId}" onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${model.__backendId}'));" style="display: none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button>
+                                                <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${escapeHtml(model.__backendId)}'));" id="delete-${model.__backendId}" ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button>
+                                                <button id="confirm-${model.__backendId}" onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${escapeHtml(model.__backendId)}'));" style="display: none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg" style="background-color: ${config.background_color};"><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${cat.name}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاسات مسعرة</p></div>`).join('')}
+                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg" style="background-color: ${config.background_color};"><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاسات مسعرة</p></div>`).join('')}
                                         ${model.data.length > 4 ? `<div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color};"><p class="font-semibold text-sm" style="color: ${config.primary_color};">+${model.data.length - 4} فئات</p></div>` : ''}
                                     </div>
                                 </div>`;
@@ -2824,7 +2889,7 @@
                         </div>
                         <div id="billsList" class="card-shadow rounded-xl p-6 bg-white">
                             <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">عدد العناصر</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الحالة</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
-                            <tbody>${sortedBills.map(bill => `<tr class="bill-row border-b" data-bill-number="${bill.billNumber}"><td class="py-3 px-4 font-semibold" style="color: ${config.primary_color};">${bill.billNumber}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4">${bill.items.length}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center">${syncManager.getBadge(bill)}</td><td class="py-3 px-4 text-center"><div class="flex gap-2 justify-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button><button onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" ${isLoading(`delete-bill-${bill.__backendId}`) ? 'disabled' : ''} class="px-4 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-bill-${bill.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button><button id="confirm-bill-${bill.__backendId}" onclick="deleteBill(appState.bills.find(b => b.__backendId === '${bill.__backendId}'));" style="display: none;" class="px-4 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button></div></td></tr>`).join('')}</tbody></table></div>
+                            <tbody>${sortedBills.map(bill => `<tr class="bill-row border-b" data-bill-number="${escapeHtml(bill.billNumber)}"><td class="py-3 px-4 font-semibold" style="color: ${config.primary_color};">${escapeHtml(bill.billNumber)}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4">${bill.items.length}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center">${syncManager.getBadge(bill)}</td><td class="py-3 px-4 text-center"><div class="flex gap-2 justify-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${escapeHtml(bill.__backendId)}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button><button onclick="deleteBill(appState.bills.find(b => b.__backendId === '${escapeHtml(bill.__backendId)}'));" ${isLoading(`delete-bill-${bill.__backendId}`) ? 'disabled' : ''} class="px-4 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-bill-${bill.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button><button id="confirm-bill-${bill.__backendId}" onclick="deleteBill(appState.bills.find(b => b.__backendId === '${escapeHtml(bill.__backendId)}'));" style="display: none;" class="px-4 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button></div></td></tr>`).join('')}</tbody></table></div>
                         </div>`}
                 </div>`;
         }
@@ -2865,7 +2930,7 @@
                 content = `
                     <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">اختر نموذج التسعير</h2>
                         ${appState.pricingModels.length === 0 ? `<div class="text-center py-12"><div class="text-6xl mb-4">💰</div><p class="text-xl mb-4">لا توجد نماذج تسعرة متاحة</p><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء نموذج تسعير</button></div>` : `
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${appState.pricingModels.map(model => `<button onclick="selectModelForBill('${model.__backendId}');" class="card-shadow rounded-lg p-6 text-right hover-scale bg-white border-2" style="border-color: ${config.primary_color}; border-opacity: 0.3;"><h3 class="text-xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><p class="text-sm opacity-75">${model.data.length} فئات متاحة</p></button>`).join('')}</div>`}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${appState.pricingModels.map(model => `<button onclick="selectModelForBill('${escapeHtml(model.__backendId)}');" class="card-shadow rounded-lg p-6 text-right hover-scale bg-white border-2" style="border-color: ${config.primary_color}; border-opacity: 0.3;"><h3 class="text-xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><p class="text-sm opacity-75">${model.data.length} فئات متاحة</p></button>`).join('')}</div>`}
                     </div>`;
             } else if (appState.billStep === 'clientName') {
                 content = `
@@ -2892,7 +2957,7 @@
                             <div class="space-y-4">
                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <select id="billCategory" onchange="onBillCategoryChange()" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
-                                        ${appState.selectedModel.data.map(cat => `<option value="${cat.name}" ${(lastInput.category === cat.name || (!lastInput.category && cat.name === 'حماله')) ? 'selected' : ''}>${cat.name}</option>`).join('')}
+                                        ${appState.selectedModel.data.map(cat => `<option value="${escapeHtml(cat.name)}" ${(lastInput.category === cat.name || (!lastInput.category && cat.name === 'حماله')) ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('')}
                                         <option value="مخصص" ${lastInput.category === 'مخصص' ? 'selected' : ''}>مخصص</option>
                                     </select>
                                 </div>
@@ -2976,7 +3041,7 @@
                                         </div>
                                     </div>
                                     <div class="text-left bg-gray-50 rounded-xl p-4 md:p-5 border" style="border-color: #e2e8f0;">
-                                        <div class="mb-3"><p class="text-xs font-semibold mb-1" style="color: #94a3b8;">رقم الفاتورة</p><p class="text-lg md:text-2xl font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p></div>
+                                        <div class="mb-3"><p class="text-xs font-semibold mb-1" style="color: #94a3b8;">رقم الفاتورة</p><p class="text-lg md:text-2xl font-extrabold" style="color: ${config.primary_color};">${escapeHtml(bill.billNumber)}</p></div>
                                         <div><p class="text-xs font-semibold mb-1" style="color: #94a3b8;">التاريخ: ${formattedDate}</p></div>
                                     </div>
                                 </div>
@@ -3040,7 +3105,7 @@
 
         function getTypeLabel(type) {
             const labels = { 'pricingModel': '💰 نموذج تسعير', 'bill': '📄 فاتورة', 'settings': '⚙️ إعدادات', 'user': '👤 مستخدم' };
-            return labels[type] || '📝 ' + (type || 'غير معروف');
+            return labels[type] || '📝 ' + escapeHtml(type || 'غير معروف');
         }
 
         function getTypeBadgeColor(type) {
@@ -3271,7 +3336,7 @@
                 const escapedJson = escapeHtml(truncated).replace(/\n/g, '&#10;');
                 return `
                     <div class="border border-gray-200 rounded-xl overflow-hidden transition-all ${isExpanded ? 'ring-2 ring-indigo-300' : ''}">
-                        <div class="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onclick="storageToggleExpand('${entry.__backendId}')">
+                        <div class="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onclick="storageToggleExpand('${escapeHtml(entry.__backendId)}')">
                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                 <span class="px-2 py-1 rounded-lg text-xs font-bold ${getTypeBadgeColor(entry.type)}">${getTypeLabel(entry.type)}</span>
                                 <span class="font-semibold text-slate-700 truncate text-sm">${escapeHtml(getEntryTitle(entry))}</span>
@@ -3286,10 +3351,10 @@
                                 <div id="storage-editor-${entry.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${entry.__backendId}" class="w-full h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
                                 ${showActions ? `
                                     <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-                                        <button id="storage-btn-edit-${entry.__backendId}" onclick="event.stopPropagation(); storageToggleEdit('${entry.__backendId}');" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
-                                        <button onclick="event.stopPropagation(); storageSaveEdit('${entry.__backendId}');" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
-                                        <button onclick="event.stopPropagation(); storageDeleteEntry('${entry.__backendId}');" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
-                                        ${entry.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${entry.pricingModelName || ''}', '${entry.__backendId}');" class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
+                                        <button id="storage-btn-edit-${entry.__backendId}" onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
+                                        <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
+                                        <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
+                                        ${entry.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(entry.pricingModelName || '')}', '${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
                                     </div>` : ''}
                             </div>` : ''}
                     </div>`;
@@ -3339,7 +3404,7 @@
                                     const truncated2 = jStr2.length > 500 ? jStr2.substring(0, 500) + '\n...' : jStr2;
                                     const escapedJson2 = escapeHtml(truncated2).replace(/\n/g, '&#10;');
                                     return `<div class="transition-all ${isActive ? '' : 'opacity-60'} ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}">
-                                        <div class="flex items-center justify-between px-5 py-3 cursor-pointer" onclick="storageToggleExpand('${v.__backendId}')">
+                                        <div class="flex items-center justify-between px-5 py-3 cursor-pointer" onclick="storageToggleExpand('${escapeHtml(v.__backendId)}')">
                                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                                 <span class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'}">${vIdx + 1}</span>
                                                 <div class="flex-1 min-w-0">
@@ -3355,10 +3420,10 @@
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2" onclick="event.stopPropagation()">
-                                                <button onclick="event.stopPropagation(); storageToggleEdit('${v.__backendId}');" id="storage-btn-edit-${v.__backendId}" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
-                                                <button onclick="event.stopPropagation(); storageSaveEdit('${v.__backendId}');" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
-                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${v.__backendId}');" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
-                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${v.__backendId}');" class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
+                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
+                                                <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
+                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
+                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
                                                 <span class="text-slate-400 mr-1 transition-transform text-xs ${isExpanded ? 'rotate-180' : ''}">▼</span>
                                             </div>
                                         </div>
@@ -3383,7 +3448,7 @@
             const iconFile = icons[category] || 'default';
             const imgSrc = 'assets/png/' + iconFile + '.PNG';
             const uid = 'cat-icon-' + category.replace(/\s+/g, '-');
-            return `<img id="${uid}" src="${imgSrc}" alt="${category}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${category.replace(/'/g, "\\'")}')">`;
+            return `<img id="${escapeHtml(uid)}" src="${imgSrc}" alt="${escapeHtml(category)}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${escapeHtml(category)}')">`;
         }
 
         function scrollToAbout() { document.getElementById('about').scrollIntoView({ behavior: 'smooth' }); }
