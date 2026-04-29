@@ -9,8 +9,8 @@
 
     <!-- Security Headers (HARDENED) -->
     <!-- NOTE: 'unsafe-eval' required by cdn.tailwindcss.com (runtime CSS compiler).
-         'unsafe-inline' required for inline <script> block and template rendering.
-         Mitigation: SRI on all CDN scripts; all dynamic output wrapped in escapeHtml(). -->
+        'unsafe-inline' required for inline <script> block and template rendering.
+        Mitigation: SRI on all CDN scripts; all dynamic output wrapped in escapeHtml(). -->
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
@@ -31,9 +31,9 @@
     <!-- Social Media (Open Graph) -->
     <meta property="og:title" content="مصنع الذهب الأبيض للملابس الجاهزة">
     <meta property="og:description"
-        content="أجود أنواع الملابس الداخلية والخارجية بجميع المقاسات. جودة عالية وأسعار منافسة.">
+        content="أجود أنواع الملابس الداخلية بجميع المقاسات. جودة عالية وأسعار منافسة.">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://placehold.co/1200x630/667eea/ffffff.png?text=White+Gold+System">
+    <meta property="og:image" content="https://images.unsplash.com/vector-1777452576509-c6a817535d08?q=80&w=764&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D">
     <meta property="og:locale" content="ar_SA">
 
     <!-- Mobile & PWA -->
@@ -59,17 +59,17 @@
 
     <!-- External Libraries (only what's needed on initial load) -->
     <!-- NOTE: SRI removed from cdn.tailwindcss.com — this CDN does not serve CORS headers,
-         so integrity+crossorigin attributes break loading. Tailwind runtime changes frequently
-         anyway; CSP script-src whitelist provides equivalent tamper protection. -->
+        so integrity+crossorigin attributes break loading. Tailwind runtime changes frequently
+        anyway; CSP script-src whitelist provides equivalent tamper protection. -->
     <!-- PRODUCTION NOTE: cdn.tailwindcss.com is the Play CDN meant for development only.
-         For production, replace with a pre-built CSS file via Tailwind CLI or PostCSS plugin.
-         See: https://tailwindcss.com/docs/installation -->
+        For production, replace with a pre-built CSS file via Tailwind CLI or PostCSS plugin.
+        See: https://tailwindcss.com/docs/installation -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- NOTE: SRI removed from Google GSI — accounts.google.com does not serve CORS headers,
-         so integrity+crossorigin attributes block loading entirely. -->
+        so integrity+crossorigin attributes block loading entirely. -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Optional: logo_data_uri.js provides window.__WHITE_GOLD_LOGO_DATA_URI__.
-         Loaded gracefully — if missing, the app falls back to SVG asset. -->
+        Loaded gracefully — if missing, the app falls back to SVG asset. -->
     <script src="v3_Billing_only/bill_templates/logo_data_uri.js" onerror="void(0)"></script>
     <script src="Security%20guide/security-module.js" onerror="void(0)"></script>
 
