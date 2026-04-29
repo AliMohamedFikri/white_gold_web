@@ -23,13 +23,15 @@
     <title>مصنع الذهب الأبيض للملابس الجاهزة</title>
     <meta name="description"
         content="مصنع الذهب الأبيض للملابس الجاهزة — أجود أنواع الملابس الداخلية والخارجية بجميع المقاسات. جودة عالية وأسعار منافسة في العاشر من رمضان.">
-    <meta name="keywords" content="مصنع ملابس, ملابس جاهزة, ملابس داخلية, الذهب الأبيض, العاشر من رمضان, ملابس بمقاسات, جملة ملابس">
+    <meta name="keywords"
+        content="مصنع ملابس, ملابس جاهزة, ملابس داخلية, الذهب الأبيض, العاشر من رمضان, ملابس بمقاسات, جملة ملابس">
     <meta name="author" content="White Gold Factory">
     <meta name="robots" content="index, follow">
 
     <!-- Social Media (Open Graph) -->
     <meta property="og:title" content="مصنع الذهب الأبيض للملابس الجاهزة">
-    <meta property="og:description" content="أجود أنواع الملابس الداخلية والخارجية بجميع المقاسات. جودة عالية وأسعار منافسة.">
+    <meta property="og:description"
+        content="أجود أنواع الملابس الداخلية والخارجية بجميع المقاسات. جودة عالية وأسعار منافسة.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://placehold.co/1200x630/667eea/ffffff.png?text=White+Gold+System">
     <meta property="og:locale" content="ar_SA">
@@ -1098,12 +1100,16 @@
 
         /* ACCESSIBILITY: Respect user's motion preferences */
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
+
+            *,
+            *::before,
+            *::after {
                 animation-duration: 0.01ms !important;
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
                 scroll-behavior: auto !important;
             }
+
             .landing-orb,
             .mesh-blob,
             .glow-pulse::before,
@@ -1112,11 +1118,13 @@
             .stagger-item {
                 animation: none !important;
             }
+
             .stagger-item {
                 opacity: 1 !important;
                 transform: none !important;
                 filter: none !important;
             }
+
             .hover-scale:hover,
             .glass-card:hover,
             .glass-tinted:hover,
@@ -1242,7 +1250,7 @@
 
         function setupImageFallback(imgElement, productName) {
             if (!imgElement) return;
-            imgElement.addEventListener('error', function() {
+            imgElement.addEventListener('error', function () {
                 imgElement.style.display = 'none';
             }, { once: true });
         }
@@ -1376,24 +1384,47 @@
 
         // Auth / Session Manager
         const authManager = {
-            saveSession(token, driveId) {
-                storageSet('wg_session_token', token);
+            // FIX: access token is NEVER stored — only the Drive file ID is persisted.
+            // On the next page load tryRestoreSession() silently requests a fresh token
+            // from Google without showing a popup (if the user is still signed in).
+            saveSession(driveId) {
                 storageSet('wg_drive_id', driveId);
                 storageSet('wg_last_login', String(Date.now()));
                 window.AuditLog?.log?.('session_saved', { driveId: !!driveId });
             },
             clearSession() {
-                storageRemove('wg_session_token');
                 storageRemove('wg_drive_id');
                 storageRemove('wg_last_login');
                 window.AuditLog?.log?.('session_cleared');
             },
             getSession() {
-                const token = storageGet('wg_session_token');
                 const driveId = storageGet('wg_drive_id');
-                return (token && driveId) ? { token, driveId } : null;
+                return driveId ? { driveId } : null;
             }
         };
+
+        /**
+         * Verify an access token is still valid and issued for our Drive scope.
+         * Uses Google's public tokeninfo endpoint (no secret required).
+         * Returns true if the token has at least 60 seconds left.
+         */
+        async function validateToken(token) {
+            try {
+                const res = await fetch(
+                    'https://oauth2.googleapis.com/tokeninfo?access_token=' +
+                    encodeURIComponent(token)
+                );
+                const info = await res.json();
+                if (info.error || !info.expires_in) return false;
+                if (parseInt(info.expires_in) < 60) return false; // < 1 minute left
+                // Confirm the scope covers drive.file
+                if (!info.scope || !info.scope.includes('drive')) return false;
+                return true;
+            } catch (e) {
+                console.warn('[validateToken] failed:', e);
+                return false;
+            }
+        }
 
         // Sync Manager
         const syncManager = {
@@ -1521,17 +1552,33 @@
             return [...otherData, ...Object.values(modelGroups)];
         }
 
+        async function buildDriveDataSdk() {
+            // driveFileId is already set by the caller
+            let data = await readDriveFile();
+            if (!Array.isArray(data)) data = [];
+            data = migrateToGroupedFormat(data);
+            await writeDriveFile(data);
+            _attachDriveSdkMethods(data);
+        }
+
         async function initDriveDataSdk() {
             driveFileId = await findOrCreateDriveFile();
             let data = await readDriveFile();
             if (!Array.isArray(data)) data = [];
             data = migrateToGroupedFormat(data);
             await writeDriveFile(data);
+            _attachDriveSdkMethods(data);
+        } // end initDriveDataSdk
 
+        /**
+         * Attach all Drive-backed dataSdk methods to window.dataSdk.
+         * Separated so both initDriveDataSdk() and buildDriveDataSdk() can use it.
+         */
+        function _attachDriveSdkMethods(initialData) {
             window.dataSdk = {
                 init: async (handler) => {
                     window._dataHandler = handler;
-                    handler.onDataChanged(data);
+                    handler.onDataChanged(initialData);
                     return { isOk: true };
                 },
                 create: async (item) => {
@@ -1744,9 +1791,14 @@
 
         const GOOGLE_CLIENT_ID = '71408342464-oatd09ibjdkl0p3ua1ra9jpl5mrcip3o.apps.googleusercontent.com';
         const DRIVE_FILE_NAME = 'white_gold_app_data.json';
-        let googleAccessToken = null;
+        let googleAccessToken = null;  // NEVER persisted to localStorage
         let driveFileId = null;
         let tokenClient = null;
+
+        // Silent-restore state — used by tryRestoreSession()
+        let _silentRestoreMode = false;
+        let _silentRestoreResolve = null;
+        let _savedDriveIdForRestore = null;
 
         const FALLBACK_LOGO_DATA_URI = "assets/Logo%20white%20gold-Final-2.svg";
 
@@ -1927,36 +1979,90 @@
                 client_id: GOOGLE_CLIENT_ID,
                 scope: 'https://www.googleapis.com/auth/drive.file',
                 callback: handleGoogleSignIn,
+                // FIX: handle silent-restore failures without crashing
+                error_callback: (err) => {
+                    console.warn('[OAuth error_callback]', err);
+                    if (_silentRestoreMode) {
+                        _silentRestoreMode = false;
+                        const resolve = _silentRestoreResolve;
+                        _silentRestoreResolve = null;
+                        _savedDriveIdForRestore = null;
+                        hideLoadingScreen();
+                        if (resolve) resolve(false);
+                    }
+                }
             });
             return true;
         }
 
         async function handleGoogleSignIn(tokenResponse) {
+            // --- Determine if this is a silent restore or an explicit login ---
+            const isSilent = _silentRestoreMode;
+            _silentRestoreMode = false;
+            const resolveRestore = _silentRestoreResolve;
+            _silentRestoreResolve = null;
+            const savedDriveId = _savedDriveIdForRestore;
+            _savedDriveIdForRestore = null;
+
+            // FIX: for explicit logins, verify the nonce set by signInWithGoogle().
+            // This ensures the callback was triggered by the user, not by a
+            // third-party page that somehow invoked the token client.
+            if (!isSilent) {
+                const expectedNonce = sessionStorage.getItem('oauth_nonce');
+                sessionStorage.removeItem('oauth_nonce');
+                if (!expectedNonce) {
+                    showToast('طلب تسجيل دخول غير متوقع. يرجى المحاولة مجدداً', 'error');
+                    hideLoadingScreen();
+                    return;
+                }
+            }
+
             if (tokenResponse.error) {
-                showToast('فشل تسجيل الدخول: ' + tokenResponse.error, 'error');
+                if (!isSilent) {
+                    showToast('فشل تسجيل الدخول: ' + tokenResponse.error, 'error');
+                }
+                if (resolveRestore) resolveRestore(false);
+                hideLoadingScreen();
                 return;
             }
+
+            // FIX: token is kept only in the JS variable — never written to storage.
             googleAccessToken = tokenResponse.access_token;
-            _driveAuthExpired = false; // clear any previous expiry flag
-            setLoading('login', true);
+            _driveAuthExpired = false;
+
+            if (!isSilent) setLoading('login', true);
+
             try {
-                await initDriveDataSdk();
+                if (isSilent && savedDriveId) {
+                    // Silent restore: reuse the saved file ID, skip the search/create call
+                    driveFileId = savedDriveId;
+                    await buildDriveDataSdk(); // see CHANGE H
+                } else {
+                    // Explicit login: find or create the Drive file normally
+                    await initDriveDataSdk();
+                }
+
                 appState.storageMode = 'drive';
                 const result = await window.dataSdk.init(dataHandler);
+
                 if (result.isOk) {
                     appState.isAuthenticated = true;
                     appState.currentUser = { name: 'مدير النظام', email: '' };
                     appState.currentView = 'dashboard';
-                    authManager.saveSession(googleAccessToken, driveFileId);
-                    showToast('تم تسجيل الدخول بنجاح', 'success');
+                    // FIX: only driveFileId is saved — no token in localStorage
+                    authManager.saveSession(driveFileId);
+                    if (!isSilent) showToast('تم تسجيل الدخول بنجاح', 'success');
+                    if (resolveRestore) resolveRestore(true);
                 } else {
-                    showToast('فشل تحميل البيانات من Google Drive', 'error');
+                    if (!isSilent) showToast('فشل تحميل البيانات من Google Drive', 'error');
+                    if (resolveRestore) resolveRestore(false);
                 }
             } catch (error) {
                 console.error('Google auth error:', error);
-                showToast('حدث خطأ أثناء الاتصال بـ Google Drive', 'error');
+                if (!isSilent) showToast('حدث خطأ أثناء الاتصال بـ Google Drive', 'error');
+                if (resolveRestore) resolveRestore(false);
             } finally {
-                setLoading('login', false);
+                if (!isSilent) setLoading('login', false);
                 hideLoadingScreen();
             }
         }
@@ -1966,13 +2072,86 @@
                 showToast('مكتبة Google غير جاهزة، الرجاء المحاولة لاحقاً', 'error');
                 return;
             }
+            // FIX: store a one-time nonce so handleGoogleSignIn can verify
+            // this callback was triggered by an explicit user action.
+            const nonce = crypto.randomUUID();
+            sessionStorage.setItem('oauth_nonce', nonce);
             showLoadingScreen();
-            tokenClient.requestAccessToken();
+            // 'select_account' forces the account chooser on explicit login
+            tokenClient.requestAccessToken({ prompt: 'select_account' });
+        }
+
+        /**
+         * Attempt a silent (no-popup) token refresh on page load.
+         * If the user is still signed into Google, this succeeds without
+         * any interaction. If they are not, it quietly fails and the app
+         * falls back to localStorage mode.
+         */
+        async function tryRestoreSession() {
+            const session = authManager.getSession();
+            if (!session || !session.driveId) return false;
+
+            if (!window.google?.accounts) return false;
+            if (!tokenClient) initGoogleAuth();
+            if (!tokenClient) return false;
+
+            return new Promise((resolve) => {
+                _silentRestoreMode = true;
+                _silentRestoreResolve = resolve;
+                _savedDriveIdForRestore = session.driveId;
+
+                // Timeout: if Google doesn't respond in 8 s, give up gracefully
+                const timeoutId = setTimeout(() => {
+                    if (_silentRestoreMode) {
+                        console.warn('[tryRestoreSession] timed out');
+                        _silentRestoreMode = false;
+                        _silentRestoreResolve = null;
+                        _savedDriveIdForRestore = null;
+                        hideLoadingScreen();
+                        resolve(false);
+                    }
+                }, 8000);
+
+                // Attach a one-time wrapper so the timeout can be cleared
+                const originalResolve = resolve;
+                _silentRestoreResolve = (result) => {
+                    clearTimeout(timeoutId);
+                    originalResolve(result);
+                };
+
+                // prompt: '' means silent — will NOT show a popup
+                tokenClient.requestAccessToken({ prompt: '' });
+            });
+        }
+
+        async function handleAdminAccess() {
+            // Already signed in — go straight to dashboard
+            if (appState.isAuthenticated) {
+                appState.currentView = 'dashboard';
+                render();
+                return;
+            }
+
+            // Try a silent session restore first (no popup, no loading screen flash)
+            const savedSession = authManager.getSession();
+            if (savedSession && window.google?.accounts) {
+                showLoadingScreen();
+                try {
+                    await tryRestoreSession();
+                } catch (e) {
+                    // Silent restore failed — fall through to login page
+                }
+                hideLoadingScreen();
+            }
+
+            // After restore attempt, either land on dashboard or show login
+            appState.currentView = appState.isAuthenticated ? 'dashboard' : 'login';
+            render();
         }
 
         function logout() {
             if (googleAccessToken && window.google && google.accounts) {
-                try { google.accounts.oauth2.revoke(googleAccessToken, () => {}); } catch (e) { /* ignore */ }
+                try { google.accounts.oauth2.revoke(googleAccessToken, () => { }); } catch (e) { /* ignore */ }
             }
             googleAccessToken = null;
             driveFileId = null;
@@ -1982,6 +2161,7 @@
             appState.currentUser = null;
             appState.currentView = 'landing';
             authManager.clearSession();
+            window.AuthManager?.clearUser?.();
             window.dataSdk = null;
             render();
             showToast('تم تسجيل الخروج', 'info');
@@ -2514,7 +2694,7 @@
                                 <a href="#" onclick="event.preventDefault(); document.getElementById('products').scrollIntoView({ behavior: 'smooth' });" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">المنتجات</a>
                                 <a href="#" onclick="event.preventDefault(); scrollToAbout();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">من نحن</a>
                                 <a href="#" onclick="event.preventDefault(); scrollToContact();" class="landing-nav-link text-white font-semibold hover:opacity-85 transition-opacity">تواصل معنا</a>
-                                <button onclick="appState.currentView = '${appState.isAuthenticated ? 'dashboard' : 'login'}'; render();"
+                                <button onclick="handleAdminAccess();"
                                     class="px-6 py-2 bg-white rounded-xl font-semibold hover:shadow-lg transition-all"
                                     style="color: ${config.primary_color || defaultConfig.primary_color};">
                                     ${appState.isAuthenticated ? 'لوحة التحكم' : 'دخول الإدارة'}
@@ -2531,7 +2711,7 @@
                                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToAbout();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">من نحن</a>
                                 <a href="#" onclick="event.preventDefault(); toggleMobileMenu(); scrollToContact();" class="py-4 px-6 border-b border-gray-100 hover:bg-gray-50 font-semibold" style="color: ${config.text_color || defaultConfig.text_color};">تواصل معنا</a>
                                 <div class="p-4">
-                                    <button onclick="toggleMobileMenu(); appState.currentView = '${appState.isAuthenticated ? 'dashboard' : 'login'}'; render();"
+                                    <button onclick="toggleMobileMenu(); handleAdminAccess();"
                                         class="w-full py-3 rounded-xl font-bold text-white shadow-md"
                                         style="background: linear-gradient(135deg, ${config.primary_color || defaultConfig.primary_color} 0%, ${config.secondary_color || defaultConfig.secondary_color} 100%);">
                                         ${appState.isAuthenticated ? 'لوحة التحكم' : 'دخول الإدارة'}
@@ -2561,9 +2741,9 @@
                             <p class="text-center mb-10 md:mb-14 opacity-70" style="color: ${config.text_color || defaultConfig.text_color};">تشكيلة مقاسات دقيقة لكل خط إنتاج</p>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
                                 ${appState.categories.map((categoryName) => {
-                                    const sizes = SIZES;
-                                    const overflowCount = sizes.length - 8;
-                                    return `
+                const sizes = SIZES;
+                const overflowCount = sizes.length - 8;
+                return `
                                     <div class="landing-product-card rounded-2xl p-6 hover-scale transition-all duration-300" style="background-color: ${config.background_color || defaultConfig.background_color};">
                                         <div class="landing-category-icon text-center mb-4 transform hover:scale-110 transition-transform">${getCategoryIcon(categoryName)}</div>
                                         <h3 class="text-xl md:text-2xl font-bold text-center mb-4" style="color: ${config.text_color || defaultConfig.text_color};">${escapeHtml(categoryName)}</h3>
@@ -2575,7 +2755,7 @@
                                             </div>
                                         </div>
                                     </div>`;
-                                }).join('')}
+            }).join('')}
                             </div>
                         </div>
                     </section>
@@ -2845,11 +3025,11 @@
                     </div>
                     <div class="space-y-6">
                         ${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">💰</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3><p class="text-lg opacity-75">قم بإنشاء نموذج التسعير الأول الخاص بك</p></div>` :
-                        appState.pricingModels.map(model => {
-                            const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
-                            const totalPossible = model.data.length * SIZES.length;
-                            const percent = Math.round((totalPrices / totalPossible) * 100);
-                            return `
+                    appState.pricingModels.map(model => {
+                        const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
+                        const totalPossible = model.data.length * SIZES.length;
+                        const percent = Math.round((totalPrices / totalPossible) * 100);
+                        return `
                                 <div class="card-shadow rounded-xl p-6 bg-white hover-scale">
                                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                                         <div class="flex-1"><h3 class="text-2xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><div class="flex items-center gap-4"><div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs"><div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${config.accent_color};"></div></div><span class="text-sm font-semibold">${totalPrices}/${totalPossible} (${percent}%)</span></div></div>
@@ -2868,7 +3048,7 @@
                                         ${model.data.length > 4 ? `<div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color};"><p class="font-semibold text-sm" style="color: ${config.primary_color};">+${model.data.length - 4} فئات</p></div>` : ''}
                                     </div>
                                 </div>`;
-                        }).join('')}
+                    }).join('')}
                     </div>
                 </div>`;
         }
@@ -3382,10 +3562,10 @@
                     </div>
                     ${settingsEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">⚙️ الإعدادات</h2><div class="space-y-2">${settingsEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
                     ${pricingGroups.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">💰 نماذج التسعير</h2><div class="space-y-5">${pricingGroups.map(group => {
-                        const versions = Array.isArray(group.data) ? group.data : [];
-                        const activeCount = versions.filter(v => !v.isDeleted).length;
-                        const deletedCount = versions.filter(v => v.isDeleted).length;
-                        return `<div class="card-shadow rounded-2xl bg-white overflow-hidden">
+                const versions = Array.isArray(group.data) ? group.data : [];
+                const activeCount = versions.filter(v => !v.isDeleted).length;
+                const deletedCount = versions.filter(v => v.isDeleted).length;
+                return `<div class="card-shadow rounded-2xl bg-white overflow-hidden">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 bg-gradient-to-l from-indigo-50 to-white border-b border-indigo-100">
                                 <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 flex-wrap">
                                     <span class="text-lg sm:text-xl font-black text-indigo-800 break-words">${escapeHtml(group.pricingModelName || 'بدون اسم')}</span>
@@ -3397,16 +3577,16 @@
                             <div class="divide-y divide-gray-100">
                                 ${versions.length === 0 ? '<p class="text-sm text-slate-400 text-center py-6">لا توجد إصدارات</p>' : ''}
                                 ${versions.map((v, vIdx) => {
-                                    const isExpanded = _storageExpandedItem === v.__backendId;
-                                    const isActive = !v.isDeleted;
-                                    const catCount = Array.isArray(v.data) ? v.data.length : 0;
-                                    const pricedCount = Array.isArray(v.data) ? v.data.reduce((s, c) => s + (Array.isArray(c.prices) ? c.prices.filter(p => p.price > 0).length : 0), 0) : 0;
-                                    const vDate = v.updatedAt || v.createdAt || '';
-                                    const dateStr = vDate ? new Date(vDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                                    const jStr2 = JSON.stringify(v, null, 2);
-                                    const truncated2 = jStr2.length > 500 ? jStr2.substring(0, 500) + '\n...' : jStr2;
-                                    const escapedJson2 = escapeHtml(truncated2).replace(/\n/g, '&#10;');
-                                    return `<div class="transition-all ${isActive ? '' : 'opacity-60'} ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}">
+                    const isExpanded = _storageExpandedItem === v.__backendId;
+                    const isActive = !v.isDeleted;
+                    const catCount = Array.isArray(v.data) ? v.data.length : 0;
+                    const pricedCount = Array.isArray(v.data) ? v.data.reduce((s, c) => s + (Array.isArray(c.prices) ? c.prices.filter(p => p.price > 0).length : 0), 0) : 0;
+                    const vDate = v.updatedAt || v.createdAt || '';
+                    const dateStr = vDate ? new Date(vDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                    const jStr2 = JSON.stringify(v, null, 2);
+                    const truncated2 = jStr2.length > 500 ? jStr2.substring(0, 500) + '\n...' : jStr2;
+                    const escapedJson2 = escapeHtml(truncated2).replace(/\n/g, '&#10;');
+                    return `<div class="transition-all ${isActive ? '' : 'opacity-60'} ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}">
                                         <div class="px-3 sm:px-5 py-3 cursor-pointer" onclick="storageToggleExpand('${escapeHtml(v.__backendId)}')">
                                             <div class="flex items-center gap-2 sm:gap-3">
                                                 <span class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'}">${vIdx + 1}</span>
@@ -3445,10 +3625,10 @@
                                             <div id="storage-editor-${v.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${v.__backendId}" class="w-full h-48 sm:h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-2 sm:p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
                                         </div>` : ''}
                                     </div>`;
-                                }).join('')}
+                }).join('')}
                             </div>
                         </div>`;
-                    }).join('')}</div></div>` : ''}
+            }).join('')}</div></div>` : ''}
                     ${billEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">📄 الفواتير</h2><div class="space-y-2">${billEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
                     ${userEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">👤 المستخدمين</h2><div class="space-y-2">${userEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
                     ${otherEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">📝 عناصر أخرى</h2><div class="space-y-2">${otherEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
@@ -3615,9 +3795,45 @@
 
             if (window.elementSdk) await window.elementSdk.init(element);
 
-            // IMPROVED #3: Mark app as ready and do the first render directly
+            // FIX: attempt a silent session restore before the first render.
+            // If the user was previously signed in AND is still signed in to Google,
+            // this silently obtains a fresh access token (no popup) and reconnects
+            // to Drive. If it fails, the app falls back to localStorage mode.
+            /* if (authManager.getSession()) {
+                showLoadingScreen();
+                // initGoogleAuth() must be called before tryRestoreSession()
+                // because GIS needs to be ready
+                if (window.google?.accounts) {
+                    await tryRestoreSession();
+                    initGoogleAuth();
+                } else {
+                    // GIS not yet loaded — wait up to 3 s then try
+                    await new Promise(resolve => {
+                        let attempts = 0;
+                        const poll = setInterval(() => {
+                            if (window.google?.accounts || ++attempts > 30) {
+                                clearInterval(poll);
+                                resolve();
+                            }
+                        }, 100);
+                    });
+                    if (window.google?.accounts) {
+                        initGoogleAuth();
+                        await tryRestoreSession();
+                    }
+                }
+                hideLoadingScreen();
+            } */
+
+            // Notify the security module's AuthManager about the current user
+            // so its inactivity timer and audit logging work correctly.
+            if (appState.isAuthenticated && window.AuthManager?.setUser) {
+                window.AuthManager.setUser(appState.currentUser || { email: '', name: '' });
+            }
+
+            // Mark app as ready and do the first render directly
             _appReady = true;
-            _doRender(); // bypass the debounce for the very first paint
+            _doRender(); // Always starts on landing page — no auth check here
         }
 
         init();

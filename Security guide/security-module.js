@@ -1,14 +1,18 @@
 /**
  * Security Enhancement Module for Billing App
  * Add this script BEFORE the main app script in your index.html
- * 
+ *
  * Features:
  * - Input sanitization
- * - Authentication enforcement
- * - Data encryption
+ * - Data encryption helpers
  * - Rate limiting
- * - Session management
+ * - Session management helpers
  * - Audit logging
+ *
+ * NOTE: Authentication is handled entirely by the main app (Google Drive OAuth).
+ * This module provides supporting utilities only — it does NOT enforce its own
+ * login screen (REQUIRE_AUTH is false). Removing the duplicate handleGoogleSignIn
+ * that previously decoded JWTs without signature verification.
  */
 
 (function() {
@@ -18,24 +22,21 @@
     // CONFIGURATION
     // ============================================
     const SECURITY_CONFIG = {
-        // IMPORTANT: Replace with your actual Google Client ID
-        // Store this in a separate config file, never commit to Git
-        GOOGLE_CLIENT_ID: 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com',
-        
         // Session timeout (30 minutes of inactivity)
         SESSION_TIMEOUT: 30 * 60 * 1000,
-        
+
         // Rate limiting: max requests per time window
         RATE_LIMIT: {
             maxRequests: 100,
             timeWindow: 60 * 60 * 1000 // 1 hour
         },
-        
-        // Encryption settings
+
+        // Encryption helpers enabled
         ENCRYPTION_ENABLED: true,
-        
-        // Required authentication
-        REQUIRE_AUTH: true
+
+        // IMPORTANT: Set to false — the main app handles Google Drive OAuth.
+        // Enabling this would show a conflicting login screen.
+        REQUIRE_AUTH: false
     };
 
     // ============================================
@@ -44,11 +45,9 @@
     window.SecurityUtils = {
         /**
          * Sanitize HTML to prevent XSS attacks
-         * Uses a simple but effective sanitization approach
          */
         sanitizeHTML: function(str) {
             if (!str) return '';
-            
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
@@ -57,21 +56,21 @@
         /**
          * Sanitize and validate numeric input
          */
-        sanitizeNumber: function(value, defaultValue = 0) {
+        sanitizeNumber: function(value, defaultValue) {
+            if (defaultValue === undefined) defaultValue = 0;
             const num = parseFloat(value);
             return isNaN(num) ? defaultValue : num;
         },
 
         /**
-         * Sanitize client name (more strict)
+         * Sanitize client name (strict — no HTML tags or angle brackets)
          */
         sanitizeClientName: function(name) {
             if (!name) return '';
-            // Remove any HTML tags and special characters
             return name.replace(/<[^>]*>/g, '')
-                      .replace(/[<>\"']/g, '')
+                      .replace(/[<>"']/g, '')
                       .trim()
-                      .substring(0, 100); // Limit length
+                      .substring(0, 100);
         },
 
         /**
@@ -92,20 +91,18 @@
         encryptionKey: null,
 
         /**
-         * Initialize encryption key from user session
+         * Initialize encryption key from a user identifier
          */
-        initKey: function(userEmail) {
-            if (!userEmail) {
-                console.warn('No user email for encryption key');
+        initKey: function(userIdentifier) {
+            if (!userIdentifier) {
+                console.warn('EncryptionUtils: no identifier for key derivation');
                 return;
             }
-            // Create a consistent key from user email
-            // In production, use a more sophisticated key derivation
-            this.encryptionKey = this.simpleHash(userEmail);
+            this.encryptionKey = this.simpleHash(userIdentifier);
         },
 
         /**
-         * Simple hash function (for demo - use crypto library in production)
+         * Simple hash (for storage scoping — not cryptographic security)
          */
         simpleHash: function(str) {
             let hash = 0;
@@ -118,36 +115,33 @@
         },
 
         /**
-         * Encrypt data (simple XOR - use AES in production)
+         * Encode data for storage (Base64 — not true encryption, just obfuscation)
+         * For real encryption, replace with AES via Web Crypto API.
          */
         encrypt: function(data) {
             if (!SECURITY_CONFIG.ENCRYPTION_ENABLED || !this.encryptionKey) {
                 return data;
             }
-
             try {
                 const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
-                const encrypted = btoa(jsonStr); // Base64 encode
-                return encrypted;
+                return btoa(unescape(encodeURIComponent(jsonStr)));
             } catch (e) {
-                console.error('Encryption error:', e);
+                console.error('EncryptionUtils.encrypt error:', e);
                 return data;
             }
         },
 
         /**
-         * Decrypt data
+         * Decode data from storage
          */
         decrypt: function(encryptedData) {
             if (!SECURITY_CONFIG.ENCRYPTION_ENABLED || !this.encryptionKey) {
                 return encryptedData;
             }
-
             try {
-                const decrypted = atob(encryptedData); // Base64 decode
-                return decrypted;
+                return decodeURIComponent(escape(atob(encryptedData)));
             } catch (e) {
-                console.error('Decryption error:', e);
+                console.error('EncryptionUtils.decrypt error:', e);
                 return encryptedData;
             }
         }
@@ -158,20 +152,17 @@
     // ============================================
     window.SecureStorage = {
         /**
-         * Set item with encryption and user scoping
+         * Set item with optional encryption and user scoping
          */
         setItem: function(key, value, userEmail) {
             try {
-                const scopedKey = userEmail ? `${userEmail}_${key}` : key;
+                const scopedKey = userEmail ? userEmail + '_' + key : key;
                 const encrypted = window.EncryptionUtils.encrypt(value);
                 localStorage.setItem(scopedKey, encrypted);
-                
-                // Audit log
                 window.AuditLog.log('storage_write', { key: key });
-                
                 return true;
             } catch (e) {
-                console.error('SecureStorage setItem error:', e);
+                console.error('SecureStorage.setItem error:', e);
                 return false;
             }
         },
@@ -181,19 +172,14 @@
          */
         getItem: function(key, userEmail) {
             try {
-                const scopedKey = userEmail ? `${userEmail}_${key}` : key;
+                const scopedKey = userEmail ? userEmail + '_' + key : key;
                 const encrypted = localStorage.getItem(scopedKey);
-                
                 if (!encrypted) return null;
-                
                 const decrypted = window.EncryptionUtils.decrypt(encrypted);
-                
-                // Audit log
                 window.AuditLog.log('storage_read', { key: key });
-                
                 return decrypted;
             } catch (e) {
-                console.error('SecureStorage getItem error:', e);
+                console.error('SecureStorage.getItem error:', e);
                 return null;
             }
         },
@@ -203,29 +189,24 @@
          */
         removeItem: function(key, userEmail) {
             try {
-                const scopedKey = userEmail ? `${userEmail}_${key}` : key;
+                const scopedKey = userEmail ? userEmail + '_' + key : key;
                 localStorage.removeItem(scopedKey);
-                
-                // Audit log
                 window.AuditLog.log('storage_delete', { key: key });
-                
                 return true;
             } catch (e) {
-                console.error('SecureStorage removeItem error:', e);
+                console.error('SecureStorage.removeItem error:', e);
                 return false;
             }
         },
 
         /**
-         * Clear all user data
+         * Clear all data scoped to a user
          */
         clearUserData: function(userEmail) {
             if (!userEmail) return;
-            
             const keys = Object.keys(localStorage);
-            const userPrefix = `${userEmail}_`;
-            
-            keys.forEach(key => {
+            const userPrefix = userEmail + '_';
+            keys.forEach(function(key) {
                 if (key.startsWith(userPrefix)) {
                     localStorage.removeItem(key);
                 }
@@ -240,35 +221,29 @@
         requests: [],
 
         /**
-         * Check if request is allowed
+         * Check if a request is within the allowed rate
          */
         isAllowed: function(action) {
             const now = Date.now();
             const config = SECURITY_CONFIG.RATE_LIMIT;
 
-            // Clean old requests
-            this.requests = this.requests.filter(
-                req => now - req.timestamp < config.timeWindow
-            );
+            // Remove requests outside the time window
+            this.requests = this.requests.filter(function(req) {
+                return now - req.timestamp < config.timeWindow;
+            });
 
-            // Check limit
             if (this.requests.length >= config.maxRequests) {
-                console.warn('Rate limit exceeded for action:', action);
-                window.AuditLog.log('rate_limit_exceeded', { action });
+                console.warn('RateLimiter: limit exceeded for action:', action);
+                window.AuditLog.log('rate_limit_exceeded', { action: action });
                 return false;
             }
 
-            // Add request
-            this.requests.push({
-                action: action,
-                timestamp: now
-            });
-
+            this.requests.push({ action: action, timestamp: now });
             return true;
         },
 
         /**
-         * Get remaining requests
+         * Get remaining allowed requests in current window
          */
         getRemaining: function() {
             const config = SECURITY_CONFIG.RATE_LIMIT;
@@ -283,56 +258,61 @@
         maxLogs: 1000,
 
         /**
-         * Log security-relevant events
+         * Log a security-relevant event
          */
-        log: function(action, details = {}) {
+        log: function(action, details) {
+            details = details || {};
             try {
                 const log = {
                     timestamp: new Date().toISOString(),
                     action: action,
-                    user: window.AuthManager?.currentUser?.email || 'anonymous',
+                    // currentUser comes from the main app's AuthManager or window.AuthManager
+                    user: (window.AuthManager && window.AuthManager.currentUser)
+                        ? window.AuthManager.currentUser.email
+                        : 'anonymous',
                     details: details,
                     userAgent: navigator.userAgent
                 };
 
-                // Get existing logs
-                let logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
-                
-                // Add new log
+                let logs = [];
+                try {
+                    logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
+                } catch (_) {}
+
                 logs.push(log);
-                
-                // Keep only recent logs
+
                 if (logs.length > this.maxLogs) {
                     logs = logs.slice(-this.maxLogs);
                 }
-                
-                // Save
+
                 localStorage.setItem('audit_logs', JSON.stringify(logs));
-                
-                // Also log to console in development
-                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+
+                // Console output on localhost only
+                if (window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1') {
                     console.log('[AUDIT]', action, details);
                 }
             } catch (e) {
-                console.error('Audit log error:', e);
+                console.error('AuditLog.log error:', e);
             }
         },
 
         /**
-         * Get recent logs
+         * Retrieve recent log entries
          */
-        getLogs: function(limit = 100) {
+        getLogs: function(limit) {
+            limit = limit || 100;
             try {
                 const logs = JSON.parse(localStorage.getItem('audit_logs') || '[]');
                 return logs.slice(-limit);
             } catch (e) {
-                console.error('Get logs error:', e);
+                console.error('AuditLog.getLogs error:', e);
                 return [];
             }
         },
 
         /**
-         * Clear logs
+         * Clear all logs
          */
         clearLogs: function() {
             localStorage.removeItem('audit_logs');
@@ -342,6 +322,8 @@
 
     // ============================================
     // AUTHENTICATION MANAGER
+    // (Utility layer only — does NOT enforce its own login screen.
+    //  The main app handles Google Drive OAuth entirely.)
     // ============================================
     window.AuthManager = {
         currentUser: null,
@@ -349,136 +331,79 @@
         lastActivity: Date.now(),
 
         /**
-         * Initialize authentication
+         * Initialise: start activity monitoring and session timeout.
+         * Does NOT redirect to a login screen.
          */
         init: function() {
-            // Check for existing session
-            this.checkSession();
-            
-            // Setup activity monitoring
             this.setupActivityMonitoring();
-            
-            // Setup session timeout
             this.resetSessionTimeout();
+            window.AuditLog.log('auth_manager_initialized');
         },
 
         /**
-         * Check if user is authenticated
+         * True if the main app has set a current user
          */
         isAuthenticated: function() {
             return this.currentUser !== null;
         },
 
         /**
-         * Set current user after Google Sign-In
+         * Called by the main app after a successful Google Drive sign-in
+         * to register the user with this module's utilities.
          */
-        setUser: function(googleUser) {
+        setUser: function(userInfo) {
             this.currentUser = {
-                id: googleUser.sub,
-                email: googleUser.email,
-                name: googleUser.name,
-                picture: googleUser.picture,
+                email: userInfo.email || '',
+                name:  userInfo.name  || '',
                 loginTime: Date.now()
             };
 
-            // Initialize encryption key
-            window.EncryptionUtils.initKey(this.currentUser.email);
-
-            // Save session
-            this.saveSession();
-
-            // Audit log
-            window.AuditLog.log('user_login', { 
-                email: this.currentUser.email 
-            });
-
-            // Reset timeout
+            window.EncryptionUtils.initKey(this.currentUser.email || 'default');
+            window.AuditLog.log('user_login', { email: this.currentUser.email });
             this.resetSessionTimeout();
         },
 
         /**
-         * Logout user
+         * Clear the current user (called on logout by the main app)
          */
-        logout: function() {
+        clearUser: function() {
             if (this.currentUser) {
-                window.AuditLog.log('user_logout', { 
-                    email: this.currentUser.email 
-                });
+                window.AuditLog.log('user_logout', { email: this.currentUser.email });
             }
-
             this.currentUser = null;
-            sessionStorage.removeItem('auth_session');
             this.clearSessionTimeout();
-
-            // Redirect to login or reload
-            window.location.reload();
         },
 
         /**
-         * Save session to sessionStorage (not localStorage for security)
-         */
-        saveSession: function() {
-            if (this.currentUser) {
-                sessionStorage.setItem('auth_session', JSON.stringify({
-                    user: this.currentUser,
-                    timestamp: Date.now()
-                }));
-            }
-        },
-
-        /**
-         * Check existing session
-         */
-        checkSession: function() {
-            const session = sessionStorage.getItem('auth_session');
-            if (session) {
-                try {
-                    const data = JSON.parse(session);
-                    const age = Date.now() - data.timestamp;
-                    
-                    // Session valid for current browser session only
-                    if (age < 24 * 60 * 60 * 1000) { // 24 hours max
-                        this.currentUser = data.user;
-                        window.EncryptionUtils.initKey(this.currentUser.email);
-                        this.resetSessionTimeout();
-                        return true;
-                    }
-                } catch (e) {
-                    console.error('Session check error:', e);
-                }
-            }
-            return false;
-        },
-
-        /**
-         * Setup activity monitoring for auto-logout
+         * Setup inactivity monitoring for auto-logout warning
          */
         setupActivityMonitoring: function() {
-            const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-            
-            events.forEach(event => {
-                document.addEventListener(event, () => {
-                    this.lastActivity = Date.now();
-                    this.resetSessionTimeout();
+            var self = this;
+            var events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+            events.forEach(function(event) {
+                document.addEventListener(event, function() {
+                    self.lastActivity = Date.now();
+                    self.resetSessionTimeout();
                 }, { passive: true });
             });
         },
 
         /**
-         * Reset session timeout
+         * Reset the inactivity timeout timer
          */
         resetSessionTimeout: function() {
+            var self = this;
             this.clearSessionTimeout();
-            
+
             if (this.currentUser) {
-                this.sessionTimeout = setTimeout(() => {
-                    this.handleSessionTimeout();
+                this.sessionTimeout = setTimeout(function() {
+                    self.handleSessionTimeout();
                 }, SECURITY_CONFIG.SESSION_TIMEOUT);
             }
         },
 
         /**
-         * Clear session timeout
+         * Clear the inactivity timeout timer
          */
         clearSessionTimeout: function() {
             if (this.sessionTimeout) {
@@ -488,141 +413,67 @@
         },
 
         /**
-         * Handle session timeout
+         * Handle a session timeout event
          */
         handleSessionTimeout: function() {
-            const inactive = Date.now() - this.lastActivity;
-            
+            var inactive = Date.now() - this.lastActivity;
             if (inactive >= SECURITY_CONFIG.SESSION_TIMEOUT) {
                 window.AuditLog.log('session_timeout');
-                alert('جلستك انتهت بسبب عدم النشاط. يرجى تسجيل الدخول مرة أخرى.');
-                this.logout();
+                // Notify the main app via a custom event instead of a forced reload
+                document.dispatchEvent(new CustomEvent('securitySessionTimeout'));
             } else {
-                // Reset timeout if user was active
                 this.resetSessionTimeout();
             }
-        },
-
-        /**
-         * Require authentication (call at app start)
-         */
-        requireAuth: function() {
-            if (!SECURITY_CONFIG.REQUIRE_AUTH) {
-                return true;
-            }
-
-            if (!this.isAuthenticated()) {
-                // Show login screen
-                this.showLoginScreen();
-                return false;
-            }
-
-            return true;
-        },
-
-        /**
-         * Show login screen
-         */
-        showLoginScreen: function() {
-            const appDiv = document.getElementById('app');
-            if (!appDiv) return;
-
-            appDiv.innerHTML = `
-                <div class="min-h-screen gradient-bg flex items-center justify-center p-4">
-                    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-                        <div class="mb-6">
-                            <svg class="w-20 h-20 mx-auto text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                            </svg>
-                        </div>
-                        <h1 class="text-3xl font-bold text-gray-800 mb-2">نظام إدارة الفواتير</h1>
-                        <p class="text-gray-600 mb-8">يرجى تسجيل الدخول للمتابعة</p>
-                        
-                        <div id="g_id_onload"
-                             data-client_id="${SECURITY_CONFIG.GOOGLE_CLIENT_ID}"
-                             data-callback="handleGoogleSignIn"
-                             data-auto_prompt="false">
-                        </div>
-                        <div class="g_id_signin"
-                             data-type="standard"
-                             data-size="large"
-                             data-theme="outline"
-                             data-text="sign_in_with"
-                             data-shape="rectangular"
-                             data-logo_alignment="left"
-                             data-width="300">
-                        </div>
-
-                        <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-right">
-                            <p class="text-sm text-yellow-800">
-                                <strong>ملاحظة أمنية:</strong> هذا النظام يستخدم Google Sign-In للمصادقة. بياناتك محمية ومشفرة.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            `;
         }
+
+        // REMOVED: requireAuth() — was showing a conflicting login screen
+        // REMOVED: showLoginScreen() — was showing a conflicting login screen
+        // REMOVED: saveSession() / checkSession() — main app manages Drive tokens
     };
 
     // ============================================
-    // GOOGLE SIGN-IN CALLBACK
+    // SESSION TIMEOUT EVENT → MAIN APP HANDLER
+    // The main app listens for this event and calls logout() when it fires.
     // ============================================
-    window.handleGoogleSignIn = function(response) {
-        try {
-            // Decode JWT token
-            const token = response.credential;
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            
-            // Set user
-            window.AuthManager.setUser(payload);
-            
-            // Reload app
-            window.location.reload();
-        } catch (e) {
-            console.error('Google Sign-In error:', e);
-            alert('حدث خطأ أثناء تسجيل الدخول');
+    document.addEventListener('securitySessionTimeout', function() {
+        if (typeof logout === 'function') {
+            alert('جلستك انتهت بسبب عدم النشاط. يرجى تسجيل الدخول مرة أخرى.');
+            logout();
         }
-    };
+    });
 
     // ============================================
     // SECURITY INITIALIZATION
+    // Call window.SecurityInit() from the main app's init() function.
     // ============================================
     window.SecurityInit = function() {
         console.log('🔒 Security module initialized');
-        
-        // Initialize auth manager
+
         window.AuthManager.init();
-        
-        // Require authentication
-        if (!window.AuthManager.requireAuth()) {
-            return; // Stop app loading if not authenticated
-        }
-        
-        // Log initialization
-        window.AuditLog.log('app_initialized');
-        
-        // Setup HTTPS enforcement warning
-        if (window.location.protocol !== 'https:' && 
-            window.location.hostname !== 'localhost' && 
+        window.AuditLog.log('security_module_initialized');
+
+        // Warn if not on HTTPS in production
+        if (window.location.protocol !== 'https:' &&
+            window.location.hostname !== 'localhost' &&
             window.location.hostname !== '127.0.0.1') {
             console.warn('⚠️ WARNING: App should be served over HTTPS for security');
             window.AuditLog.log('insecure_connection_warning');
         }
 
-        // Setup window unload to clear sensitive data
         window.addEventListener('beforeunload', function() {
-            // Could clear sensitive data here if needed
             window.AuditLog.log('app_closed');
         });
 
-        return true;
+        return true; // always returns true — auth check is handled by main app
     };
 
-    // ============================================
-    // EXPOSE CONFIGURATION
-    // ============================================
+    // REMOVED: window.handleGoogleSignIn
+    // The previous version decoded Google JWTs using atob() without verifying
+    // the signature, allowing a crafted fake JWT to be accepted. The main app
+    // uses google.accounts.oauth2.initTokenClient which returns a verified
+    // access token directly — no JWT decoding is needed here.
+
     window.SECURITY_CONFIG = SECURITY_CONFIG;
 
-    console.log('🔐 Security Enhancement Module Loaded');
-    console.log('⚠️ Remember to replace GOOGLE_CLIENT_ID with your actual ID');
+    console.log('🔐 Security Enhancement Module Loaded (v2 — auth-safe)');
 })();
