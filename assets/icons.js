@@ -112,7 +112,7 @@
      * Return an inline SVG string for a named icon.
      * @param {string} name   - Icon key (see ICONS above)
      * @param {number} [size] - px size (applied as width & height), default 18
-     * @param {string} [cls]  - extra CSS classes
+     * @param {string} [cls]  - extra CSS classes OR color string (backward compatible)
      */
     window.WGIcon = function (name, size, cls) {
         const svg = ICONS[name];
@@ -122,6 +122,20 @@
         }
         size = size || 18;
         cls  = cls  || '';
+
+        // Detect if cls is a CSS class or a color value
+        // Color values: #hex, rgb(), rgba(), hsl(), named CSS colors
+        var isColor = /^(#[0-9a-fA-F]{3,8}|rgb|hsl|var\(--)/.test(cls)
+            || /^(white|black|red|green|blue|yellow|orange|purple|pink|gray|grey|slate|indigo|violet|emerald|amber|teal|cyan|sky|rose|lime|fuchsia|current)/.test(cls);
+
+        if (isColor) {
+            // cls is a color value — apply as CSS color
+            return svg.replace(
+                '<svg ',
+                '<svg width="' + size + '" height="' + size + '" class="inline-block shrink-0" style="vertical-align:-3px; color:' + cls + '" '
+            );
+        }
+
         // Inject size and class into the root <svg> tag
         return svg.replace(
             '<svg ',
