@@ -29,7 +29,7 @@
     <meta name="robots" content="index, follow">
 
     <!-- Social Media (Open Graph) -->
-    <meta property="og:title" content="مصنع الذهب الأبيض للملابس الجاهزة">
+    <meta property="og:title" content="الذهب الأبيض للملابس الجاهزة">
     <meta property="og:description"
         content="أجود أنواع الملابس الداخلية بجميع المقاسات. جودة عالية وأسعار منافسة.">
     <meta property="og:type" content="website">
@@ -71,6 +71,7 @@
     <!-- Optional: logo_data_uri.js provides window.__WHITE_GOLD_LOGO_DATA_URI__.
         Loaded gracefully — if missing, the app falls back to SVG asset. -->
     <script src="v3_Billing_only/bill_templates/logo_data_uri.js" onerror="void(0)"></script>
+    <script src="assets/icons.js" onerror="void(0)"></script>
     <script src="Security%20guide/security-module.js" onerror="void(0)"></script>
 
     <style>
@@ -1278,8 +1279,8 @@
             // Optional: log which SDKs were found
             const names = ['dataSdk', 'elementSdk'];
             results.forEach((r, i) => {
-                if (r.status === 'fulfilled' && r.value) console.log(`✅ ${names[i]} loaded`);
-                else console.info(`ℹ️ ${names[i]} not found — using built-in fallback`);
+                if (r.status === 'fulfilled' && r.value) console.log(WGIcon('check') + ' ' + names[i] + ' loaded');
+                else console.info(WGIcon('info') + ' ' + names[i] + ' not found — using built-in fallback');
             });
         }
 
@@ -2701,7 +2702,7 @@
                                 </button>
                             </div>
                             <button onclick="toggleMobileMenu()" class="md:hidden text-white text-2xl">
-                                ${appState.isMobileMenuOpen ? '✕' : '☰'}
+                                ${appState.isMobileMenuOpen ? WGIcon('close') : WGIcon('menu')}
                             </button>
                         </div>
                         ${appState.isMobileMenuOpen ? `
@@ -2769,23 +2770,23 @@
                             </div>
                             <div class="about-bento-grid">
                                 <div class="about-card about-bento-wide about-bento-tall">
-                                    <div class="about-card-icon">🏭</div>
+                                    <div class="about-card-icon">${WGIcon('factory', 28)}</div>
                                     <h3>من نحن</h3>
                                     <p class="mb-4">مصنع الذهب الأبيض للملابس الجاهزة هو واحد من أبرز مصانع العاشر من رمضان المتخصصة في إنتاج الملابس الداخلية بجميع المقاسات. نحن لا نصنع منتجات فحسب، بل نصنع شراكات طويلة الأمد مع تجار الجملة والموزعين.</p>
                                     <p>نؤمن بأن الجودة ليست خياراً بل هي أساس. لذلك نختار أقمشتنا بعناية فائقة ونراقب كل مرحلة إنتاج بدقة متناهية لضمان منتج نهائي يستحق ثقتكم.</p>
                                 </div>
                                 <div class="about-card about-card-accent">
-                                    <div class="about-card-icon">📅</div>
+                                    <div class="about-card-icon">${WGIcon('calendar', 28)}</div>
                                     <div class="about-stat-number">+15</div>
                                     <div class="about-stat-label">عاماً من الخبرة في الصناعة</div>
                                 </div>
                                 <div class="about-card">
-                                    <div class="about-card-icon">✨</div>
+                                    <div class="about-card-icon">${WGIcon('sparkle', 28)}</div>
                                     <h3>جودة لا تُضاهى</h3>
                                     <p>نستخدم أقمشة مصرية عالية الجودة مختارة بعناية، مع خيوط متينة وطلاءات ألوان ثابتة تتحمل الغسيل المتكرر دون بهتان.</p>
                                 </div>
                                 <div class="about-card">
-                                    <div class="about-card-icon">💎</div>
+                                    <div class="about-card-icon">${WGIcon('diamond', 28)}</div>
                                     <h3>أسعار تنافسية</h3>
                                     <p>بفضل سير عملنا المحسّن والإنتاج الضخم، نقدم أفضل الأسعار في السوق دون المساس بجودة المنتج النهائي.</p>
                                 </div>
@@ -2797,9 +2798,9 @@
                         <div class="max-w-4xl mx-auto text-center text-white">
                             <h2 class="text-3xl md:text-5xl font-bold mb-12">تواصل معنا</h2>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12">
-                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale"><div class="text-5xl mb-4">📞</div><h3 class="text-2xl font-bold mb-2">الهاتف</h3><p class="text-xl">${escapeHtml(appState.companySettings.phone)}</p></div>
-                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale"><div class="text-5xl mb-4">💬</div><h3 class="text-2xl font-bold mb-2">واتساب</h3><a href="https://wa.me/${appState.companySettings.phone.replace(/[^0-9]/g, '')}" target="_blank" rel="noopener noreferrer" class="text-xl hover:underline">تواصل عبر واتساب</a></div>
-                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale"><div class="text-5xl mb-4">📍</div><h3 class="text-2xl font-bold mb-2">الموقع</h3><p class="text-xl">${escapeHtml(appState.companySettings.address)}</p></div>
+                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale"><div class="text-5xl mb-4">${WGIcon('phone', 32)}</div><h3 class="text-2xl font-bold mb-2">الهاتف</h3><p class="text-xl">${escapeHtml(appState.companySettings.phone)}</p></div>
+                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale"><div class="text-5xl mb-4">${WGIcon('whatsapp', 32)}</div><h3 class="text-2xl font-bold mb-2">واتساب</h3><a href="https://wa.me/${appState.companySettings.phone.replace(/[^0-9]/g, '')}" target="_blank" rel="noopener noreferrer" class="text-xl hover:underline">تواصل عبر واتساب</a></div>
+                                <div class="landing-contact-card rounded-2xl p-6 md:p-8 hover-scale"><div class="text-5xl mb-4">${WGIcon('location', 32)}</div><h3 class="text-2xl font-bold mb-2">الموقع</h3><p class="text-xl">${escapeHtml(appState.companySettings.address)}</p></div>
                             </div>
                         </div>
                     </section>
@@ -2856,7 +2857,7 @@
             return `
                 <div class="h-full w-full flex flex-col md:flex-row relative overflow-hidden" style="background-color: ${config.background_color};">
                     <div class="md:hidden w-full p-4 flex justify-between items-center shadow-md z-30 relative no-print" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);">
-                        <button onclick="toggleSidebar()" class="text-white text-2xl">${appState.isSidebarOpen ? '✕' : '☰'}</button>
+                        <button onclick="toggleSidebar()" class="text-white text-2xl">${appState.isSidebarOpen ? WGIcon('close') : WGIcon('menu')}</button>
                         <div class="flex items-center gap-2">
                             <div class="h-8 flex items-center justify-center p-[2px] bg-white rounded cursor-pointer hover:shadow-md transition-all" onclick="appState.currentView = 'landing'; render();" title="الصفحة الرئيسية">
                                 <img src="${getLogoSource()}" alt="Logo" class="h-full w-auto object-contain" />
@@ -2879,21 +2880,21 @@
                                         <p class="text-sm opacity-90">${escapeHtml(appState.companySettings.name)}</p>
                                     </div>
                                 </div>
-                                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">✕</button>
+                                <button onclick="toggleSidebar()" class="md:hidden text-white text-xl">${WGIcon('close')}</button>
                             </div>
                             <nav class="space-y-2 flex-1">
                                 ${['landing', 'dashboard', 'pricing', 'bills', 'storage', 'settings'].map(view => `
                                     <button onclick="appState.currentView = '${view}'; appState.isSidebarOpen = false; render();"
                                         class="w-full text-right px-4 py-3 rounded-lg font-semibold transition-all ${appState.currentView === view ? 'bg-white' : 'text-white hover:bg-white hover:bg-opacity-20'}"
                                         style="${appState.currentView === view ? `color: ${config.primary_color}` : ''}">
-                                        ${view === 'landing' ? '🏠 الصفحة الرئيسية' : view === 'dashboard' ? '📊 لوحة التحكم' : view === 'pricing' ? '💰 إدارة الأسعار' : view === 'bills' ? '📄 الفواتير' : view === 'storage' ? '💾 التخزين' : '⚙️ الإعدادات'}
+                                        ${view === 'landing' ? WGIcon('home') + ' الصفحة الرئيسية' : view === 'dashboard' ? WGIcon('dashboard') + ' لوحة التحكم' : view === 'pricing' ? WGIcon('pricing') + ' إدارة الأسعار' : view === 'bills' ? WGIcon('bills') + ' الفواتير' : view === 'storage' ? WGIcon('storage') + ' التخزين' : WGIcon('settings') + ' الإعدادات'}
                                     </button>
                                 `).join('')}
                             </nav>
                             <div class="mt-8 pt-8 border-t border-white border-opacity-30">
                                 <div class="text-white text-sm opacity-90 mb-4">وصول الإدارة مفتوح</div>
                                 <button onclick="logout();" class="w-full text-right px-4 py-3 rounded-lg font-semibold text-white hover:bg-white hover:bg-opacity-20 transition-all opacity-80 hover:opacity-100 flex items-center justify-between">
-                                    <span>تسجيل الخروج</span><span>🚪</span>
+                                    <span>تسجيل الخروج</span><span>${WGIcon('logout')}</span>
                                 </button>
                             </div>
                         </div>
@@ -2948,28 +2949,28 @@
                             <button onclick="appState.analysisMode = !appState.analysisMode; render()"
                                     class="px-6 py-2.5 rounded-xl font-bold transition-all ${appState.analysisMode ? 'text-white shadow-lg' : 'bg-white/60 text-slate-600 border border-white/50 shadow-sm backdrop-blur-sm'}"
                                     style="${appState.analysisMode ? `background: linear-gradient(135deg, ${config.primary_color}, ${config.secondary_color});` : ''}">
-                                ${appState.analysisMode ? '✕ إغلاق التحليل' : '📊 التحليل الشهري'}
+                                ${appState.analysisMode ? WGIcon('close') + ' إغلاق التحليل' : WGIcon('dashboard') + ' التحليل الشهري'}
                             </button>
                         </div>
                     </header>
                     ${analysisHtml}
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div class="glass-tinted rounded-2xl p-6 hover-scale stagger-item" style="--stagger-index: 1">
-                            <div class="text-white"><div class="text-4xl mb-2">💰</div><h3 class="text-lg font-semibold opacity-90 mb-1 text-subdata">نماذج التسعير</h3><p class="text-4xl font-bold">${appState.pricingModels.length}</p></div>
+                            <div class="text-white"><div class="text-4xl mb-2">${WGIcon('pricing', 28)}</div><h3 class="text-lg font-semibold opacity-90 mb-1 text-subdata">نماذج التسعير</h3><p class="text-4xl font-bold">${appState.pricingModels.length}</p></div>
                         </div>
                         <div class="glass-tinted rounded-2xl p-6 hover-scale stagger-item" style="--stagger-index: 2">
-                            <div class="text-white"><div class="text-4xl mb-2">📄</div><h3 class="text-lg font-semibold opacity-90 mb-1 text-subdata">إجمالي الفواتير</h3><p class="text-4xl font-bold">${appState.bills.length}</p></div>
+                            <div class="text-white"><div class="text-4xl mb-2">${WGIcon('bills', 28)}</div><h3 class="text-lg font-semibold opacity-90 mb-1 text-subdata">إجمالي الفواتير</h3><p class="text-4xl font-bold">${appState.bills.length}</p></div>
                         </div>
                         <div class="glass-card rounded-2xl p-6 hover-scale stagger-item" style="--stagger-index: 3">
                             <button onclick="startNewBill();" class="w-full h-full flex flex-col items-center justify-center gap-3 group">
-                                <div class="text-5xl group-hover:scale-110 transition-transform">➕</div>
+                                <div class="text-5xl group-hover:scale-110 transition-transform">${WGIcon('add', 32)}</div>
                                 <span class="text-xl font-bold text-indigo-600">إنشاء فاتورة جديدة</span>
                             </button>
                         </div>
                     </div>
                     <div class="glass-card rounded-2xl p-6 stagger-item" style="--stagger-index: 4">
                         <h2 class="text-2xl font-bold mb-6 text-slate-800">الفواتير الأخيرة</h2>
-                        ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">📄</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
+                        ${recentBills.length === 0 ? `<div class="text-center py-12 opacity-50"><div class="text-6xl mb-4">${WGIcon('bills', 48)}</div><p class="text-xl">لا توجد فواتير بعد</p></div>` : `
                             <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4">رقم الفاتورة</th><th class="text-right py-3 px-4">التاريخ</th><th class="text-right py-3 px-4">العميل</th><th class="text-right py-3 px-4">المبلغ الإجمالي</th><th class="text-center py-3 px-4">الحالة</th><th class="text-center py-3 px-4">الإجراءات</th></tr></thead>
                             <tbody>${recentBills.map(bill => `<tr class="border-b"><td class="py-3 px-4">${escapeHtml(bill.billNumber)}</td><td class="py-3 px-4">${new Date(bill.billDate).toLocaleDateString('ar-SA')}</td><td class="py-3 px-4">${bill.billClientName ? 'أ/ ' + escapeHtml(bill.billClientName) : '-'}</td><td class="py-3 px-4 font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</td><td class="py-3 px-4 text-center">${syncManager.getBadge(bill)}</td><td class="py-3 px-4 text-center"><button onclick="viewBill(appState.bills.find(b => b.__backendId === '${escapeHtml(bill.__backendId)}'));" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">عرض</button></td></tr>`).join('')}</tbody></table></div>`}
                     </div>
@@ -3019,12 +3020,12 @@
                             </form>
                             <div class="flex gap-2">
                                 <input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="importFromExcel(event)" class="hidden">
-                                <button onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : '📊'}<span>استيراد من Excel</span></button>
+                                <button onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : WGIcon('dashboard')}<span>استيراد من Excel</span></button>
                             </div>
                         </div>
                     </div>
                     <div class="space-y-6">
-                        ${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">💰</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3><p class="text-lg opacity-75">قم بإنشاء نموذج التسعير الأول الخاص بك</p></div>` :
+                        ${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">${WGIcon('pricing', 48)}</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3><p class="text-lg opacity-75">قم بإنشاء نموذج التسعير الأول الخاص بك</p></div>` :
                     appState.pricingModels.map(model => {
                         const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
                         const totalPossible = model.data.length * SIZES.length;
@@ -3059,8 +3060,8 @@
             const storageLabel = appState.storageMode === 'drive' ? 'Google Drive' : 'المخزن المحلي';
             return `
                 <div class="fade-in">
-                    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">الفواتير</h1><div class="flex items-center gap-3"><span class="sync-badge sync-success">المزامنة: ${storageLabel}</span><button onclick="startNewBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.primary_color};"><span class="text-2xl">➕</span><span>فاتورة جديدة</span></button></div></div>
-                    ${appState.bills.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">📄</div><h3 class="text-2xl font-bold mb-2">لا توجد فواتير</h3><p class="text-lg opacity-75 mb-6">قم بإنشاء أول فاتورة لك</p><button onclick="startNewBill();" class="px-8 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء فاتورة</button></div>` : `
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">الفواتير</h1><div class="flex items-center gap-3"><span class="sync-badge sync-success">المزامنة: ${storageLabel}</span><button onclick="startNewBill();" class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.primary_color};"><span class="text-2xl">${WGIcon('add', 20)}</span><span>فاتورة جديدة</span></button></div></div>
+                    ${appState.bills.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="text-6xl mb-4">${WGIcon('bills', 48)}</div><h3 class="text-2xl font-bold mb-2">لا توجد فواتير</h3><p class="text-lg opacity-75 mb-6">قم بإنشاء أول فاتورة لك</p><button onclick="startNewBill();" class="px-8 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء فاتورة</button></div>` : `
                         <div class="mb-6"><input type="text" id="billSearch" onkeyup="filterBills();" placeholder="بحث برقم الفاتورة..." class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};"></div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                             <div class="card-shadow rounded-xl p-6" style="background-color: ${config.primary_color};"><div class="text-white"><p class="text-sm opacity-90 mb-1">إجمالي الفواتير</p><p class="text-3xl font-bold">${appState.bills.length}</p></div></div>
@@ -3109,14 +3110,14 @@
             if (appState.billStep === 'selectModel') {
                 content = `
                     <div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-6" style="color: ${config.text_color};">اختر نموذج التسعير</h2>
-                        ${appState.pricingModels.length === 0 ? `<div class="text-center py-12"><div class="text-6xl mb-4">💰</div><p class="text-xl mb-4">لا توجد نماذج تسعرة متاحة</p><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء نموذج تسعير</button></div>` : `
+                        ${appState.pricingModels.length === 0 ? `<div class="text-center py-12"><div class="text-6xl mb-4">${WGIcon('pricing', 48)}</div><p class="text-xl mb-4">لا توجد نماذج تسعرة متاحة</p><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إنشاء نموذج تسعير</button></div>` : `
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${appState.pricingModels.map(model => `<button onclick="selectModelForBill('${escapeHtml(model.__backendId)}');" class="card-shadow rounded-lg p-6 text-right hover-scale bg-white border-2" style="border-color: ${config.primary_color}; border-opacity: 0.3;"><h3 class="text-xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><p class="text-sm opacity-75">${model.data.length} فئات متاحة</p></button>`).join('')}</div>`}
                     </div>`;
             } else if (appState.billStep === 'clientName') {
                 content = `
                     <div class="card-shadow rounded-xl p-6 bg-white max-w-lg mx-auto">
                         <div class="text-center mb-6">
-                            <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center" style="background-color: ${config.background_color};"><span class="text-4xl">👤</span></div>
+                            <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center" style="background-color: ${config.background_color};"><span class="text-4xl">${WGIcon('user', 28)}</span></div>
                             <h2 class="text-2xl font-bold mb-2" style="color: ${config.text_color};">اسم العميل</h2>
                             <p class="opacity-75">أدخل اسم العميل ثم اضغط متابعة</p>
                         </div>
@@ -3160,7 +3161,7 @@
                                 </div>
                             </div>
                         </div>
-                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-center py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b ${item.unitPrice === 0 && !item.isCustom ? 'bg-yellow-50' : ''}"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center">${item.unitPrice === 0 && !item.isCustom ? `<span class="zero-price-warning">⚠ سعر غير محدد</span>` : item.unitPrice.toFixed(2)}</td><td class="text-center">${item.quantity.toFixed(2)}</td><td class="text-center">${item.size}</td><td class="text-center">${escapeHtml(item.category)}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
+                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-center py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b ${item.unitPrice === 0 && !item.isCustom ? 'bg-yellow-50' : ''}"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center">${item.unitPrice === 0 && !item.isCustom ? `<span class="zero-price-warning">${WGIcon('warning', 12)} سعر غير محدد</span>` : item.unitPrice.toFixed(2)}</td><td class="text-center">${item.quantity.toFixed(2)}</td><td class="text-center">${item.size}</td><td class="text-center">${escapeHtml(item.category)}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
                     </div>`;
             }
 
@@ -3171,7 +3172,7 @@
                         ${cancelButton}
                     </div>
                     ${stepsBar}
-                    ${appState.billStep === 'items' ? `<div class="mb-4 no-print"><button onclick="backToClientName();" class="px-4 py-2 bg-gray-200 rounded-lg font-semibold text-sm hover:bg-gray-300">↩ رجوع لاسم العميل</button></div>` : ''}
+                    ${appState.billStep === 'items' ? `<div class="mb-4 no-print"><button onclick="backToClientName();" class="px-4 py-2 bg-gray-200 rounded-lg font-semibold text-sm hover:bg-gray-300">${WGIcon('back')} رجوع لاسم العميل</button></div>` : ''}
                     ${content}
                 </div>`;
         }
@@ -3198,10 +3199,10 @@
                         <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">عرض الفاتورة</h1>
                         <div class="flex flex-wrap gap-2 md:gap-3">
                             <button onclick="appState.currentView = 'bills'; render();" class="px-4 md:px-5 py-2.5 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold text-sm md:text-base transition-colors">رجوع</button>
-                            <button onclick="editBill();" class="px-4 md:px-5 py-2.5 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base transition-all hover:opacity-90" style="background-color: #f59e0b;">✏️ تعديل</button>
-                            <button onclick="printBill();" class="px-4 md:px-5 py-2.5 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base transition-all hover:opacity-90" style="background-color: ${config.secondary_color};">🖨️ طباعة</button>
-                            <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 bg-blue-500 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : '📤'} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
-                            <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 bg-green-600 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : '⬇️'} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
+                            <button onclick="editBill();" class="px-4 md:px-5 py-2.5 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base transition-all hover:opacity-90" style="background-color: #f59e0b;">${WGIcon('edit')} تعديل</button>
+                            <button onclick="printBill();" class="px-4 md:px-5 py-2.5 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base transition-all hover:opacity-90" style="background-color: ${config.secondary_color};">${WGIcon('print')} طباعة</button>
+                            <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 bg-blue-500 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : WGIcon('share')} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
+                            <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 bg-green-600 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : WGIcon('download')} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
                         </div>
                     </div>
                     <div id="view-bill-container" class="w-full">
@@ -3216,8 +3217,8 @@
                                     <div class="text-right">
                                         <h2 class="text-xl md:text-3xl font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
                                         <div class="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
-                                            <span>📞 ${escapeHtml(appState.companySettings.phone)}</span>
-                                            <span>📍 ${escapeHtml(appState.companySettings.address)}</span>
+                                            <span>${WGIcon('phone')} ${escapeHtml(appState.companySettings.phone)}</span>
+                                            <span>${WGIcon('location')} ${escapeHtml(appState.companySettings.address)}</span>
                                         </div>
                                     </div>
                                     <div class="text-left bg-gray-50 rounded-xl p-4 md:p-5 border" style="border-color: #e2e8f0;">
@@ -3269,10 +3270,10 @@
                         </form>
                     </div>
                     <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl mt-6">
-                        <h2 class="text-2xl font-bold mb-4">💾 إدارة التخزين</h2>
+                        <h2 class="text-2xl font-bold mb-4">${WGIcon('storage')} إدارة التخزين</h2>
                         <p class="text-slate-500 text-sm mb-4">عرض وتعديل جميع البيانات المخزنة في ملف JSON.</p>
                         <button onclick="appState.currentView = 'storage'; _storageRawData = null; _storageExpandedItem = null; render();" class="w-full py-3 rounded-lg font-bold text-white text-lg flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                            <span>فتح بيانات التخزين</span><span>←</span>
+                            <span>فتح بيانات التخزين</span><span>${WGIcon('arrowRight')}</span>
                         </button>
                     </div>
                 </div>`;
@@ -3284,8 +3285,8 @@
         let _storageLoading = false;
 
         function getTypeLabel(type) {
-            const labels = { 'pricingModel': '💰 نموذج تسعير', 'bill': '📄 فاتورة', 'settings': '⚙️ إعدادات', 'user': '👤 مستخدم' };
-            return labels[type] || '📝 ' + escapeHtml(type || 'غير معروف');
+            const labels = { 'pricingModel': WGIcon('pricing') + ' نموذج تسعير', 'bill': WGIcon('bills') + ' فاتورة', 'settings': WGIcon('settings') + ' إعدادات', 'user': WGIcon('user') + ' مستخدم' };
+            return labels[type] || WGIcon('edit') + ' ' + escapeHtml(type || 'غير معروف');
         }
 
         function getTypeBadgeColor(type) {
@@ -3434,7 +3435,7 @@
                 const isEditing = editorWrap.style.display !== 'none';
                 viewer.style.display = isEditing ? 'block' : 'none';
                 editorWrap.style.display = isEditing ? 'none' : 'block';
-                btnEdit.textContent = isEditing ? '✏️ تعديل' : '👁️ عرض';
+                btnEdit.innerHTML = isEditing ? WGIcon('edit') + ' تعديل' : WGIcon('view') + ' عرض';
                 if (!isEditing) {
                     let entry = null;
                     if (_storageRawData) entry = _storageRawData.find(d => d.__backendId === backendId);
@@ -3491,11 +3492,11 @@
             const raw = _storageRawData;
             if (!raw) {
                 if (_storageLoading) {
-                    return `<div class="fade-in"><h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">💾 بيانات التخزين</h1><div class="flex items-center gap-3 p-6 card-shadow rounded-xl bg-white"><div class="loading-spinner" style="border-top-color: ${config.primary_color};"></div><span class="font-semibold text-slate-600">جاري تحميل البيانات...</span></div></div>`;
+                    return `<div class="fade-in"><h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">${WGIcon('storage')} بيانات التخزين</h1><div class="flex items-center gap-3 p-6 card-shadow rounded-xl bg-white"><div class="loading-spinner" style="border-top-color: ${config.primary_color};"></div><span class="font-semibold text-slate-600">جاري تحميل البيانات...</span></div></div>`;
                 }
                 _storageLoading = true;
                 loadStorageRawData().then(() => { _storageLoading = false; render(); });
-                return `<div class="fade-in"><h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">💾 بيانات التخزين</h1><div class="flex items-center gap-3 p-6 card-shadow rounded-xl bg-white"><div class="loading-spinner" style="border-top-color: ${config.primary_color};"></div><span class="font-semibold text-slate-600">جاري تحميل البيانات...</span></div></div>`;
+                return `<div class="fade-in"><h1 class="text-4xl font-bold mb-8" style="color: ${config.text_color};">${WGIcon('storage')} بيانات التخزين</h1><div class="flex items-center gap-3 p-6 card-shadow rounded-xl bg-white"><div class="loading-spinner" style="border-top-color: ${config.primary_color};"></div><span class="font-semibold text-slate-600">جاري تحميل البيانات...</span></div></div>`;
             }
 
             const settingsEntries = raw.filter(d => d.type === 'settings');
@@ -3534,10 +3535,10 @@
                                 <div id="storage-editor-${entry.__backendId}" style="display:none;" class="mb-3"><textarea id="storage-json-editor-${entry.__backendId}" class="w-full h-48 sm:h-64 text-xs font-mono bg-slate-50 border-2 border-gray-200 rounded-lg p-2 sm:p-3 focus:border-indigo-400 focus:outline-none" dir="ltr"></textarea></div>
                                 ${showActions ? `
                                     <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
-                                        <button id="storage-btn-edit-${entry.__backendId}" onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
-                                        <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
-                                        <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
-                                        ${entry.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(entry.pricingModelName || '')}', '${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
+                                        <button id="storage-btn-edit-${entry.__backendId}" onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">${WGIcon('edit')} تعديل</button>
+                                        <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">${WGIcon('save')} حفظ</button>
+                                        <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">${WGIcon('trash')} حذف</button>
+                                        ${entry.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(entry.pricingModelName || '')}', '${escapeHtml(entry.__backendId)}');" class="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">${WGIcon('restore')} استعادة</button>` : ''}
                                     </div>` : ''}
                             </div>` : ''}
                     </div>`;
@@ -3546,11 +3547,11 @@
             return `
                 <div class="fade-in">
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-                        <div><h1 class="text-4xl font-bold" style="color: ${config.text_color};">💾 بيانات التخزين</h1><p class="text-sm text-slate-500 mt-1">عرض وتعديل جميع البيانات المخزنة في ملف JSON</p></div>
+                        <div><h1 class="text-4xl font-bold" style="color: ${config.text_color};">${WGIcon('storage')} بيانات التخزين</h1><p class="text-sm text-slate-500 mt-1">عرض وتعديل جميع البيانات المخزنة في ملف JSON</p></div>
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="storageExportJSON();" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors">📤 تصدير JSON</button>
-                            <button onclick="storageImportJSON();" class="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm font-bold hover:bg-amber-200 transition-colors">📥 استيراد JSON</button>
-                            <button onclick="loadStorageRawData().then(() => render());" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-200 transition-colors">🔄 تحديث</button>
+                            <button onclick="storageExportJSON();" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-bold hover:bg-emerald-200 transition-colors">${WGIcon('share')} تصدير JSON</button>
+                            <button onclick="storageImportJSON();" class="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm font-bold hover:bg-amber-200 transition-colors">${WGIcon('importFile')} استيراد JSON</button>
+                            <button onclick="loadStorageRawData().then(() => render());" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-200 transition-colors">${WGIcon('refresh')} تحديث</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-8">
@@ -3560,8 +3561,8 @@
                         <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center"><div class="text-2xl sm:text-3xl font-black text-slate-600">${raw.length}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">إجمالي العناصر</div></div>
                         <div class="card-shadow rounded-xl p-3 sm:p-4 bg-white text-center col-span-2 sm:col-span-1"><div class="text-xl sm:text-2xl font-black ${jsonSizeBytes > 1024 * 1024 ? 'text-red-600' : jsonSizeBytes > 100 * 1024 ? 'text-amber-600' : 'text-green-600'}">${jsonSizeFormatted}</div><div class="text-xs sm:text-sm text-slate-500 font-semibold mt-1">حجم JSON</div></div>
                     </div>
-                    ${settingsEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">⚙️ الإعدادات</h2><div class="space-y-2">${settingsEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
-                    ${pricingGroups.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">💰 نماذج التسعير</h2><div class="space-y-5">${pricingGroups.map(group => {
+                    ${settingsEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">${WGIcon('settings')} الإعدادات</h2><div class="space-y-2">${settingsEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
+                    ${pricingGroups.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">${WGIcon('pricing')} نماذج التسعير</h2><div class="space-y-5">${pricingGroups.map(group => {
                 const versions = Array.isArray(group.data) ? group.data : [];
                 const activeCount = versions.filter(v => !v.isDeleted).length;
                 const deletedCount = versions.filter(v => v.isDeleted).length;
@@ -3572,7 +3573,7 @@
                                     <span class="px-2 py-0.5 sm:px-2.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-bold shrink-0">${activeCount} نشط</span>
                                     ${deletedCount > 0 ? `<span class="px-2 py-0.5 sm:px-2.5 rounded-full text-xs bg-red-100 text-red-700 font-bold shrink-0">${deletedCount} محذوف</span>` : ''}
                                 </div>
-                                <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="self-start sm:self-center px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors shrink-0">🗑️ حذف الكل</button>
+                                <button onclick="event.stopPropagation(); storageDeletePricingGroup('${escapeHtml(group.pricingModelName || '')}');" class="self-start sm:self-center px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors shrink-0">${WGIcon('trash')} حذف الكل</button>
                             </div>
                             <div class="divide-y divide-gray-100">
                                 ${versions.length === 0 ? '<p class="text-sm text-slate-400 text-center py-6">لا توجد إصدارات</p>' : ''}
@@ -3605,17 +3606,17 @@
                                             </div>
                                             <!-- Mobile: action buttons below the row -->
                                             <div class="flex flex-wrap gap-1.5 mt-2 sm:hidden" onclick="event.stopPropagation()">
-                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">✏️ تعديل</button>
-                                                <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold">💾 حفظ</button>
-                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-bold">🗑️ حذف</button>
-                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-bold">↩️ استعادة</button>` : ''}
+                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold">${WGIcon('edit')} تعديل</button>
+                                                <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-bold">${WGIcon('save')} حفظ</button>
+                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-bold">${WGIcon('trash')} حذف</button>
+                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-bold">${WGIcon('restore')} استعادة</button>` : ''}
                                             </div>
                                             <!-- Desktop: action buttons inline -->
                                             <div class="hidden sm:flex items-center gap-2 float-left mt-0.5" onclick="event.stopPropagation()">
-                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}-d" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">✏️ تعديل</button>
-                                                <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">💾 حفظ</button>
-                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">🗑️ حذف</button>
-                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">↩️ استعادة</button>` : ''}
+                                                <button onclick="event.stopPropagation(); storageToggleEdit('${escapeHtml(v.__backendId)}');" id="storage-btn-edit-${v.__backendId}-d" class="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200 transition-colors">${WGIcon('edit')} تعديل</button>
+                                                <button onclick="event.stopPropagation(); storageSaveEdit('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-200 transition-colors">${WGIcon('save')} حفظ</button>
+                                                <button onclick="event.stopPropagation(); storageDeleteEntry('${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors">${WGIcon('trash')} حذف</button>
+                                                ${v.isDeleted ? `<button onclick="event.stopPropagation(); storageRestoreVersion('${escapeHtml(group.pricingModelName || '')}', '${escapeHtml(v.__backendId)}');" class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-200 transition-colors">${WGIcon('restore')} استعادة</button>` : ''}
                                             </div>
                                             <div class="hidden sm:block clear-both"></div>
                                         </div>
@@ -3629,10 +3630,10 @@
                             </div>
                         </div>`;
             }).join('')}</div></div>` : ''}
-                    ${billEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">📄 الفواتير</h2><div class="space-y-2">${billEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
-                    ${userEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">👤 المستخدمين</h2><div class="space-y-2">${userEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
-                    ${otherEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">📝 عناصر أخرى</h2><div class="space-y-2">${otherEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
-                    ${raw.length === 0 ? `<div class="text-center py-16"><div class="text-6xl mb-4">📭</div><h3 class="text-xl font-bold text-slate-600 mb-2">لا توجد بيانات مخزنة</h3><p class="text-slate-400">ابدأ بإضافة نماذج تسعير أو فواتير لتظهر هنا</p></div>` : ''}
+                    ${billEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">${WGIcon('bills')} الفواتير</h2><div class="space-y-2">${billEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
+                    ${userEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">${WGIcon('user')} المستخدمين</h2><div class="space-y-2">${userEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
+                    ${otherEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">${WGIcon('edit')} عناصر أخرى</h2><div class="space-y-2">${otherEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
+                    ${raw.length === 0 ? `<div class="text-center py-16"><div class="text-6xl mb-4">${WGIcon('bills', 48)}</div><h3 class="text-xl font-bold text-slate-600 mb-2">لا توجد بيانات مخزنة</h3><p class="text-slate-400">ابدأ بإضافة نماذج تسعير أو فواتير لتظهر هنا</p></div>` : ''}
                 </div>`;
         }
 

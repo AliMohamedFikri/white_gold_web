@@ -23,10 +23,10 @@
                     <h1 class="text-3xl md:text-4xl font-bold" style="color: ${config.text_color};">عرض الفاتورة</h1>
                     <div class="flex flex-wrap gap-2 md:gap-3">
                         <button onclick="appState.currentView = 'bills'; render();" class="px-4 md:px-6 py-2 md:py-3 bg-gray-300 rounded-lg font-semibold text-sm md:text-base">رجوع</button>
-                        <button onclick="editBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.accent_color};">✏️ تعديل</button>
-                        <button onclick="printBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.primary_color};">🖨️ طباعة</button>
-                        <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : '📤'} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
-                        <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-green-600 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : '⬇️'} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
+                        <button onclick="editBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.accent_color};">${WGIcon('edit')} تعديل</button>
+                        <button onclick="printBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.primary_color};">${WGIcon('print')} طباعة</button>
+                        <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : WGIcon('share')} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
+                        <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-green-600 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : WGIcon('download')} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
                     </div>
                 </div>
 
@@ -45,8 +45,8 @@
                                         </div>
                                     </div>
                                     <div class="space-y-1 text-sm md:text-base mt-2">
-                                        <p>📞 ${escapeHtml(appState.companySettings.phone)}</p>
-                                        <p>📍 ${escapeHtml(appState.companySettings.address)}</p>
+                                        <p>${WGIcon('phone')} ${escapeHtml(appState.companySettings.phone)}</p>
+                                        <p>${WGIcon('location')} ${escapeHtml(appState.companySettings.address)}</p>
                                     </div>
                                     ${clientName ? `
                                     <div class="mt-4 pt-3 border-t border-dashed" style="border-color: ${config.primary_color}; border-opacity: 0.3;">
