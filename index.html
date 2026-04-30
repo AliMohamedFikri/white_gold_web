@@ -4173,7 +4173,7 @@
         function getCategoryIcon(category) {
             const icons = { 'سليب': 'سليب', 'نصف كم': 'نصفكم', 'شورت': 'شورت', 'حماله': 'حماله', 'كلسون': 'كلسون', 'كم': 'كم' };
             const iconFile = icons[category] || 'default';
-            const imgSrc = 'assets/png/' + iconFile + '.JPG';
+            const imgSrc = 'assets/png/' + iconFile + '.jpg';
             const uid = 'cat-icon-' + category.replace(/\s+/g, '-');
             return `<img id="${escapeHtml(uid)}" src="${imgSrc}" alt="${escapeHtml(category)}" class="category-icon-img" loading="lazy" onerror="setupImageFallback(this,'${escapeHtml(category)}')">`;
         }
