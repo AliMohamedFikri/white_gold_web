@@ -99,10 +99,6 @@
                                 <span class="text-3xl md:text-4xl font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
                             </div>
                         </div>
-
-                        <div class="mt-4 pt-4 border-t text-center opacity-75 text-sm md:text-base">
-                            <p>${escapeHtml(appState.companySettings.footer)}</p>
-                        </div>
                     </div>
                 </div>
             </div>`;

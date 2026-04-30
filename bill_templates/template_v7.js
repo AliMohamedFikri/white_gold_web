@@ -31,7 +31,7 @@
     background: transparent;
     pointer-events: none;
 }
-.bill-total-label { font-size: 1.15rem; font-weight: 800; color: #000000; margin-top: 2px; }
+.bill-total-label { font-size: clamp(1.25rem, 5.6vw, 2rem); font-weight: 800; color: #000000; margin-top: 2px; }
 .bill-total-value { font-size: clamp(2rem, 5.6vw, 3.6rem); line-height: 1; font-weight: 900; color: #000000; text-shadow: none; }
 .bill-total-currency { font-size: 0.82rem; font-weight: 700; color: #000000; margin-top: 6px; }
 .bill-footer-line { border-top: 2px dashed #e2e8f0; }
@@ -214,11 +214,6 @@
                                         <p class="bill-total-currency">جنيه مصري</p>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div class="bill-footer-line mt-2 pt-2 text-center">
-                                <p class="text-sm font-semibold" style="color: #64748b;">${escapeHtml(appState.companySettings.footer)}</p>
-                                <p class="text-xs mt-2" style="color: #cbd5e0;">تم إنشاء هذه الفاتورة إلكترونيا - ${formattedDate}</p>
                             </div>
                         </div>
                     </div>

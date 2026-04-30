@@ -293,10 +293,6 @@
             margin-top: 6px;
         }
 
-        .bill-footer-line {
-            border-top: 2px dashed #e2e8f0;
-        }
-
         .bill-watermark {
             position: absolute;
             top: 20%;
@@ -3429,7 +3425,6 @@
                                     </table>
                                 </div>
                                 <div class="bill-total-box"><div class="flex justify-between items-center"><div><h3 class="bill-total-label">الإجمالي الكلي</h3></div><div class="text-left"><p class="bill-total-value">${bill.billTotal.toFixed(2)}</p><p class="bill-total-currency">جنيه مصري</p></div></div></div>
-                                <div class="bill-footer-line mt-2 pt-2 text-center"><p class="text-sm font-semibold" style="color: #64748b;">${escapeHtml(appState.companySettings.footer)}</p><p class="text-xs mt-2" style="color: #cbd5e0;">تم إنشاء هذه الفاتورة إلكترونيا - ${formattedDate}</p></div>
                             </div>
                         </div>
                     </div>
