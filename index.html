@@ -1081,6 +1081,83 @@
         .icon-box-md { width: 2.5rem; height: 2.5rem; }
         .icon-box-lg { width: 3.5rem; height: 3.5rem; }
         .icon-box-xl { width: 5rem; height: 5rem; }
+
+        /* ─── Price Adjustment Modal ──────────────────────────────── */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            animation: modalFadeIn 0.25s ease;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal-panel {
+            background: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25), 0 8px 24px rgba(102, 126, 234, 0.08);
+            width: 95%; max-width: 680px; max-height: 90vh;
+            overflow-y: auto; position: relative;
+            animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(30px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-header {
+            padding: 1.5rem 2rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-body { padding: 1.5rem 2rem; }
+        .modal-footer {
+            padding: 1rem 2rem 1.5rem;
+            border-top: 1px solid #f1f5f9;
+            display: flex; gap: 0.75rem; justify-content: flex-end; flex-wrap: wrap;
+        }
+        .adjust-section {
+            border: 1px solid #e2e8f0; border-radius: 1rem;
+            padding: 1.25rem; margin-bottom: 1.25rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            transition: all 0.3s ease;
+        }
+        .adjust-section:hover { border-color: rgba(102, 126, 234, 0.3); }
+        .adjust-section-title {
+            font-weight: 800; font-size: 1.05rem; color: #1e293b;
+            margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .adjust-row {
+            display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end;
+        }
+        .adjust-field { display: flex; flex-direction: column; gap: 0.25rem; }
+        .adjust-field label { font-size: 0.75rem; font-weight: 700; color: #64748b; }
+        .adjust-field input, .adjust-field select {
+            border: 2px solid #e2e8f0; border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem; font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+            font-family: 'Cairo', sans-serif;
+        }
+        .adjust-field input:focus, .adjust-field select:focus {
+            border-color: #667eea; outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+        }
+        .copy-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 8px;
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            cursor: pointer; transition: all 0.2s ease; color: #64748b;
+        }
+        .copy-btn:hover { background: #e2e8f0; color: #667eea; transform: scale(1.1); }
+        .copy-btn.copied { background: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+        .price-change-preview {
+            font-size: 0.78rem; padding: 0.35rem 0.65rem; border-radius: 6px;
+            display: inline-flex; align-items: center; gap: 4px;
+            font-weight: 700; margin-top: 0.25rem;
+        }
+        .price-up { background: #fef3c7; color: #92400e; }
+        .price-down { background: #dbeafe; color: #1e40af; }
     </style>
     <!-- Removed: <base target="_blank"> was a tabnapping risk (missing noopener).
          Individual links now use target="_blank" rel="noopener noreferrer" where needed. -->
@@ -2197,6 +2274,275 @@
             if (model) { appState.viewingModel = model; appState.currentView = 'viewModel'; render(); }
         }
 
+        // ============================================================
+        // PRICING MODEL ADVANCED FEATURES
+        // 1. Increase all prices by percentage
+        // 2. Increase specific section by amount or percentage (with size range)
+        // 3. Save as new model (original stays unchanged)
+        // 4. Excel export, Image export, Copy per category
+        // ============================================================
+
+        /** Open the price adjustment modal for a given model */
+        function openAdjustModal(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+            appState._adjustModalModel = JSON.parse(JSON.stringify(model));
+            appState._adjustModalOpen = true;
+            appState._adjustNewModelName = model.pricingModelName + ' (معدّل)';
+            render();
+        }
+
+        /** Close the adjustment modal without saving */
+        function closeAdjustModal() {
+            appState._adjustModalOpen = false;
+            appState._adjustModalModel = null;
+            render();
+        }
+
+        /** Deep-clone model data for preview */
+        function cloneModelData(data) {
+            return JSON.parse(JSON.stringify(data));
+        }
+
+        /** Apply adjustment: increase ALL prices by a percentage */
+        function previewIncreaseAll() {
+            const pctInput = document.getElementById('adj-all-pct');
+            const pct = parseFloat(pctInput?.value) || 0;
+            if (pct === 0) return;
+            const model = appState._adjustModalModel;
+            if (!model) return;
+            const preview = cloneModelData(model.data);
+            preview.forEach(cat => {
+                cat.prices.forEach(p => {
+                    if (p.price > 0) {
+                        p.price = Math.round((p.price * (1 + pct / 100)) * 100) / 100;
+                    }
+                });
+            });
+            appState._adjustPreview = preview;
+            appState._adjustPreviewLabel = pct > 0 ? `+${pct}%` : `${pct}%`;
+            render();
+        }
+
+        /** Apply adjustment: increase specific category+size range by amount or percentage */
+        function previewSectionAdjust() {
+            const catSelect = document.getElementById('adj-section-cat');
+            const catName = catSelect?.value || '';
+            const sizeFrom = parseInt(document.getElementById('adj-section-from')?.value) || 22;
+            const sizeTo = parseInt(document.getElementById('adj-section-to')?.value) || 56;
+            const adjType = document.getElementById('adj-section-type')?.value || 'amount';
+            const adjValue = parseFloat(document.getElementById('adj-section-value')?.value) || 0;
+
+            if (adjValue === 0 || !catName) return;
+
+            const model = appState._adjustModalModel;
+            if (!model) return;
+
+            const preview = cloneModelData(model.data);
+            const cat = preview.find(c => c.name === catName);
+            if (!cat) return;
+
+            let affectedCount = 0;
+            cat.prices.forEach(p => {
+                if (p.size >= sizeFrom && p.size <= sizeTo && p.price > 0) {
+                    if (adjType === 'amount') {
+                        p.price = Math.round((p.price + adjValue) * 100) / 100;
+                    } else {
+                        p.price = Math.round((p.price * (1 + adjValue / 100)) * 100) / 100;
+                    }
+                    if (p.price < 0) p.price = 0;
+                    affectedCount++;
+                }
+            });
+
+            appState._adjustPreview = preview;
+            const typeLabel = adjType === 'amount' ? `+${adjValue} ج.م` : `${adjValue > 0 ? '+' : ''}${adjValue}%`;
+            appState._adjustPreviewLabel = `${catName} مقاس ${sizeFrom}-${sizeTo}: ${typeLabel} (${affectedCount} سعر)`;
+            render();
+        }
+
+        /** Save the adjusted prices as a new model (original unchanged) */
+        async function saveAdjustedModel() {
+            const preview = appState._adjustPreview;
+            if (!preview) return showToast('لا يوجد تعديل للحفظ', 'error');
+
+            const nameInput = document.getElementById('adj-new-model-name');
+            const newName = (nameInput?.value || '').trim();
+            if (!newName) return showToast('الرجاء إدخال اسم النموذج الجديد', 'error');
+
+            setLoading('saveAdjustedModel', true);
+            try {
+                const result = await window.dataSdk.create({
+                    type: 'pricingModel',
+                    pricingModelName: newName,
+                    pricingModelData: JSON.stringify(preview),
+                    createdAt: new Date().toISOString()
+                });
+                if (result.isOk) {
+                    showToast('تم حفظ النموذج الجديد بنجاح', 'success');
+                    appState._adjustModalOpen = false;
+                    appState._adjustModalModel = null;
+                    appState._adjustPreview = null;
+                    appState._adjustPreviewLabel = '';
+                    render();
+                } else {
+                    showToast('حدث خطأ أثناء الحفظ', 'error');
+                }
+            } catch (err) {
+                console.error('Save adjusted model error:', err);
+                showToast('حدث خطأ أثناء الحفظ', 'error');
+            }
+            setLoading('saveAdjustedModel', false);
+        }
+
+        /** Export pricing model to Excel */
+        async function exportModelToExcel(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+            try {
+                await ensureSheetJS();
+                const wsData = [];
+                // Header row: category names
+                const header = ['المقاس', ...model.data.map(c => c.name)];
+                wsData.push(header);
+                // Data rows: one per size
+                SIZES.forEach(size => {
+                    const row = [size];
+                    model.data.forEach(cat => {
+                        const p = cat.prices.find(pr => pr.size === size);
+                        row.push(p && p.price > 0 ? p.price : '');
+                    });
+                    wsData.push(row);
+                });
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                // Set column widths
+                ws['!cols'] = [{ wch: 10 }, ...model.data.map(() => ({ wch: 14 }))];
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, model.pricingModelName.substring(0, 31));
+                XLSX.writeFile(wb, `${model.pricingModelName}.xlsx`);
+                showToast('تم تصدير Excel بنجاح', 'success');
+            } catch (err) {
+                console.error('Excel export error:', err);
+                showToast('حدث خطأ أثناء تصدير Excel', 'error');
+            }
+        }
+
+        /** Export pricing model as image (PNG) using canvas */
+        async function exportModelToImage(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+            try {
+                // Load html2canvas from CDN
+                await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                if (typeof html2canvas !== 'function') throw new Error('html2canvas not available');
+
+                // Create a temporary table element for rendering
+                const tempDiv = document.createElement('div');
+                tempDiv.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:32px;font-family:Cairo,sans-serif;direction:rtl;width:1200px;';
+                tempDiv.innerHTML = `
+                    <div style="text-align:right;margin-bottom:20px;">
+                        <h2 style="font-size:24px;font-weight:800;color:#1e293b;margin:0 0 6px 0;">${escapeHtml(model.pricingModelName)}</h2>
+                        <p style="font-size:13px;color:#64748b;margin:0;">${escapeHtml(appState.companySettings.name)} — ${new Date().toLocaleDateString('ar-EG')}</p>
+                    </div>
+                    <table style="border-collapse:collapse;width:100%;font-size:13px;">
+                        <thead>
+                            <tr style="background:#f1f5f9;">
+                                <th style="border:1px solid #e2e8f0;padding:10px 12px;font-weight:700;text-align:right;">الفئة</th>
+                                ${SIZES.map(s => `<th style="border:1px solid #e2e8f0;padding:8px 4px;font-weight:700;text-align:center;font-size:11px;">${s}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${model.data.map((cat, idx) => `
+                                <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'};">
+                                    <td style="border:1px solid #e2e8f0;padding:10px 12px;font-weight:700;">${escapeHtml(cat.name)}</td>
+                                    ${SIZES.map(size => {
+                                        const p = cat.prices.find(pr => pr.size === size);
+                                        const price = p ? p.price : 0;
+                                        return `<td style="border:1px solid #e2e8f0;padding:8px 4px;text-align:center;${price > 0 ? 'color:#16a34a;font-weight:600;' : 'color:#cbd5e0;'}">${price > 0 ? price.toFixed(2) : '-'}</td>`;
+                                    }).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.body.appendChild(tempDiv);
+
+                // Wait for fonts to render
+                await new Promise(r => setTimeout(r, 200));
+                const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+                document.body.removeChild(tempDiv);
+
+                const link = document.createElement('a');
+                link.download = `${model.pricingModelName}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast('تم تصدير الصورة بنجاح', 'success');
+            } catch (err) {
+                console.error('Image export error:', err);
+                showToast('حدث خطأ أثناء تصدير الصورة: ' + err.message, 'error');
+            }
+        }
+
+        /** Copy a category's prices to clipboard */
+        function copyCategoryPrices(modelId, categoryName) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+            const cat = model.data.find(c => c.name === categoryName);
+            if (!cat) return;
+
+            const lines = [];
+            lines.push(`📋 ${categoryName} — ${model.pricingModelName}`);
+            lines.push('─'.repeat(30));
+            cat.prices.forEach(p => {
+                if (p.price > 0) {
+                    lines.push(`مقاس ${p.size}: ${p.price.toFixed(2)} ج.م`);
+                }
+            });
+            const text = lines.join('\n');
+
+            navigator.clipboard.writeText(text).then(() => {
+                // Show visual feedback
+                const btn = document.getElementById(`copy-cat-${categoryName.replace(/\s+/g, '-')}-${modelId}`);
+                if (btn) {
+                    btn.classList.add('copied');
+                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+                    }, 2000);
+                }
+                showToast(`تم نسخ أسعار "${categoryName}"`, 'success');
+            }).catch(() => {
+                showToast('فشل النسخ', 'error');
+            });
+        }
+
+        /** Copy all model prices to clipboard */
+        function copyAllModelPrices(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+
+            const lines = [];
+            lines.push(`📊 ${model.pricingModelName}`);
+            lines.push('═'.repeat(40));
+            model.data.forEach(cat => {
+                lines.push(`\n🏷️ ${cat.name}`);
+                lines.push('─'.repeat(25));
+                cat.prices.forEach(p => {
+                    if (p.price > 0) {
+                        lines.push(`  مقاس ${p.size}: ${p.price.toFixed(2)} ج.م`);
+                    }
+                });
+            });
+            const text = lines.join('\n');
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('تم نسخ جميع الأسعار', 'success');
+            }).catch(() => {
+                showToast('فشل النسخ', 'error');
+            });
+        }
+
         // Billing
         function startNewBill() {
             appState.currentView = 'newBill';
@@ -2979,13 +3325,35 @@
             const config = window.elementSdk?.config || defaultConfig;
             const model = appState.viewingModel;
             if (!model) { appState.currentView = 'pricing'; render(); return ''; }
+            const mid = escapeHtml(model.__backendId);
             return `
                 <div class="fade-in">
-                    <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1><button onclick="appState.currentView = 'pricing'; render();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">رجوع</button></div>
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h1 class="text-4xl font-bold" style="color: ${config.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="appState.currentView = 'pricing'; render();" class="px-5 py-2.5 bg-gray-200 rounded-xl font-semibold hover:bg-gray-300 transition-colors">رجوع</button>
+                            <button onclick="openAdjustModal('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline ml-1"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                                تعديل متقدم
+                            </button>
+                            <button onclick="exportModelToExcel('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style="background-color: #10b981;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                Excel
+                            </button>
+                            <button onclick="exportModelToImage('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style="background-color: #8b5cf6;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                                صورة
+                            </button>
+                            <button onclick="copyAllModelPrices('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-sm border-2" style="border-color: ${config.primary_color}; color: ${config.primary_color};">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                نسخ الكل
+                            </button>
+                        </div>
+                    </div>
                     <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
                         <table class="w-full border-collapse">
-                            <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
-                            <tbody>${model.data.map(cat => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${escapeHtml(cat.name)}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}</tr>`).join('')}</tbody>
+                            <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}<th class="text-center py-3 px-2 font-bold" style="width: 40px;"></th></tr></thead>
+                            <tbody>${model.data.map(cat => `<tr class="border-b hover:bg-slate-50 transition-colors"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${escapeHtml(cat.name)}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}<td class="py-3 px-2 text-center"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></td></tr>`).join('')}</tbody>
                         </table>
                     </div>
                 </div>`;
@@ -2993,8 +3361,13 @@
 
         function renderPricing() {
             const config = window.elementSdk?.config || defaultConfig;
+
+            // Adjustment modal (rendered as overlay when open)
+            const adjustModalHtml = appState._adjustModalOpen ? renderAdjustModal() : '';
+
             if (appState.editingModel) {
                 return `
+                    ${adjustModalHtml}
                     <div class="fade-in">
                         <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج: ${escapeHtml(appState.editingModel.pricingModelName)}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button></div></div>
                         <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
@@ -3007,6 +3380,7 @@
                     </div>`;
             }
             return `
+                ${adjustModalHtml}
                 <div class="fade-in">
                     <h1 class="text-4xl font-bold mb-8 flex items-center gap-3" style="color: ${config.text_color};"><span class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(217,119,6,0.08));">${WGIcon('pricing', 24, '#f59e0b')}</span>إدارة الأسعار</h1>
                     <div class="card-shadow rounded-xl p-6 bg-white mb-8">
@@ -3028,28 +3402,190 @@
                         const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
                         const totalPossible = model.data.length * SIZES.length;
                         const percent = Math.round((totalPrices / totalPossible) * 100);
+                        const mid = escapeHtml(model.__backendId);
                         return `
                                 <div class="card-shadow rounded-xl p-6 bg-white hover-scale">
                                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                                         <div class="flex-1"><h3 class="text-2xl font-bold mb-2">${escapeHtml(model.pricingModelName)}</h3><div class="flex items-center gap-4"><div class="flex-1 bg-gray-200 rounded-full h-2 max-w-xs"><div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${config.accent_color};"></div></div><span class="text-sm font-semibold">${totalPrices}/${totalPossible} (${percent}%)</span></div></div>
                                         <div class="flex flex-wrap gap-2">
-                                            <button onclick="viewModelDetails('${escapeHtml(model.__backendId)}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold">عرض</button>
-                                            <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${escapeHtml(model.__backendId)}'));" class="px-3 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعديل</button>
-                                            <button onclick="duplicateModel('${escapeHtml(model.__backendId)}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white">نسخ</button>
+                                            <button onclick="viewModelDetails('${mid}');" class="px-3 py-2 bg-gray-200 rounded-lg font-semibold text-sm">عرض</button>
+                                            <button onclick="editModel(appState.pricingModels.find(m => m.__backendId === '${mid}'));" class="px-3 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: ${config.primary_color};">تعديل</button>
+                                            <button onclick="openAdjustModal('${mid}');" class="px-3 py-2 rounded-lg font-semibold text-white text-sm" style="background: linear-gradient(135deg, #f59e0b, #d97706);" title="تعديل الأسعار المتقدم">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline ml-1"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                                                تعديل متقدم
+                                            </button>
+                                            <button onclick="duplicateModel('${mid}');" class="px-3 py-2 bg-blue-500 rounded-lg font-semibold text-white text-sm">نسخ</button>
+                                            <button onclick="exportModelToExcel('${mid}');" class="px-3 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: #10b981;" title="تصدير Excel">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                                Excel
+                                            </button>
+                                            <button onclick="exportModelToImage('${mid}');" class="px-3 py-2 rounded-lg font-semibold text-white text-sm" style="background-color: #8b5cf6;" title="تصدير صورة">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
+                                                صورة
+                                            </button>
+                                            <button onclick="copyAllModelPrices('${mid}');" class="px-3 py-2 rounded-lg font-semibold text-sm border-2" style="border-color: ${config.primary_color}; color: ${config.primary_color};" title="نسخ جميع الأسعار">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                                                نسخ الكل
+                                            </button>
                                             <div class="flex gap-2">
-                                                <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${escapeHtml(model.__backendId)}'));" id="delete-${model.__backendId}" ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2">${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button>
-                                                <button id="confirm-${model.__backendId}" onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${escapeHtml(model.__backendId)}'));" style="display: none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white">تأكيد</button>
+                                                <button onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${mid}'));" id="delete-${model.__backendId}" ${isLoading(`delete-${model.__backendId}`) ? 'disabled' : ''} class="px-3 py-2 bg-red-500 rounded-lg font-semibold text-white flex items-center gap-2 text-sm">${isLoading(`delete-${model.__backendId}`) ? '<div class="loading-spinner"></div>' : ''}<span>حذف</span></button>
+                                                <button id="confirm-${model.__backendId}" onclick="deletePricingModel(appState.pricingModels.find(m => m.__backendId === '${mid}'));" style="display: none;" class="px-3 py-2 bg-red-700 rounded-lg font-semibold text-white text-sm">تأكيد</button>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg" style="background-color: ${config.background_color};"><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاسات مسعرة</p></div>`).join('')}
+                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg relative" style="background-color: ${config.background_color};"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn absolute top-2 left-2" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاسات مسعرة</p></div>`).join('')}
                                         ${model.data.length > 4 ? `<div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color};"><p class="font-semibold text-sm" style="color: ${config.primary_color};">+${model.data.length - 4} فئات</p></div>` : ''}
                                     </div>
                                 </div>`;
                     }).join('')}
                     </div>
                 </div>`;
+        }
+
+        /** Render the price adjustment modal */
+        function renderAdjustModal() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const model = appState._adjustModalModel;
+            if (!model) return '';
+            const preview = appState._adjustPreview;
+            const previewLabel = appState._adjustPreviewLabel || '';
+            const mid = escapeHtml(model.__backendId);
+
+            return `
+            <div class="modal-overlay" onclick="if(event.target===this)closeAdjustModal();">
+                <div class="modal-panel">
+                    <div class="modal-header">
+                        <h2 class="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                            <span class="w-9 h-9 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                            </span>
+                            تعديل الأسعار المتقدم
+                        </h2>
+                        <button onclick="closeAdjustModal();" class="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-sm text-slate-500 mb-4">النموذج: <strong class="text-slate-700">${escapeHtml(model.pricingModelName)}</strong> — التعديلات تُحفظ كنموذج جديد ولا تغيّر الأصلي</p>
+
+                        <!-- Section 1: Increase all by percentage -->
+                        <div class="adjust-section">
+                            <div class="adjust-section-title">
+                                <span class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #667eea, #7c3aed); color: white; font-size: 0.75rem; font-weight: 800;">1</span>
+                                زيادة جميع الأسعار بنسبة مئوية
+                            </div>
+                            <div class="adjust-row">
+                                <div class="adjust-field flex-1">
+                                    <label>النسبة المئوية %</label>
+                                    <input type="number" id="adj-all-pct" placeholder="مثال: 10 أو -5" step="0.1">
+                                </div>
+                                <button onclick="previewIncreaseAll();" class="px-5 py-2 rounded-xl font-bold text-white text-sm" style="background: linear-gradient(135deg, #667eea, #7c3aed); margin-top: auto;">معاينة</button>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">مثال: أدخل 10 لزيادة جميع الأسعار 10%، أو -5 لتخفيضها 5%</p>
+                        </div>
+
+                        <!-- Section 2: Increase specific section -->
+                        <div class="adjust-section">
+                            <div class="adjust-section-title">
+                                <span class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; font-size: 0.75rem; font-weight: 800;">2</span>
+                                زيادة فئة محددة بنطاق مقاسات
+                            </div>
+                            <div class="adjust-row">
+                                <div class="adjust-field flex-1">
+                                    <label>الفئة</label>
+                                    <select id="adj-section-cat">
+                                        <option value="">اختر الفئة</option>
+                                        ${model.data.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="adjust-field">
+                                    <label>من مقاس</label>
+                                    <select id="adj-section-from">
+                                        ${SIZES.map(s => `<option value="${s}" ${s === 22 ? 'selected' : ''}>${s}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="adjust-field">
+                                    <label>إلى مقاس</label>
+                                    <select id="adj-section-to">
+                                        ${SIZES.map(s => `<option value="${s}" ${s === 56 ? 'selected' : ''}>${s}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="adjust-field">
+                                    <label>نوع التعديل</label>
+                                    <select id="adj-section-type">
+                                        <option value="amount">مبلغ ثابت (+ج.م)</option>
+                                        <option value="percentage">نسبة مئوية (%)</option>
+                                    </select>
+                                </div>
+                                <div class="adjust-field flex-1">
+                                    <label>القيمة</label>
+                                    <input type="number" id="adj-section-value" placeholder="مثال: 20 أو 5" step="0.1">
+                                </div>
+                                <button onclick="previewSectionAdjust();" class="px-5 py-2 rounded-xl font-bold text-white text-sm" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: auto;">معاينة</button>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">مثال: فئة "شورت" من مقاس 42 إلى 56 بنسبة 5% — أو جميع الفئات من مقاس 22 إلى 40 بمبلغ +20</p>
+                        </div>
+
+                        <!-- Preview of changes -->
+                        ${preview ? `
+                        <div class="mb-4">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="price-change-preview price-up">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/></svg>
+                                    ${escapeHtml(previewLabel)}
+                                </span>
+                                <span class="text-sm font-bold text-slate-600">معاينة التغييرات</span>
+                            </div>
+                            <div class="overflow-x-auto rounded-xl border border-slate-200" style="max-height: 300px;">
+                                <table class="w-full border-collapse text-sm">
+                                    <thead class="sticky top-0 bg-slate-50 z-10">
+                                        <tr class="border-b-2 border-slate-200">
+                                            <th class="text-right py-2 px-3 font-bold sticky right-0 bg-slate-50 z-20">الفئة</th>
+                                            ${SIZES.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${s}</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${preview.map((cat, idx) => {
+                                            const origCat = model.data[idx];
+                                            return `<tr class="border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}">
+                                                <td class="py-2 px-3 font-semibold sticky right-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} z-10">
+                                                    <div class="flex items-center gap-1">${getCategoryIcon(cat.name)}<span class="text-xs">${escapeHtml(cat.name)}</span></div>
+                                                </td>
+                                                ${cat.prices.map((p, pi) => {
+                                                    const orig = origCat.prices[pi]?.price || 0;
+                                                    const changed = p.price !== orig && orig > 0;
+                                                    return `<td class="text-center py-1 px-1 text-xs ${changed ? 'font-bold' : ''}" style="color: ${p.price > 0 ? (changed ? '#b45309' : '#16a34a') : '#cbd5e0'}; ${changed ? 'background:#fef3c7;' : ''}">${p.price > 0 ? p.price.toFixed(2) : '-'}</td>`;
+                                                }).join('')}
+                                            </tr>`;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <!-- New model name -->
+                        <div class="adjust-section" style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-color: #a7f3d0;">
+                            <div class="adjust-section-title" style="color: #065f46;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#065f46" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
+                                حفظ كنموذج جديد
+                            </div>
+                            <div class="adjust-row">
+                                <div class="adjust-field flex-1">
+                                    <label>اسم النموذج الجديد</label>
+                                    <input type="text" id="adj-new-model-name" value="${escapeHtml(appState._adjustNewModelName || model.pricingModelName + ' (معدّل)')}" placeholder="اسم النموذج الجديد">
+                                </div>
+                                <button onclick="saveAdjustedModel();" ${isLoading('saveAdjustedModel') ? 'disabled' : ''} class="px-6 py-2.5 rounded-xl font-bold text-white text-sm flex items-center gap-2" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: auto;">
+                                    ${isLoading('saveAdjustedModel') ? '<div class="loading-spinner" style="width:16px;height:16px;border-width:2px;"></div>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>'}
+                                    حفظ النموذج الجديد
+                                </button>
+                            </div>
+                            <p class="text-xs mt-2" style="color: #065f46;">النموذج الأصلي لن يتأثر — سيتم إنشاء نسخة جديدة بالأسعار المعدّلة</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
         }
 
         function renderBills() {
