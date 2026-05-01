@@ -27,6 +27,7 @@
                         <button onclick="printBill();" class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background-color: ${config.primary_color};">${WGIcon('print')} طباعة</button>
                         <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-blue-500 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : WGIcon('share')} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
                         <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 bg-green-600 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : WGIcon('download')} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
+                        <button onclick="shareBillImage();" ${isLoading('sharingImage') ? 'disabled' : ''} class="px-4 md:px-6 py-2 md:py-3 rounded-lg font-semibold text-white flex items-center gap-2 text-sm md:text-base" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">${isLoading('sharingImage') ? '<div class="loading-spinner"></div>' : WGIcon('image')} ${isLoading('sharingImage') ? 'جاري التحضير...' : 'مشاركة صورة'}</button>
                     </div>
                 </div>
 
@@ -69,7 +70,7 @@
                         </div>
 
                         <div class="mb-8 overflow-x-auto">
-                            <table class="mt-8 w-full min-w-[600px]">
+                            <table class="mt-8 w-full min-w-[250px]">
                                 <thead>
                                     <tr class="border-b-2" style="border-color: ${config.primary_color};">
                                         <th class="text-center py-2 px-2 font-bold">الإجمالي</th>
@@ -80,8 +81,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${bill.items.map(item => `
-                                        <tr class="border-b">
+                                    ${bill.items.map((item, index) => `
+                                        <tr class="border-b" style="background: ${index % 2 === 0 ? '#ffffff' : '#eef2ff'};">
                                             <td class="py-2 px-2 text-center font-semibold">${item.total.toFixed(2)}</td>
                                             <td class="py-2 px-2 text-center">${item.quantity.toFixed(2)}</td>
                                             <td class="py-2 px-2 text-center">${item.unitPrice.toFixed(2)}</td>

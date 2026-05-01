@@ -9,7 +9,10 @@
 .bill-table { width: 100%; border-collapse: collapse; }
 .bill-table thead th { background: #f8fafc; font-weight: 700; font-size: 0.8rem; letter-spacing: 0; padding: 10px 12px; border-bottom: 2px solid #e2e8f0; }
 .bill-table tbody td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
-.bill-table tbody tr:hover { background: #f8fafc; }
+.bill-table tbody tr.bill-row-even { background: #ffffff; }
+.bill-table tbody tr.bill-row-odd { background: #eef2ff; }
+.bill-table tbody tr.bill-row-even:hover { background: #f8fafc; }
+.bill-table tbody tr.bill-row-odd:hover { background: #e0e7ff; }
 .bill-table tfoot td { padding: 14px 12px; }
 .bill-total-box {
     position: relative;
@@ -135,11 +138,12 @@
                         <button onclick="printBill();" class="px-4 md:px-5 py-2.5 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base transition-all hover:opacity-90" style="background-color: ${config.secondary_color};">${WGIcon('print')} طباعة</button>
                         <button onclick="shareBill();" ${isLoading('sharing') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 bg-blue-500 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('sharing') ? '<div class="loading-spinner"></div>' : WGIcon('share')} ${isLoading('sharing') ? 'جاري التحضير...' : 'مشاركة PDF'}</button>
                         <button onclick="downloadBillPDF();" ${isLoading('downloading') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 bg-green-600 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base">${isLoading('downloading') ? '<div class="loading-spinner"></div>' : WGIcon('download')} ${isLoading('downloading') ? 'جاري التحميل...' : 'تنزيل PDF'}</button>
+                        <button onclick="shareBillImage();" ${isLoading('sharingImage') ? 'disabled' : ''} class="px-4 md:px-5 py-2.5 rounded-xl font-semibold text-white flex items-center gap-2 text-sm md:text-base transition-all hover:opacity-90" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">${isLoading('sharingImage') ? '<div class="loading-spinner"></div>' : WGIcon('image')} ${isLoading('sharingImage') ? 'جاري التحضير...' : 'مشاركة صورة'}</button>
                     </div>
                 </div>
 
                 <div id="view-bill-container" class="w-full">
-                    <div id="printable-bill" class="bill-wrapper card-shadow rounded-2xl overflow-hidden max-w-4xl mx-auto">
+                    <div id="printable-bill" class="bill-wrapper card-shadow rounded-2xl overflow-hidden max-w-md mx-auto">
                         <div class="bill-accent-bar" style="background: linear-gradient(135deg, ${config.primary_color} 0%, ${config.secondary_color} 100%);"></div>
 
                         <div class="p-2 md:p-5 relative">
@@ -151,7 +155,7 @@
                                 </div>
 
                                 <div class="text-right">
-                                    <h2 class="text-xl md:text-3xl font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
+                                    <h2 class="text-md md:text-lg font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
                                     <!-- Change 'flex-wrap' to 'flex-col' -->
                                     <div class="flex flex-col gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
                                         <span>${WGIcon('phone')} ${escapeHtml(appState.companySettings.phone)}</span>
@@ -162,7 +166,7 @@
                                 <div class="text-left bg-gray-50 rounded-xl p-4 md:p-5 border" style="border-color: #e2e8f0;">
                                     <div class="mb-3">
                                         <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">رقم الفاتورة</p>
-                                        <p class="text-lg md:text-2xl font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p>
+                                        <p class="text-sm md:text-md font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p>
                                     </div>
                                     <div>
                                         <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">التاريخ: ${formattedDate}</p>
@@ -190,8 +194,8 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${bill.items.map((item) => `
-                                            <tr>
+                                        ${bill.items.map((item, index) => `
+                                            <tr class="${index % 2 === 0 ? 'bill-row-even' : 'bill-row-odd'}">
                                                 <td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td>
                                                 <td class="text-center font-semibold">${item.quantity.toFixed(2)}</td>
                                                 <td class="text-center">${item.unitPrice.toFixed(2)}</td>
