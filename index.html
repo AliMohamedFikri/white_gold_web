@@ -10,7 +10,7 @@
     <!-- Security Headers (HARDENED) -->
     <!-- Tailwind is precompiled locally for production performance, so the page no longer needs the runtime CDN compiler. -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://cdnjs.cloudflare.com https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <!-- X-Frame-Options removed: cannot be set via <meta> tag, only via HTTP response header. -->
     <!-- Add this header on your server: X-Frame-Options: DENY -->
@@ -61,7 +61,7 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script> -->
     <!-- Optional: logo_data_uri.js provides window.__WHITE_GOLD_LOGO_DATA_URI__.
         Loaded gracefully — if missing, the app falls back to SVG asset. -->
-    <script src="v3_Billing_only/bill_templates/logo_data_uri.js" onerror="void(0)"></script>
+    <script src="bill_templates/logo_data_uri.js" onerror="void(0)"></script>
     <script src="assets/icons.js" onerror="void(0)"></script>
     <script src="Security%20guide/security-module.js" onerror="void(0)"></script>
 
@@ -2863,6 +2863,59 @@
                     return;
                 }
                 showToast('حدث خطأ أثناء المشاركة: ' + msg, 'error');
+            } finally {
+                setLoading('sharing', false);
+            }
+        }
+
+        async function shareBillImage() {
+            console.log('[shareBillImage] started');
+            if (!appState.currentBill) { showToast('لا توجد فاتورة نشطة', 'error'); return; }
+            const filename = `invoice_${appState.currentBill.billNumber}.png`;
+            setLoading('sharing', true);
+            await new Promise(r => requestAnimationFrame(r));
+            const { container, element } = getBillPdfElements();
+            if (!container || !element) { setLoading('sharing', false); showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error'); return; }
+            try {
+                await ensureHtml2Pdf();
+                const opt = {
+                    ...buildBillPdfOptions(filename),
+                    html2canvas: {
+                        ...buildBillPdfOptions(filename).html2canvas,
+                        scale: 3,
+                    }
+                };
+                // Use html2pdf's underlying html2canvas to capture as PNG image
+                const canvas = await html2pdf().set(opt).from(element).output('img');
+                // canvas is a data URL string when mode is 'img'
+                const imgDataUrl = canvas;
+                // Convert data URL to blob for sharing
+                const res = await fetch(imgDataUrl);
+                const blob = await res.blob();
+                const file = new File([blob], filename, { type: 'image/png' });
+
+                const canShareFiles = navigator.share && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+                if (canShareFiles) {
+                    try {
+                        await navigator.share({ files: [file], title: 'فاتورة الذهب الأبيض' });
+                        showToast('تم فتح نافذة المشاركة', 'success');
+                    } catch (shareErr) {
+                        if (shareErr.name === 'AbortError') return;
+                        throw shareErr;
+                    }
+                } else {
+                    // Fallback: download the image
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('تم تنزيل صورة الفاتورة', 'success');
+                }
+            } catch (error) {
+                console.error('[shareBillImage] error:', error);
+                if (error.name === 'AbortError') return;
+                showToast('حدث خطأ أثناء مشاركة الصورة', 'error');
             } finally {
                 setLoading('sharing', false);
             }

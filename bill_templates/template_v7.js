@@ -3,7 +3,7 @@
 .bill-wrapper { background: #ffffff; position: relative; }
 .bill-accent-bar { height: 6px; width: 100%; border-radius: 3px 3px 0 0; }
 .bill-header { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
-@media (min-width: 640px) { .bill-header { grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center; } }
+@media (min-width: 270px) { .bill-header { grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center; } }
 .bill-logo-frame { display: inline-flex; align-items: center; justify-content: center; }
 .bill-logo-image { display: block; width: 100%; height: 100%; object-fit: contain; }
 .bill-table { width: 100%; border-collapse: collapse; }
@@ -155,7 +155,7 @@
                                 </div>
 
                                 <div class="text-right">
-                                    <h2 class="text-md md:text-lg font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
+                                    <h2 class="text-sm md:text-lg font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
                                     <!-- Change 'flex-wrap' to 'flex-col' -->
                                     <div class="flex flex-col gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
                                         <span>${WGIcon('phone')} ${escapeHtml(appState.companySettings.phone)}</span>
@@ -166,7 +166,7 @@
                                 <div class="text-left bg-gray-50 rounded-xl p-4 md:p-5 border" style="border-color: #e2e8f0;">
                                     <div class="mb-3">
                                         <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">رقم الفاتورة</p>
-                                        <p class="text-sm md:text-md font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p>
+                                        <p class="text-xs md:text-md font-extrabold" style="color: ${config.primary_color};">${bill.billNumber}</p>
                                     </div>
                                     <div>
                                         <p class="text-[10px] md:text-xs font-semibold mb-1" style="color: #94a3b8;">التاريخ: ${formattedDate}</p>
