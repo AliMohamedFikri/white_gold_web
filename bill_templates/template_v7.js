@@ -40,7 +40,7 @@
 @media print {
     .no-print { display: none !important; }
     .print-only { display: block !important; }
-    #printable-bill { display: block !important; height: auto !important; overflow: visible !important; position: static !important; background: white !important; box-shadow: none !important; max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+    #printable-bill { display: block !important; height: auto !important; overflow: visible !important; position: static !important; background: white !important; box-shadow: none !important; max-width: 100% !important; margin: 0 8rem; !important; padding: 0 !important; }
     body { background: white; }
     html, body, #app, .h-full, .min-h-screen { height: auto !important; overflow: visible !important; position: static !important; }
     .flex-1, .overflow-auto, .overflow-hidden { overflow: visible !important; height: auto !important; display: block !important; }
@@ -152,7 +152,8 @@
 
                                 <div class="text-right">
                                     <h2 class="text-xl md:text-3xl font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
-                                    <div class="flex flex-wrap gap-x-6 gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
+                                    <!-- Change 'flex-wrap' to 'flex-col' -->
+                                    <div class="flex flex-col gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
                                         <span>${WGIcon('phone')} ${escapeHtml(appState.companySettings.phone)}</span>
                                         <span>${WGIcon('location')} ${escapeHtml(appState.companySettings.address)}</span>
                                     </div>
@@ -178,7 +179,7 @@
                             </div>` : ''}
 
                             <div class="mb-2 overflow-x-auto rounded-xl border" style="border-color: #e2e8f0;">
-                                <table class="bill-table min-w-[520px]">
+                                <table class="bill-table min-w-[250px]">
                                     <thead>
                                         <tr>
                                             <th class="text-center" style="color: ${config.text_color};">الإجمالي</th>
