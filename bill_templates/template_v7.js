@@ -155,7 +155,7 @@
                                 </div>
 
                                 <div class="text-right">
-                                    <h2 class="text-sm md:text-md font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
+                                    <h2 class="text-sm md:text-sm font-extrabold leading-tight" style="color: ${config.text_color};">${escapeHtml(appState.companySettings.name)}</h2>
                                     <!-- Change 'flex-wrap' to 'flex-col' -->
                                     <div class="flex flex-col gap-y-1 mt-3 text-xs md:text-sm" style="color: #64748b;">
                                         <span>${WGIcon('phone')} ${escapeHtml(appState.companySettings.phone)}</span>
