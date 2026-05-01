@@ -1209,6 +1209,7 @@
 
         function _scriptGlobalName(src) {
             if (src.includes('html2pdf')) return 'html2pdf';
+            if (src.includes('html2canvas')) return 'html2canvas';
             if (src.includes('xlsx')) return 'XLSX';
             return '';
         }
@@ -1216,6 +1217,12 @@
         async function ensureHtml2Pdf() {
             if (typeof html2pdf === 'function') return;
             await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js', 'sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc');
+        }
+
+        async function ensureHtml2Canvas() {
+            if (typeof html2canvas === 'function') return;
+            await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+            if (typeof html2canvas !== 'function') throw new Error('html2canvas not available');
         }
 
         async function ensureSheetJS() {
@@ -2690,6 +2697,15 @@
                             bill.style.setProperty('padding', '40px', 'important');
                             bill.style.setProperty('display', 'block', 'important');
                         }
+                        // Fix html2canvas vertical-align bug on inline-block category badges
+                        bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
+                            td.style.verticalAlign = 'middle';
+                        });
+                        bill?.querySelectorAll('.bill-table span[style*="background-color"]').forEach(span => {
+                            span.style.display = 'inline-flex';
+                            span.style.alignItems = 'center';
+                            span.style.lineHeight = '1';
+                        });
                         const cloneApp = clonedDoc.getElementById('app');
                         if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
                     }
@@ -2865,6 +2881,8 @@
                 showToast('حدث خطأ أثناء المشاركة: ' + msg, 'error');
             } finally {
                 setLoading('sharing', false);
+                // Ensure the DOM re-renders after a share (page may have been backgrounded)
+                requestAnimationFrame(() => render());
             }
         }
 
@@ -2872,37 +2890,116 @@
             console.log('[shareBillImage] started');
             if (!appState.currentBill) { showToast('لا توجد فاتورة نشطة', 'error'); return; }
             const filename = `invoice_${appState.currentBill.billNumber}.png`;
-            setLoading('sharing', true);
+            setLoading('sharingImage', true);
             await new Promise(r => requestAnimationFrame(r));
             const { container, element } = getBillPdfElements();
-            if (!container || !element) { setLoading('sharing', false); showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error'); return; }
+            if (!container || !element) { setLoading('sharingImage', false); showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error'); return; }
             try {
                 await ensureHtml2Pdf();
-                const opt = {
-                    ...buildBillPdfOptions(filename),
-                    html2canvas: {
-                        ...buildBillPdfOptions(filename).html2canvas,
-                        scale: 3,
+                await ensureHtml2Canvas(); // html2pdf.bundle does NOT expose html2canvas as a global
+                const pdfOpt = buildBillPdfOptions(filename);
+
+                // Use html2canvas directly for a reliable PNG capture.
+                // html2pdf().output('img') goes through the PDF pipeline first and can produce
+                // an empty/invalid image (the 214B bug).  html2canvas gives us a real Canvas.
+                // Use a compact width for the shared image (similar to print/A4 layout)
+                // so columns stay close together and the bill is easy to read.
+                // The PDF onclone sets 1100px which is too wide for a share image.
+                const IMAGE_BILL_WIDTH = 500;
+                const h2cOpts = {
+                    ...pdfOpt.html2canvas,
+                    scale: 5,
+                    useCORS: pdfOpt.html2canvas.useCORS,
+                    allowTaint: false,
+                    logging: false,
+                    onclone: (clonedDoc) => {
+                        const bill = clonedDoc.getElementById('printable-bill');
+                        if (bill) {
+                            bill.style.setProperty('width', IMAGE_BILL_WIDTH + 'px', 'important');
+                            bill.style.setProperty('min-width', IMAGE_BILL_WIDTH + 'px', 'important');
+                            bill.style.setProperty('max-width', 'none', 'important');
+                            bill.style.setProperty('margin', '0 auto', 'important');
+                            bill.style.setProperty('padding', '32px', 'important');
+                            bill.style.setProperty('display', 'block', 'important');
+                        }
+                        // Fix html2canvas vertical-align bug on inline-block category badges
+                        bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
+                            td.style.verticalAlign = 'middle';
+                        });
+                        bill?.querySelectorAll('.bill-table span[style*="background-color"], .bill-table span[style*="background-color"]').forEach(span => {
+                            span.style.display = 'inline-flex';
+                            span.style.alignItems = 'center';
+                            span.style.lineHeight = '1';
+                        });
+                        const cloneApp = clonedDoc.getElementById('app');
+                        if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
                     }
                 };
-                // Use html2pdf's underlying html2canvas to capture as PNG image
-                const canvas = await html2pdf().set(opt).from(element).output('img');
-                // canvas is a data URL string when mode is 'img'
-                const imgDataUrl = canvas;
-                // Convert data URL to blob for sharing
-                const res = await fetch(imgDataUrl);
-                const blob = await res.blob();
+
+                let canvas;
+                try {
+                    canvas = await html2canvas(element, h2cOpts);
+                } catch (canvasErr) {
+                    if (isCanvasSecurityError(canvasErr)) {
+                        canvas = await withPdfSafeElement(element, async (safeEl) => {
+                            return await html2canvas(safeEl, h2cOpts);
+                        });
+                    } else {
+                        throw canvasErr;
+                    }
+                }
+
+                // Convert canvas to PNG blob directly (no data-URL round-trip)
+                const blob = await new Promise((resolve, reject) => {
+                    canvas.toBlob((b) => {
+                        if (b) resolve(b); else reject(new Error('canvas.toBlob returned null'));
+                    }, 'image/png', 1.0);
+                });
+
+                if (!blob || blob.size === 0) {
+                    showToast('فشل إنشاء صورة الفاتورة', 'error');
+                    return;
+                }
+
                 const file = new File([blob], filename, { type: 'image/png' });
 
                 const canShareFiles = navigator.share && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
                 if (canShareFiles) {
                     try {
-                        await navigator.share({ files: [file], title: 'فاتورة الذهب الأبيض' });
+                        // Wrap navigator.share with a timeout to prevent DOM freeze
+                        // when share targets (e.g. WhatsApp Web) open a new window that hangs
+                        const sharePromise = navigator.share({ files: [file], title: 'فاتورة الذهب الأبيض' });
+                        const timeoutPromise = new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Share timed out')), 120000)
+                        );
+                        await Promise.race([sharePromise, timeoutPromise]);
                         showToast('تم فتح نافذة المشاركة', 'success');
                     } catch (shareErr) {
                         if (shareErr.name === 'AbortError') return;
-                        throw shareErr;
+                        // If share timed out or failed, fall through to download
+                        if (shareErr.message === 'Share timed out') {
+                            showToast('انتهت مهلة المشاركة، جاري التنزيل', 'info');
+                        } else {
+                            throw shareErr;
+                        }
                     }
+                    // If share succeeded or timed out, always download as fallback
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else if (navigator.share) {
+                    // Can share but not files — share text info and download image
+                    try {
+                        await navigator.share({ title: 'فاتورة الذهب الأبيض', text: `فاتورة رقم ${appState.currentBill.billNumber} - الإجمالي: ${appState.currentBill.billTotal.toFixed(2)} جنيه` });
+                        showToast('تمت مشاركة بيانات الفاتورة (مشاركة الصور غير مدعومة على هذا الجهاز)', 'info');
+                    } catch (textShareErr) { if (textShareErr.name === 'AbortError') return; throw textShareErr; }
+                    // Also download the image so the user has it
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
                 } else {
                     // Fallback: download the image
                     const url = URL.createObjectURL(blob);
@@ -2915,9 +3012,54 @@
             } catch (error) {
                 console.error('[shareBillImage] error:', error);
                 if (error.name === 'AbortError') return;
+                const msg = String(error.message || '');
+                if (error.name === 'NotAllowedError' || msg.includes('user gesture') || msg.includes('Must be handling') || msg.includes('NotAllowedError')) {
+                    showToast('جاري التنزيل بدلاً من المشاركة (انتهت صلاحية الإجراء)', 'info');
+                    try {
+                        const fbH2cOpts = {
+                            ...buildBillPdfOptions(filename).html2canvas,
+                            scale: 3,
+                            onclone: (clonedDoc) => {
+                                const bill = clonedDoc.getElementById('printable-bill');
+                                if (bill) {
+                                    bill.style.setProperty('width', '800px', 'important');
+                                    bill.style.setProperty('min-width', '800px', 'important');
+                                    bill.style.setProperty('max-width', 'none', 'important');
+                                    bill.style.setProperty('margin', '0 auto', 'important');
+                                    bill.style.setProperty('padding', '32px', 'important');
+                                    bill.style.setProperty('display', 'block', 'important');
+                                }
+                                // Fix html2canvas vertical-align bug on inline-block category badges
+                                bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
+                                    td.style.verticalAlign = 'middle';
+                                });
+                                bill?.querySelectorAll('.bill-table span[style*="background-color"]').forEach(span => {
+                                    span.style.display = 'inline-flex';
+                                    span.style.alignItems = 'center';
+                                    span.style.lineHeight = '1';
+                                });
+                                const cloneApp = clonedDoc.getElementById('app');
+                                if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
+                            }
+                        };
+                        const fbCanvas = await html2canvas(element, fbH2cOpts);
+                        const fbBlob = await new Promise((resolve, reject) => {
+                            fbCanvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob null')); }, 'image/png', 1.0);
+                        });
+                        if (fbBlob && fbBlob.size > 0) {
+                            const url = URL.createObjectURL(fbBlob);
+                            const a = document.createElement('a'); a.href = url; a.download = filename;
+                            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                    } catch (e2) { console.error('Image fallback download error:', e2); }
+                    return;
+                }
                 showToast('حدث خطأ أثناء مشاركة الصورة', 'error');
             } finally {
-                setLoading('sharing', false);
+                setLoading('sharingImage', false);
+                // Ensure the DOM re-renders after a share (page may have been backgrounded)
+                requestAnimationFrame(() => render());
             }
         }
 
@@ -3817,7 +3959,7 @@
                                 <div class="mb-2 overflow-x-auto rounded-xl border" style="border-color: #e2e8f0;">
                                     <table class="bill-table min-w-[520px]">
                                         <thead><tr><th class="text-center" style="color:${config.text_color};">الإجمالي</th><th class="text-center" style="color:${config.text_color};">الكمية</th><th class="text-center" style="color:${config.text_color};">سعر الوحدة</th><th class="text-center" style="color:${config.text_color};">الفئة</th><th class="text-center" style="color:${config.text_color};">المقاس</th></tr></thead>
-                                        <tbody>${bill.items.map((item) => `<tr><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center font-semibold">${item.quantity.toFixed(2)}</td><td class="text-center">${item.unitPrice.toFixed(2)}</td><td class="text-center"><span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-white" style="background-color: ${config.primary_color};">${escapeHtml(item.category)}</span></td><td class="text-center font-semibold">${item.size}</td></tr>`).join('')}</tbody>
+                                        <tbody>${bill.items.map((item) => `<tr><td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td><td class="text-center font-semibold">${item.quantity.toFixed(2)}</td><td class="text-center">${item.unitPrice.toFixed(2)}</td><td class="text-center" style="vertical-align:middle;"><span style="display:inline-flex;align-items:center;line-height:1;padding:2px 8px;border-radius:0.375rem;font-size:0.75rem;font-weight:600;color:#fff;background-color:${config.primary_color};">${escapeHtml(item.category)}</span></td><td class="text-center font-semibold">${item.size}</td></tr>`).join('')}</tbody>
                                     </table>
                                 </div>
                                 <div class="bill-total-box"><div class="flex justify-between items-center"><div><h3 class="bill-total-label">الإجمالي الكلي</h3></div><div class="text-left"><p class="bill-total-value">${bill.billTotal.toFixed(2)}</p><p class="bill-total-currency">جنيه مصري</p></div></div></div>
@@ -4424,6 +4566,27 @@
         }
 
         init();
+
+        // ── FIX: Clean up stale loading states when page regains focus ──
+        // After navigator.share() hands off to WhatsApp (or any share target),
+        // the page goes to the background.  When the user returns, the finally{}
+        // block may have already run but the DOM wasn't repainted while hidden.
+        // This listener forces a re-render on visibility change so buttons
+        // un-stick from the "loading" state.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // Clear any lingering share-related loading states
+                const shareKeys = ['sharing', 'sharingImage', 'downloading'];
+                let dirty = false;
+                shareKeys.forEach(key => {
+                    if (appState.loadingStates[key]) {
+                        appState.loadingStates[key] = false;
+                        dirty = true;
+                    }
+                });
+                if (dirty) render();
+            }
+        });
     </script>
 </body>
 

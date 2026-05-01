@@ -197,12 +197,12 @@
                                         ${bill.items.map((item, index) => `
                                             <tr class="${index % 2 === 0 ? 'bill-row-even' : 'bill-row-odd'}">
                                                 <td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td>
-                                                <td class="text-center font-semibold">${item.quantity.toFixed(2)}</td>
-                                                <td class="text-center">${item.unitPrice.toFixed(2)}</td>
+                                                <td class="text-center font-bold">${item.quantity.toFixed(2)}</td>
+                                                <td class="text-center font-bold">${item.unitPrice.toFixed(2)}</td>
                                                 <td class="text-center">
-                                                    <span class="inline-block px-2 py-0.5 rounded-md text-xs font-semibold text-white" style="background-color: ${config.primary_color};">${escapeHtml(item.category)}</span>
+                                                    <span class="inline-block px-1 rounded-md text-base font-bold" style="color: ${config.primary_color};">${escapeHtml(item.category)}</span>
                                                 </td>
-                                                <td class="text-center font-semibold">${item.size}</td>
+                                                <td class="text-center font-bold">${item.size}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>
