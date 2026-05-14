@@ -196,9 +196,9 @@
                                     <tbody>
                                         ${bill.items.map((item, index) => `
                                             <tr class="${index % 2 === 0 ? 'bill-row-even' : 'bill-row-odd'}">
-                                                <td class="text-center font-bold" style="color: ${config.accent_color};">${item.total.toFixed(2)}</td>
-                                                <td class="text-center font-bold">${item.quantity.toFixed(2)}</td>
-                                                <td class="text-center font-bold">${item.unitPrice.toFixed(2)}</td>
+                                                <td class="text-center font-bold" style="color: ${config.accent_color};">${formatBillNumber(item.total)}</td>
+                                                <td class="text-center font-bold">${formatBillNumber(item.quantity)}</td>
+                                                <td class="text-center font-bold">${formatBillNumber(item.unitPrice)}</td>
                                                 <td class="text-center">
                                                     <span class="inline-block px-1 rounded-md text-base font-bold" style="color: ${config.primary_color};">${escapeHtml(item.category)}</span>
                                                 </td>
@@ -215,7 +215,7 @@
                                         <h3 class="bill-total-label">الإجمالي الكلي</h3>
                                     </div>
                                     <div class="text-left relative z-10">
-                                        <p class="bill-total-value">${bill.billTotal.toFixed(2)}</p>
+                                        <p class="bill-total-value">${formatBillNumber(bill.billTotal)}</p>
                                         <p class="bill-total-currency">جنيه مصري</p>
                                     </div>
                                 </div>

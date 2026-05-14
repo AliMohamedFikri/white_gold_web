@@ -83,9 +83,9 @@
                                 <tbody>
                                     ${bill.items.map((item, index) => `
                                         <tr class="border-b" style="background: ${index % 2 === 0 ? '#ffffff' : '#eef2ff'};">
-                                            <td class="py-2 px-2 text-center font-semibold">${item.total.toFixed(2)}</td>
-                                            <td class="py-2 px-2 text-center">${item.quantity.toFixed(2)}</td>
-                                            <td class="py-2 px-2 text-center">${item.unitPrice.toFixed(2)}</td>
+                                            <td class="py-2 px-2 text-center font-semibold">${formatBillNumber(item.total)}</td>
+                                            <td class="py-2 px-2 text-center">${formatBillNumber(item.quantity)}</td>
+                                            <td class="py-2 px-2 text-center">${formatBillNumber(item.unitPrice)}</td>
                                             <td class="py-2 px-2 text-center">${escapeHtml(item.category)}</td>
                                             <td class="py-2 px-2 text-center">${item.size}</td>
                                         </tr>
@@ -97,7 +97,7 @@
                         <div class="border-t-2 pt-6" style="border-color: ${config.primary_color};">
                             <div class="flex justify-between items-center">
                                 <span class="text-xl md:text-2xl font-bold">الإجمالي الكلي</span>
-                                <span class="text-3xl md:text-4xl font-bold" style="color: ${config.accent_color};">${bill.billTotal.toFixed(2)} جنية</span>
+                                <span class="text-3xl md:text-4xl font-bold" style="color: ${config.accent_color};">${formatBillNumber(bill.billTotal)} جنية</span>
                             </div>
                         </div>
                     </div>
