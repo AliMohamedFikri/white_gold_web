@@ -1230,6 +1230,30 @@
             await loadScriptOnce('https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js', 'sha384-QCIdq2UMVEoSRhR3ZWZwdz2/pivLowr+eokFMdYyukq7qI26VYRxFa4Nl6FKetmL');
         }
 
+        function getModelMeta(backendId) {
+            try {
+                const all = JSON.parse(storageGet('wg_model_meta') || '{}');
+                return all[backendId] || { tag1: '', tag2: '', dateLabel: '' };
+            } catch (e) { return { tag1: '', tag2: '', dateLabel: '' }; }
+        }
+        
+        function saveModelMeta(backendId, meta) {
+            try {
+                const all = JSON.parse(storageGet('wg_model_meta') || '{}');
+                all[backendId] = { ...(all[backendId] || {}), ...meta };
+                storageSet('wg_model_meta', JSON.stringify(all));
+            } catch (e) { console.error('saveModelMeta', e); }
+        }
+        
+        function getTodayArabicDate() {
+            const d = new Date();
+            const dd = String(d.getDate());
+            const mm = String(d.getMonth() + 1);
+            const yy = String(d.getFullYear()).slice(2);
+            const toAr = n => n.split('').map(c => '٠١٢٣٤٥٦٧٨٩'[+c] ?? c).join('');
+            return `${toAr(yy)}/${toAr(mm)}/${toAr(dd)}`;
+        }
+
         // ============================================================
         // IMPROVED #2: Debounced render — batch all state changes
         // into a single DOM update per animation frame.
@@ -1313,6 +1337,39 @@
                 if (r.status === 'fulfilled' && r.value) console.log(WGIcon('check') + ' ' + names[i] + ' loaded');
                 else console.info(WGIcon('info') + ' ' + names[i] + ' not found — using built-in fallback');
             });
+        }
+
+        const MODEL_THEME_DEFAULTS = {
+            A: { header: '#118EFF', accent: '#ED7D31', row1: '#F7CAAC', row2: '#FBE4D5', text: '#000000', label: 'A — برتقالي' },
+            B: { header: '#118EFF', accent: '#70AD47', row1: '#E2EFD9', row2: '#C5E0B3', text: '#000000', label: 'B — أخضر' },
+            C: { header: '#118EFF', accent: '#FFED59', row1: '#FFF3C3', row2: '#FFD9C2', text: '#000000', label: 'C — أصفر' },
+            D: { header: '#118EFF', accent: '#4472C4', row1: '#B4C6E7', row2: '#D9E2F3', text: '#000000', label: 'D — أزرق' },
+            DEFAULT: { header: '#1d4ed8', accent: '#ea580c', row1: '#FEF3C7', row2: '#FDE8D8', text: '#000000', label: 'افتراضي' }
+        };
+        
+        // Load saved overrides from localStorage, fall back to defaults
+        function getModelThemeConfig() {
+            try {
+                const saved = JSON.parse(storageGet('wg_model_themes') || '{}');
+                const result = {};
+                for (const key of Object.keys(MODEL_THEME_DEFAULTS)) {
+                    result[key] = { ...MODEL_THEME_DEFAULTS[key], ...(saved[key] || {}) };
+                }
+                return result;
+            } catch (e) {
+                return { ...MODEL_THEME_DEFAULTS };
+            }
+        }
+        
+        function saveModelThemeConfig(themes) {
+            storageSet('wg_model_themes', JSON.stringify(themes));
+        }
+        
+        // Get theme for a model by checking the first letter of its name
+        function getModelTheme(modelName) {
+            const themes = getModelThemeConfig();
+            const firstLetter = (modelName || '').trim().charAt(0).toUpperCase();
+            return themes[firstLetter] || themes['DEFAULT'];
         }
 
         // Bill template versioning
@@ -2489,6 +2546,109 @@
             }
         }
 
+        async function exportViewModelAsImage(modelId) {
+            const model = appState.pricingModels.find(m => m.__backendId === modelId);
+            if (!model) return;
+        
+            const btn = document.getElementById('vm-img-btn-' + modelId);
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<div class="loading-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;"></div> جاري...';
+            }
+        
+            try {
+                await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+                if (typeof html2canvas !== 'function') throw new Error('html2canvas not available');
+        
+                const tableEl = document.getElementById('vm-spreadsheet-' + modelId);
+                if (!tableEl) { showToast('تعذر العثور على الجدول', 'error'); return; }
+        
+                const canvas = await html2canvas(tableEl, {
+                    scale: 3,
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    allowTaint: false,
+                    logging: false,
+                    onclone: (clonedDoc) => {
+                        const el = clonedDoc.getElementById('vm-spreadsheet-' + modelId);
+                        if (!el) return;
+        
+                        // Strip any box-shadow / border-radius that leaks
+                        el.style.boxShadow = 'none';
+                        el.style.borderRadius = '0';
+        
+                        // Inject a stylesheet that forces center alignment
+                        // on all td/th — this is the most reliable way for html2canvas
+                        const s = clonedDoc.createElement('style');
+                        s.textContent = `
+                            #vm-spreadsheet-${modelId} td,
+                            #vm-spreadsheet-${modelId} th {
+                                text-align: center !important;
+                                vertical-align: middle !important;
+                                line-height: 1.3 !important;
+                            }
+                            #vm-spreadsheet-${modelId} * {
+                                font-family: 'Cairo', Arial, sans-serif !important;
+                                box-sizing: border-box !important;
+                            }
+                        `;
+                        clonedDoc.head.appendChild(s);
+        
+                        // Also set inline style on every cell as belt-and-suspenders
+                        el.querySelectorAll('td, th').forEach(cell => {
+                            cell.style.textAlign    = 'center';
+                            cell.style.verticalAlign = 'middle';
+                        });
+                    }
+                });
+        
+                const blob = await new Promise((resolve, reject) => {
+                    canvas.toBlob(b => { if (b) resolve(b); else reject(new Error('toBlob null')); }, 'image/png', 1.0);
+                });
+                if (!blob || blob.size === 0) { showToast('فشل إنشاء الصورة', 'error'); return; }
+        
+                // Build filename from meta
+                const meta = getModelMeta(modelId);
+                const rawDate = (meta.dateLabel || getTodayArabicDate())
+                    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+                    .replace(/\//g, '-');
+                const tag2part = meta.tag2 ? '_' + meta.tag2 : '';
+                const letter   = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
+                const filename  = `${letter}${tag2part}_${rawDate}.png`;
+        
+                const file = new File([blob], filename, { type: 'image/png' });
+                const canShare = navigator.share &&
+                    typeof navigator.canShare === 'function' &&
+                    navigator.canShare({ files: [file] });
+        
+                if (canShare) {
+                    try {
+                        await Promise.race([
+                            navigator.share({ files: [file], title: model.pricingModelName }),
+                            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 120000))
+                        ]);
+                        showToast('تم فتح نافذة المشاركة', 'success');
+                    } catch (err) {
+                        if (err.name === 'AbortError') return;
+                    }
+                }
+                // Always also offer download (mobile keeps both share + download)
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                if (!canShare) showToast('تم تنزيل صورة النموذج', 'success');
+        
+            } catch (err) {
+                console.error('[exportViewModelAsImage]', err);
+                showToast('حدث خطأ: ' + err.message, 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = origHtml; }
+                requestAnimationFrame(() => render());
+            }
+        }
+
         /** Copy a category's prices to clipboard */
         function copyCategoryPrices(modelId, categoryName) {
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
@@ -3528,34 +3688,120 @@
             const model = appState.viewingModel;
             if (!model) { appState.currentView = 'pricing'; render(); return ''; }
             const mid = escapeHtml(model.__backendId);
+            const theme = getModelTheme(model.pricingModelName);
+            const firstLetter = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
+        
+            const meta       = getModelMeta(model.__backendId);
+            const tag1       = meta.tag1 || '';
+            const tag2       = meta.tag2 || '';
+            const dateLabel  = meta.dateLabel || getTodayArabicDate();
+            const displayName = tag2 ? `${firstLetter} ${escapeHtml(tag2)}` : firstLetter;
+        
+            const lightFills = ['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5',
+                                '#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].map(c => c.toUpperCase());
+            const accentIsLight = lightFills.includes(theme.accent.toUpperCase());
+            const accentText    = accentIsLight ? '#000000' : '#ffffff';
+        
             return `
                 <div class="fade-in">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                        <h1 class="text-4xl font-bold" style="color: ${config.text_color};">عرض نموذج: ${escapeHtml(model.pricingModelName)}</h1>
+                    <!-- toolbar -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                        <h1 class="text-3xl font-bold" style="color:${config.text_color};">عرض: ${escapeHtml(model.pricingModelName)}${tag2 ? ' — ' + escapeHtml(tag2) : ''}</h1>
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="appState.currentView = 'pricing'; render();" class="px-5 py-2.5 bg-gray-200 rounded-xl font-semibold hover:bg-gray-300 transition-colors">رجوع</button>
-                            <button onclick="openAdjustModal('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline ml-1"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-                                تعديل متقدم
+                            <button onclick="appState.currentView='pricing';render();" class="px-4 py-2 bg-gray-200 rounded-xl font-semibold hover:bg-gray-300 text-sm">رجوع</button>
+                            <button onclick="openAdjustModal('${mid}');" class="px-4 py-2 rounded-xl font-semibold text-white text-sm" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="inline ml-1"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>تعديل متقدم
                             </button>
-                            <button onclick="exportModelToExcel('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style="background-color: #10b981;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                Excel
+                            <button onclick="exportModelToExcel('${mid}');" class="px-4 py-2 rounded-xl font-semibold text-white text-sm" style="background-color:#10b981;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Excel
                             </button>
-                            <button onclick="exportModelToImage('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-white text-sm" style="background-color: #8b5cf6;">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
-                                صورة
+                            <button onclick="exportViewModelAsImage('${mid}');" id="vm-img-btn-${mid}" class="px-4 py-2 rounded-xl font-semibold text-white text-sm flex items-center gap-1" style="background:linear-gradient(135deg,#f97316,#ea580c);">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>مشاركة صورة
                             </button>
-                            <button onclick="copyAllModelPrices('${mid}');" class="px-5 py-2.5 rounded-xl font-semibold text-sm border-2" style="border-color: ${config.primary_color}; color: ${config.primary_color};">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                                نسخ الكل
+                            <button onclick="copyAllModelPrices('${mid}');" class="px-4 py-2 rounded-xl font-semibold text-sm border-2" style="border-color:${config.primary_color};color:${config.primary_color};">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline ml-1"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>نسخ الكل
                             </button>
                         </div>
                     </div>
-                    <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
-                        <table class="w-full border-collapse">
-                            <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}<th class="text-center py-3 px-2 font-bold" style="width: 40px;"></th></tr></thead>
-                            <tbody>${model.data.map(cat => `<tr class="border-b hover:bg-slate-50 transition-colors"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${escapeHtml(cat.name)}</span></div></td>${SIZES.map(size => { const p = cat.prices.find(pr => pr.size === size); const price = p ? p.price : 0; return `<td class="py-3 px-4 text-center ${price > 0 ? 'font-semibold' : 'opacity-50'}" style="color: ${price > 0 ? config.accent_color : config.text_color};">${price > 0 ? price.toFixed(2) : '-'}</td>`; }).join('')}<td class="py-3 px-2 text-center"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button></td></tr>`).join('')}</tbody>
+        
+                    <!-- meta editor -->
+                    <div class="card-shadow rounded-xl p-4 bg-white mb-4 max-w-lg">
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            <span class="font-bold text-slate-700 text-sm">بيانات الرأسية</span>
+                            <span class="text-xs text-slate-400">(تظهر في الصورة المُصدَّرة)</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">التاريخ (يسار)</label>
+                                <input type="text" id="vm-date-${mid}" value="${escapeHtml(dateLabel)}"
+                                    placeholder="${getTodayArabicDate()}"
+                                    oninput="saveModelMeta('${mid}',{dateLabel:this.value});document.getElementById('vm-hdate-${mid}').textContent=this.value||'${escapeHtml(getTodayArabicDate())}';"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;direction:rtl;">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">وسم الاسم (بعد الحرف)</label>
+                                <input type="text" id="vm-tag2-${mid}" value="${escapeHtml(tag2)}"
+                                    placeholder="مثال: سوبر"
+                                    oninput="saveModelMeta('${mid}',{tag2:this.value});document.getElementById('vm-hname-${mid}').textContent=this.value?'${firstLetter} '+this.value:'${firstLetter}';"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">وسم الزاوية (يمين)</label>
+                                <input type="text" id="vm-tag1-${mid}" value="${escapeHtml(tag1)}"
+                                    placeholder="مثال: VIP"
+                                    oninput="saveModelMeta('${mid}',{tag1:this.value});document.getElementById('vm-htag1-${mid}').textContent=this.value;"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;">
+                            </div>
+                        </div>
+                    </div>
+        
+                    <!-- ═══ CAPTURED AREA ═══ -->
+                    <div id="vm-spreadsheet-${mid}"
+                        style="display:inline-block;min-width:100%;border:3px solid #1e3a8a;border-radius:6px;overflow:hidden;font-family:'Cairo',sans-serif;background:#ffffff;">
+        
+                        <!-- header row: tag1 right | name center | date left -->
+                        <table style="width:100%;border-collapse:collapse;background:${theme.header};border-bottom:2px solid #1e3a8a;">
+                            <tr>
+                                <td style="width:30%;padding:7px 10px;text-align:right;color:#ffffff;font-weight:800;font-size:0.85rem;vertical-align:middle;">
+                                    <span id="vm-htag1-${mid}">${escapeHtml(tag1)}</span>
+                                </td>
+                                <td style="width:40%;padding:7px 4px;text-align:center;color:#ffffff;font-weight:800;font-size:1rem;letter-spacing:0.04em;vertical-align:middle;">
+                                    <span id="vm-hname-${mid}">${displayName}</span>
+                                </td>
+                                <td style="width:30%;padding:7px 10px;text-align:left;color:#ffffff;font-weight:700;font-size:0.85rem;vertical-align:middle;">
+                                    <span id="vm-hdate-${mid}">${escapeHtml(dateLabel)}</span>
+                                </td>
+                            </tr>
+                        </table>
+        
+                        <!-- data table -->
+                        <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+                            <colgroup>
+                                <col style="width:56px;">
+                                ${model.data.map(() => '<col>').join('')}
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th style="background:${theme.accent};color:${accentText};font-weight:800;font-size:0.8rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">المقاس</th>
+                                    ${[...model.data].reverse().map(cat => `
+                                        <th style="background:${theme.accent};color:${accentText};font-weight:800;font-size:0.88rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">${escapeHtml(cat.name)}</th>
+                                    `).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${SIZES.map((size, rowIdx) => {
+                                    const rowBg = rowIdx % 2 === 1 ? theme.row2 : theme.row1;
+                                    return `<tr>
+                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:0.9rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">${size}</td>
+                                        ${[...model.data].reverse().map(cat => {
+                                            const p = cat.prices.find(pr => pr.size === size);
+                                            const price = p ? p.price : 0;
+                                            return `<td style="background:${rowBg};color:${theme.text};font-weight:700;font-size:0.9rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">${price === 0 ? '------' : price}</td>`;
+                                        }).join('')}
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
                         </table>
                     </div>
                 </div>`;
@@ -4011,6 +4257,7 @@
                             <span>فتح بيانات التخزين</span><span>${WGIcon('arrowRight')}</span>
                         </button>
                     </div>
+                    ${renderModelThemeSettings()}
                 </div>`;
         }
 
@@ -4370,6 +4617,130 @@
                     ${otherEntries.length > 0 ? `<div class="mb-6"><h2 class="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2"><span class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(102,126,234,0.1);">${WGIcon('edit', 16, '#667eea')}</span>عناصر أخرى</h2><div class="space-y-2">${otherEntries.map(e => buildEntryCard(e)).join('')}</div></div>` : ''}
                     ${raw.length === 0 ? `<div class="text-center py-16"><div class="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(124, 58, 237, 0.06));">${WGIcon('bills', 40, '#667eea')}</div><h3 class="text-xl font-bold text-slate-600 mb-2">لا توجد بيانات مخزنة</h3><p class="text-slate-400">ابدأ بإضافة نماذج تسعير أو فواتير لتظهر هنا</p></div>` : ''}
                 </div>`;
+        }
+
+        function renderModelThemeSettings() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const themes = getModelThemeConfig();
+            const keys = ['A', 'B', 'C', 'D', 'DEFAULT'];
+        
+            return `
+                <div class="card-shadow rounded-xl p-6 bg-white max-w-2xl mt-6" id="model-theme-settings">
+                    <h2 class="text-2xl font-bold mb-2 flex items-center gap-3">
+                        <span class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(234,88,12,0.12), rgba(249,115,22,0.08));">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                        </span>
+                        ألوان نماذج التسعير
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-5">كل نموذج يأخذ ثيمه حسب أول حرف من اسمه (A, B, C, D). يمكنك تخصيص الألوان هنا.</p>
+        
+                    <div class="space-y-5">
+                        ${keys.map(key => {
+                            const t = themes[key];
+                            const label = key === 'DEFAULT' ? 'افتراضي (أي حرف آخر)' : `نموذج "${key}"`;
+                            return `
+                            <div class="border rounded-xl p-4" style="border-color: #e2e8f0;">
+                                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                                    <span class="font-bold text-slate-700">${label}</span>
+                                    <button onclick="resetModelTheme('${key}');" class="text-xs px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">إعادة تعيين</button>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-semibold text-slate-500">شريط العنوان</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="color" value="${t.header}" onchange="updateModelThemeColor('${key}','header',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
+                                            <span class="text-xs font-mono" style="color: #64748b;">${t.header}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-semibold text-slate-500">لون الـ Accent</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="color" value="${t.accent}" onchange="updateModelThemeColor('${key}','accent',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
+                                            <span class="text-xs font-mono" style="color: #64748b;">${t.accent}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-semibold text-slate-500">صف فردي</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="color" value="${t.row1}" onchange="updateModelThemeColor('${key}','row1',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
+                                            <span class="text-xs font-mono" style="color: #64748b;">${t.row1}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-semibold text-slate-500">صف زوجي</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="color" value="${t.row2}" onchange="updateModelThemeColor('${key}','row2',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
+                                            <span class="text-xs font-mono" style="color: #64748b;">${t.row2}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-semibold text-slate-500">لون الأرقام</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="color" value="${t.text || '#000000'}" onchange="updateModelThemeColor('${key}','text',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
+                                            <span class="text-xs font-mono" style="color: #64748b;">${t.text || '#000000'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Mini preview -->
+                                <div class="mt-3 rounded-lg overflow-hidden" style="border: 2px solid #1e3a8a; display: inline-block;">
+                                    <div style="background: ${t.header}; color: #fff; padding: 3px 10px; font-size: 0.7rem; font-weight: 700; text-align: center;">${key}</div>
+                                    <table style="border-collapse: collapse; font-size: 0.72rem; font-weight: 700;">
+                                        <tr>
+                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">المقاس</td>
+                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">فئة</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">22</td>
+                                            <td style="background: ${t.row1}; color: ${t.text}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">215</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">24</td>
+                                            <td style="background: ${t.row2}; color: ${t.text}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">236</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+        
+                    <div class="mt-5 flex gap-3">
+                        <button onclick="resetAllModelThemes();" class="px-5 py-2.5 bg-gray-200 rounded-xl font-semibold hover:bg-gray-300 transition-colors text-sm">إعادة تعيين الكل</button>
+                        <div class="flex-1 flex items-center gap-2 px-4 py-2 rounded-xl text-sm" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+                            يتم الحفظ تلقائياً عند كل تغيير
+                        </div>
+                    </div>
+                </div>`;
+        }
+        
+        // Called by color pickers — saves immediately without a save button
+        function updateModelThemeColor(themeKey, colorProp, value) {
+            try {
+                const saved = JSON.parse(storageGet('wg_model_themes') || '{}');
+                if (!saved[themeKey]) saved[themeKey] = {};
+                saved[themeKey][colorProp] = value;
+                saveModelThemeConfig(saved);
+                // Re-render only the theme settings section to update hex labels + preview
+                const container = document.getElementById('model-theme-settings');
+                if (container) container.outerHTML = renderModelThemeSettings();
+            } catch (e) {
+                console.error('updateModelThemeColor error:', e);
+            }
+        }
+        
+        function resetModelTheme(themeKey) {
+            try {
+                const saved = JSON.parse(storageGet('wg_model_themes') || '{}');
+                delete saved[themeKey];
+                saveModelThemeConfig(saved);
+                render();
+            } catch (e) { console.error(e); }
+        }
+        
+        function resetAllModelThemes() {
+            storageSet('wg_model_themes', '{}');
+            render();
+            showToast('تم إعادة تعيين جميع الثيمات', 'success');
         }
 
         function getCategoryIcon(category) {
