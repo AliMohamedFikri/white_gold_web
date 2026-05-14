@@ -2322,8 +2322,7 @@
             preview.forEach(cat => {
                 cat.prices.forEach(p => {
                     if (p.price > 0) {
-                        p.price = Math.round((p.price * (1 + pct / 100)) * 100) / 100;
-                    }
+                        p.price = Math.round(p.price * (1 + pct / 100));                    }
                 });
             });
             appState._adjustPreview = preview;
@@ -2353,9 +2352,9 @@
             cat.prices.forEach(p => {
                 if (p.size >= sizeFrom && p.size <= sizeTo && p.price > 0) {
                     if (adjType === 'amount') {
-                        p.price = Math.round((p.price + adjValue) * 100) / 100;
+                        p.price = Math.round(p.price + adjValue);
                     } else {
-                        p.price = Math.round((p.price * (1 + adjValue / 100)) * 100) / 100;
+                        p.price = Math.round(p.price * (1 + adjValue / 100));
                     }
                     if (p.price < 0) p.price = 0;
                     affectedCount++;
