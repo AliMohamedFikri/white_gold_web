@@ -2649,7 +2649,7 @@
             }
         }
 
-        /** Copy a category's prices to clipboard */
+        /** Copy a category's prices to clipboard (Excel format: one price per row, integers only) */
         function copyCategoryPrices(modelId, categoryName) {
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
             if (!model) return;
@@ -2657,12 +2657,9 @@
             if (!cat) return;
 
             const lines = [];
-            lines.push(`📋 ${categoryName} — ${model.pricingModelName}`);
-            lines.push('─'.repeat(30));
             cat.prices.forEach(p => {
-                if (p.price > 0) {
-                    lines.push(`مقاس ${p.size}: ${p.price.toFixed(2)} ج.م`);
-                }
+                const price = p.price > 0 ? Math.round(p.price) : '------';
+                lines.push(price);
             });
             const text = lines.join('\n');
 
@@ -2683,27 +2680,27 @@
             });
         }
 
-        /** Copy all model prices to clipboard */
+        /** Copy all model prices to clipboard (Excel format: tab-separated data only, integers) */
         function copyAllModelPrices(modelId) {
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
             if (!model) return;
 
             const lines = [];
-            lines.push(`📊 ${model.pricingModelName}`);
-            lines.push('═'.repeat(40));
-            model.data.forEach(cat => {
-                lines.push(`\n🏷️ ${cat.name}`);
-                lines.push('─'.repeat(25));
-                cat.prices.forEach(p => {
-                    if (p.price > 0) {
-                        lines.push(`  مقاس ${p.size}: ${p.price.toFixed(2)} ج.م`);
-                    }
-                });
+            
+            // Data rows: one row per size, tab-separated prices
+            SIZES.forEach(size => {
+                const row = model.data.map(cat => {
+                    const p = cat.prices.find(pr => pr.size === size);
+                    const price = p && p.price > 0 ? Math.round(p.price) : '------';
+                    return price;
+                }).join('\t');
+                lines.push(row);
             });
+            
             const text = lines.join('\n');
 
             navigator.clipboard.writeText(text).then(() => {
-                showToast('تم نسخ جميع الأسعار', 'success');
+                showToast('تم نسخ جميع الأسعار (صيغة Excel)', 'success');
             }).catch(() => {
                 showToast('فشل النسخ', 'error');
             });
@@ -3695,6 +3692,7 @@
             const tag1       = meta.tag1 || '';
             const tag2       = meta.tag2 || '';
             const dateLabel  = meta.dateLabel || getTodayArabicDate();
+            const fontSize   = meta.fontSize || '0.9';
             const displayName = tag2 ? `${firstLetter} ${escapeHtml(tag2)}` : firstLetter;
         
             const lightFills = ['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5',
@@ -3731,7 +3729,7 @@
                             <span class="font-bold text-slate-700 text-sm">بيانات الرأسية</span>
                             <span class="text-xs text-slate-400">(تظهر في الصورة المُصدَّرة)</span>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div>
                                 <label class="text-xs font-semibold text-slate-500 block mb-1">التاريخ (يسار)</label>
                                 <input type="text" id="vm-date-${mid}" value="${escapeHtml(dateLabel)}"
@@ -3753,23 +3751,29 @@
                                     oninput="saveModelMeta('${mid}',{tag1:this.value});document.getElementById('vm-htag1-${mid}').textContent=this.value;"
                                     class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;">
                             </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">حجم الخط (بيانات)</label>
+                                <input type="number" id="vm-fontsize-${mid}" value="${fontSize}" min="0.5" max="2" step="0.1"
+                                    oninput="saveModelMeta('${mid}',{fontSize:this.value});render();"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;">
+                            </div>
                         </div>
                     </div>
         
                     <!-- ═══ CAPTURED AREA ═══ -->
                     <div id="vm-spreadsheet-${mid}"
-                        style="display:inline-block;min-width:100%;border:3px solid #1e3a8a;border-radius:6px;overflow:hidden;font-family:'Cairo',sans-serif;background:#ffffff;">
+                        style="display:inline-block;max-width:750px;width:100%;border:3px solid #1e3a8a;border-radius:6px;overflow:hidden;font-family:'Cairo',sans-serif;background:#ffffff;">
         
                         <!-- header row: tag1 right | name center | date left -->
                         <table style="width:100%;border-collapse:collapse;background:${theme.header};border-bottom:2px solid #1e3a8a;">
                             <tr>
-                                <td style="width:30%;padding:7px 10px;text-align:right;color:#ffffff;font-weight:800;font-size:0.85rem;vertical-align:middle;">
+                                <td style="width:30%;padding:7px 10px;text-align:right;color:#ffffff;font-weight:800;font-size:${fontSize*1.5}rem;vertical-align:middle;">
                                     <span id="vm-htag1-${mid}">${escapeHtml(tag1)}</span>
                                 </td>
-                                <td style="width:40%;padding:7px 4px;text-align:center;color:#ffffff;font-weight:800;font-size:1rem;letter-spacing:0.04em;vertical-align:middle;">
-                                    <span id="vm-hname-${mid}">${displayName}</span>
+                                <td style="width:40%;padding:10px 6px;text-align:center;color:#ffffff;font-weight:800;font-size:${fontSize*2}rem;letter-spacing:0.04em;vertical-align:middle;word-break:break-word;line-height:1.3;">
+                                    <span id="vm-hname-${mid}" style="display:block;">${displayName}</span>
                                 </td>
-                                <td style="width:30%;padding:7px 10px;text-align:left;color:#ffffff;font-weight:700;font-size:0.85rem;vertical-align:middle;">
+                                <td style="width:30%;padding:7px 10px;text-align:left;color:#ffffff;font-weight:700;font-size:${fontSize*1.5}rem;vertical-align:middle;">
                                     <span id="vm-hdate-${mid}">${escapeHtml(dateLabel)}</span>
                                 </td>
                             </tr>
@@ -3778,14 +3782,14 @@
                         <!-- data table -->
                         <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
                             <colgroup>
-                                <col style="width:56px;">
+                                <col style="width:80px;">
                                 ${model.data.map(() => '<col>').join('')}
                             </colgroup>
                             <thead>
                                 <tr>
-                                    <th style="background:${theme.accent};color:${accentText};font-weight:800;font-size:0.8rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">المقاس</th>
+                                    <th style="background:${theme.accent};color:${accentText};font-weight:800;font-size:1rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;word-break:break-word;">المقاس</th>
                                     ${[...model.data].reverse().map(cat => `
-                                        <th style="background:${theme.accent};color:${accentText};font-weight:800;font-size:0.88rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">${escapeHtml(cat.name)}</th>
+                                        <th style="background:${theme.accent};color:${accentText};font-weight:800;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;word-break:break-word;">${escapeHtml(cat.name)}</th>
                                     `).join('')}
                                 </tr>
                             </thead>
@@ -3793,11 +3797,11 @@
                                 ${SIZES.map((size, rowIdx) => {
                                     const rowBg = rowIdx % 2 === 1 ? theme.row2 : theme.row1;
                                     return `<tr>
-                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:0.9rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">${size}</td>
+                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${size}</td>
                                         ${[...model.data].reverse().map(cat => {
                                             const p = cat.prices.find(pr => pr.size === size);
                                             const price = p ? p.price : 0;
-                                            return `<td style="background:${rowBg};color:${theme.text};font-weight:700;font-size:0.9rem;padding:10px 4px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:40px;line-height:1.4;">${price === 0 ? '------' : price}</td>`;
+                                            return `<td style="background:${rowBg};color:${theme.text};font-weight:700;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${price === 0 ? '------' : price}</td>`;
                                         }).join('')}
                                     </tr>`;
                                 }).join('')}
