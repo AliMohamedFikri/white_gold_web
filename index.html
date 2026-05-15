@@ -3160,33 +3160,66 @@
             const { container, element } = getBillPdfElements();
             if (!container || !element) { setLoading('sharingImage', false); showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error'); return; }
             try {
-                // ── modern-screenshot (replaces html2canvas) ──
-                // Better RTL/Arabic support, no vertical-align bugs, smaller bundle,
-                // and scale:2 produces quality equivalent to html2canvas scale:5.
-                await ensureModernScreenshot();
-                const { domToPng } = window.modernScreenshot;
+                await ensureHtml2Pdf();
+                await ensureHtml2Canvas(); // html2pdf.bundle does NOT expose html2canvas as a global
+                const pdfOpt = buildBillPdfOptions(filename);
 
+                // Use html2canvas directly for a reliable PNG capture.
+                // html2pdf().output('img') goes through the PDF pipeline first and can produce
+                // an empty/invalid image (the 214B bug).  html2canvas gives us a real Canvas.
+                // Use a compact width for the shared image (similar to print/A4 layout)
+                // so columns stay close together and the bill is easy to read.
+                // The PDF onclone sets 1100px which is too wide for a share image.
                 const IMAGE_BILL_WIDTH = 500;
-                const dataUrl = await domToPng(element, {
-                    scale: 2,
-                    backgroundColor: '#ffffff',
-                    fetchOptions: { mode: 'cors' },
-                    style: {
-                        width: IMAGE_BILL_WIDTH + 'px',
-                        minWidth: IMAGE_BILL_WIDTH + 'px',
-                        maxWidth: 'none',
-                        margin: '0 auto',
-                        padding: '32px',
-                        display: 'block',
-                    },
-                    features: {
-                        removeControlCharacter: true,
-                    },
-                });
+                const h2cOpts = {
+                    ...pdfOpt.html2canvas,
+                    scale: 5,
+                    useCORS: pdfOpt.html2canvas.useCORS,
+                    allowTaint: false,
+                    logging: false,
+                    onclone: (clonedDoc) => {
+                        const bill = clonedDoc.getElementById('printable-bill');
+                        if (bill) {
+                            bill.style.setProperty('width', IMAGE_BILL_WIDTH + 'px', 'important');
+                            bill.style.setProperty('min-width', IMAGE_BILL_WIDTH + 'px', 'important');
+                            bill.style.setProperty('max-width', 'none', 'important');
+                            bill.style.setProperty('margin', '0 auto', 'important');
+                            bill.style.setProperty('padding', '32px', 'important');
+                            bill.style.setProperty('display', 'block', 'important');
+                        }
+                        // Fix html2canvas vertical-align bug on inline-block category badges
+                        bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
+                            td.style.verticalAlign = 'middle';
+                        });
+                        bill?.querySelectorAll('.bill-table span[style*="background-color"], .bill-table span[style*="background-color"]').forEach(span => {
+                            span.style.display = 'inline-flex';
+                            span.style.alignItems = 'center';
+                            span.style.lineHeight = '1';
+                        });
+                        const cloneApp = clonedDoc.getElementById('app');
+                        if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
+                    }
+                };
 
-                // Convert dataURL to blob
-                const res = await fetch(dataUrl);
-                const blob = await res.blob();
+                let canvas;
+                try {
+                    canvas = await html2canvas(element, h2cOpts);
+                } catch (canvasErr) {
+                    if (isCanvasSecurityError(canvasErr)) {
+                        canvas = await withPdfSafeElement(element, async (safeEl) => {
+                            return await html2canvas(safeEl, h2cOpts);
+                        });
+                    } else {
+                        throw canvasErr;
+                    }
+                }
+
+                // Convert canvas to PNG blob directly (no data-URL round-trip)
+                const blob = await new Promise((resolve, reject) => {
+                    canvas.toBlob((b) => {
+                        if (b) resolve(b); else reject(new Error('canvas.toBlob returned null'));
+                    }, 'image/png', 1.0);
+                });
 
                 if (!blob || blob.size === 0) {
                     showToast('فشل إنشاء صورة الفاتورة', 'error');
@@ -3247,25 +3280,37 @@
                 const msg = String(error.message || '');
                 if (error.name === 'NotAllowedError' || msg.includes('user gesture') || msg.includes('Must be handling') || msg.includes('NotAllowedError')) {
                     showToast('جاري التنزيل بدلاً من المشاركة (انتهت صلاحية الإجراء)', 'info');
-                    // Fallback: try modern-screenshot with wider width
                     try {
-                        const { domToPng } = window.modernScreenshot;
-                        const fbDataUrl = await domToPng(element, {
-                            scale: 2,
-                            backgroundColor: '#ffffff',
-                            fetchOptions: { mode: 'cors' },
-                            style: {
-                                width: '800px',
-                                minWidth: '800px',
-                                maxWidth: 'none',
-                                margin: '0 auto',
-                                padding: '32px',
-                                display: 'block',
-                            },
-                            features: { removeControlCharacter: true },
+                        const fbH2cOpts = {
+                            ...buildBillPdfOptions(filename).html2canvas,
+                            scale: 3,
+                            onclone: (clonedDoc) => {
+                                const bill = clonedDoc.getElementById('printable-bill');
+                                if (bill) {
+                                    bill.style.setProperty('width', '800px', 'important');
+                                    bill.style.setProperty('min-width', '800px', 'important');
+                                    bill.style.setProperty('max-width', 'none', 'important');
+                                    bill.style.setProperty('margin', '0 auto', 'important');
+                                    bill.style.setProperty('padding', '32px', 'important');
+                                    bill.style.setProperty('display', 'block', 'important');
+                                }
+                                // Fix html2canvas vertical-align bug on inline-block category badges
+                                bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
+                                    td.style.verticalAlign = 'middle';
+                                });
+                                bill?.querySelectorAll('.bill-table span[style*="background-color"]').forEach(span => {
+                                    span.style.display = 'inline-flex';
+                                    span.style.alignItems = 'center';
+                                    span.style.lineHeight = '1';
+                                });
+                                const cloneApp = clonedDoc.getElementById('app');
+                                if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
+                            }
+                        };
+                        const fbCanvas = await html2canvas(element, fbH2cOpts);
+                        const fbBlob = await new Promise((resolve, reject) => {
+                            fbCanvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob null')); }, 'image/png', 1.0);
                         });
-                        const fbRes = await fetch(fbDataUrl);
-                        const fbBlob = await fbRes.blob();
                         if (fbBlob && fbBlob.size > 0) {
                             const url = URL.createObjectURL(fbBlob);
                             const a = document.createElement('a'); a.href = url; a.download = filename;
