@@ -10,7 +10,7 @@
     <!-- Security Headers (HARDENED) -->
     <!-- Tailwind is precompiled locally for production performance, so the page no longer needs the runtime CDN compiler. -->
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://cdnjs.cloudflare.com https://accounts.google.com https://www.googleapis.com https://drive.google.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://accounts.google.com https://apis.google.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://cdnjs.cloudflare.com https://accounts.google.com https://www.googleapis.com https://drive.google.com https://unpkg.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <!-- X-Frame-Options removed: cannot be set via <meta> tag, only via HTTP response header. -->
     <!-- Add this header on your server: X-Frame-Options: DENY -->
@@ -1211,6 +1211,7 @@
             if (src.includes('html2pdf')) return 'html2pdf';
             if (src.includes('html2canvas')) return 'html2canvas';
             if (src.includes('xlsx')) return 'XLSX';
+            if (src.includes('modern-screenshot')) return 'modernScreenshot';
             return '';
         }
 
@@ -1223,6 +1224,224 @@
             if (typeof html2canvas === 'function') return;
             await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
             if (typeof html2canvas !== 'function') throw new Error('html2canvas not available');
+        }
+
+        /* modern-screenshot loader — used for bill image export (replaces html2canvas for complex layouts) */
+        async function ensureModernScreenshot() {
+            if (typeof window.modernScreenshot !== 'undefined') return;
+            await loadScriptOnce('https://unpkg.com/modern-screenshot@4.4.4/dist/index.global.js');
+            if (typeof window.modernScreenshot === 'undefined') throw new Error('modern-screenshot not available');
+        }
+
+        /* ─── Direct Canvas Table Renderer ───────────────────────────
+         * Draws a pricing model spreadsheet directly onto a <canvas>
+         * without any DOM screenshotting.  Zero dependencies, instant,
+         * pixel-perfect RTL, no font/CORS/alignment bugs.
+         *
+         * Uses a column-definitions array so the entire column order
+         * is controlled from a single place — reversing is trivial.
+         * ─────────────────────────────────────────────────────────── */
+        function drawModelToCanvas(model, opts = {}) {
+            const meta       = getModelMeta(model.__backendId);
+            const tag1       = meta.tag1 || '';
+            const tag2       = meta.tag2 || '';
+            const dateLabel  = meta.dateLabel || getTodayArabicDate();
+            const fontSize   = parseFloat(meta.fontSize) || 0.9;
+            const firstLetter = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
+            const displayName = tag2 ? firstLetter + ' ' + tag2 : firstLetter;
+
+            const theme = getModelTheme(model.pricingModelName);
+            const lightFills = ['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5',
+                                '#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].map(c => c.toUpperCase());
+            const accentIsLight = lightFills.includes(theme.accent.toUpperCase());
+            const accentText    = accentIsLight ? '#000000' : '#ffffff';
+
+            // Layout constants (in logical px; we'll scale 2× for retina)
+            const dpr = 3;
+            const headerH    = 120;                           // top banner row
+            const colHeaderH = 80;                           // category-name row
+            const cellH      = Math.round(44 * fontSize / 0.9); // data rows
+            const sizeColW   = 150;                           // size column
+            const catColW    = 150;                           // each category column
+            const borderW    = 3;                            // outer border
+
+            const cols = [
+                { label: 'المقاس', width: sizeColW, type: 'size' },
+                // Reverse only the mapped categories here
+                ...model.data.map(cat => ({ 
+                    label: cat.name, 
+                    width: catColW, 
+                    type: 'price', 
+                    data: cat 
+                })).reverse() 
+            ];
+
+            // If you want the "Size" column on the far right for RTL:
+            cols.reverse();
+
+            const numSizes = SIZES.length;
+            const totalW   = borderW * 2 + cols.reduce((sum, c) => sum + c.width, 0);
+            const totalH   = borderW * 2 + headerH + colHeaderH + numSizes * cellH;
+
+            const canvas = document.createElement('canvas');
+            canvas.width  = totalW * dpr;
+            canvas.height = totalH * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const FONT = '"Cairo", Arial, sans-serif';
+
+            // ── background ──
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, totalW, totalH);
+
+            // ── outer border ──
+            ctx.strokeStyle = '#1e3a8a';
+            ctx.lineWidth   = borderW;
+            ctx.strokeRect(borderW / 2, borderW / 2, totalW - borderW, totalH - borderW);
+
+            let y = borderW;
+
+            // ── header banner ──
+            ctx.fillStyle = theme.header;
+            ctx.fillRect(borderW, y, totalW - borderW * 2, headerH);
+
+            const headerFontSize = Math.round(24 * fontSize / 0.9);
+            const dateFontSize   = Math.round(18 * fontSize / 0.9);
+            const nameFontSize   = Math.round(28 * fontSize / 0.9);
+
+            // tag1 — right
+            ctx.fillStyle    = '#ffffff';
+            ctx.font         = `800 ${headerFontSize}px ${FONT}`;
+            ctx.textAlign    = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tag1, totalW - borderW - 12, y + headerH / 2);
+
+            // displayName — center
+            ctx.font      = `800 ${nameFontSize}px ${FONT}`;
+            ctx.textAlign = 'center';
+            ctx.fillText(displayName, totalW / 2, y + headerH / 2);
+
+            // dateLabel — left
+            ctx.font      = `700 ${dateFontSize}px ${FONT}`;
+            ctx.textAlign = 'left';
+            ctx.fillText(dateLabel, borderW + 12, y + headerH / 2);
+
+            // header bottom border
+            ctx.strokeStyle = '#1e3a8a';
+            ctx.lineWidth   = 2;
+            ctx.beginPath(); ctx.moveTo(borderW, y + headerH); ctx.lineTo(totalW - borderW, y + headerH); ctx.stroke();
+
+            y += headerH;
+
+            // ── column header row ──
+            const colFontSize = Math.round(14 * fontSize / 0.9);
+            let x = borderW;
+
+            cols.forEach(col => {
+                ctx.fillStyle = theme.accent;
+                ctx.fillRect(x, y, col.width, colHeaderH);
+                ctx.fillStyle    = accentText;
+                ctx.font         = `800 ${colFontSize}px ${FONT}`;
+                ctx.textAlign    = 'center';
+                ctx.textBaseline = 'middle';
+                // Truncate long labels to fit cell
+                let label = col.label;
+                while (ctx.measureText(label).width > col.width - 8 && label.length > 1) label = label.slice(0, -1);
+                if (label !== col.label) label += '…';
+                ctx.fillText(label, x + col.width / 2, y + colHeaderH / 2);
+                x += col.width;
+            });
+
+            // column header bottom border
+            ctx.strokeStyle = '#1e3a8a';
+            ctx.lineWidth   = 2;
+            ctx.beginPath(); ctx.moveTo(borderW, y + colHeaderH); ctx.lineTo(totalW - borderW, y + colHeaderH); ctx.stroke();
+
+            y += colHeaderH;
+
+            // ── data rows ──
+            const dataFontSize = Math.round(14 * fontSize / 0.6);
+
+            SIZES.forEach((size, rowIdx) => {
+                const rowBg = rowIdx % 2 === 1 ? theme.row2 : theme.row1;
+                x = borderW;
+
+                cols.forEach(col => {
+                    if (col.type === 'size') {
+                        ctx.fillStyle = theme.accent;
+                        ctx.fillRect(x, y, col.width, cellH);
+                        ctx.fillStyle    = accentText;
+                        ctx.font         = `800 ${dataFontSize}px ${FONT}`;
+                        ctx.textAlign    = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(String(size), x + col.width / 2, y + cellH / 2);
+                    } else {
+                        const p = col.data.prices.find(pr => pr.size === size);
+                        const price = p ? p.price : 0;
+                        ctx.fillStyle = rowBg;
+                        ctx.fillRect(x, y, col.width, cellH);
+                        ctx.fillStyle    = theme.text;
+                        ctx.font         = `700 ${dataFontSize}px ${FONT}`;
+                        ctx.textAlign    = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(price === 0 ? '------' : String(price), x + col.width / 2, y + cellH / 2);
+                    }
+                    x += col.width;
+                });
+
+                // row grid lines
+                ctx.strokeStyle = '#1e3a8a';
+                ctx.lineWidth   = 1;
+                ctx.beginPath(); ctx.moveTo(borderW, y + cellH); ctx.lineTo(totalW - borderW, y + cellH); ctx.stroke();
+
+                y += cellH;
+            });
+
+            // ── vertical grid lines ──
+            ctx.strokeStyle = '#1e3a8a';
+            ctx.lineWidth   = 1;
+            x = borderW;
+            cols.forEach((col, i) => {
+                x += col.width;
+                if (i < cols.length - 1) {
+                    ctx.beginPath(); ctx.moveTo(x, borderW + headerH); ctx.lineTo(x, totalH - borderW); ctx.stroke();
+                }
+            });
+
+            return canvas;
+        }
+
+        /* Helper: download or share a canvas blob */
+        async function downloadOrShareCanvas(canvas, filename, successMsg) {
+            const blob = await new Promise((resolve, reject) => {
+                canvas.toBlob(b => { if (b) resolve(b); else reject(new Error('toBlob null')); }, 'image/png', 1.0);
+            });
+            if (!blob || blob.size === 0) { showToast('فشل إنشاء الصورة', 'error'); return; }
+
+            const file = new File([blob], filename, { type: 'image/png' });
+            const canShare = navigator.share &&
+                typeof navigator.canShare === 'function' &&
+                navigator.canShare({ files: [file] });
+
+            if (canShare) {
+                try {
+                    await Promise.race([
+                        navigator.share({ files: [file], title: filename }),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 120000))
+                    ]);
+                    showToast(successMsg || 'تم فتح نافذة المشاركة', 'success');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                }
+            }
+            // Download fallback
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            if (!canShare) showToast(successMsg || 'تم تنزيل الصورة', 'success');
         }
 
         async function ensureSheetJS() {
@@ -2490,56 +2709,14 @@
             }
         }
 
-        /** Export pricing model as image (PNG) using canvas */
+        /** Export pricing model as image (PNG) using Direct Canvas API — no html2canvas needed */
         async function exportModelToImage(modelId) {
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
             if (!model) return;
             try {
-                // Load html2canvas from CDN
-                await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-                if (typeof html2canvas !== 'function') throw new Error('html2canvas not available');
-
-                // Create a temporary table element for rendering
-                const tempDiv = document.createElement('div');
-                tempDiv.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;padding:32px;font-family:Cairo,sans-serif;direction:rtl;width:1200px;';
-                tempDiv.innerHTML = `
-                    <div style="text-align:right;margin-bottom:20px;">
-                        <h2 style="font-size:24px;font-weight:800;color:#1e293b;margin:0 0 6px 0;">${escapeHtml(model.pricingModelName)}</h2>
-                        <p style="font-size:13px;color:#64748b;margin:0;">${escapeHtml(appState.companySettings.name)} — ${new Date().toLocaleDateString('ar-EG')}</p>
-                    </div>
-                    <table style="border-collapse:collapse;width:100%;font-size:13px;">
-                        <thead>
-                            <tr style="background:#f1f5f9;">
-                                <th style="border:1px solid #e2e8f0;padding:10px 12px;font-weight:700;text-align:right;">الفئة</th>
-                                ${SIZES.map(s => `<th style="border:1px solid #e2e8f0;padding:8px 4px;font-weight:700;text-align:center;font-size:11px;">${s}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${model.data.map((cat, idx) => `
-                                <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'};">
-                                    <td style="border:1px solid #e2e8f0;padding:10px 12px;font-weight:700;">${escapeHtml(cat.name)}</td>
-                                    ${SIZES.map(size => {
-                                        const p = cat.prices.find(pr => pr.size === size);
-                                        const price = p ? p.price : 0;
-                                        return `<td style="border:1px solid #e2e8f0;padding:8px 4px;text-align:center;${price > 0 ? 'color:#16a34a;font-weight:600;' : 'color:#cbd5e0;'}">${price > 0 ? price.toFixed(2) : '-'}</td>`;
-                                    }).join('')}
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-                document.body.appendChild(tempDiv);
-
-                // Wait for fonts to render
-                await new Promise(r => setTimeout(r, 200));
-                const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-                document.body.removeChild(tempDiv);
-
-                const link = document.createElement('a');
-                link.download = `${model.pricingModelName}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                showToast('تم تصدير الصورة بنجاح', 'success');
+                const canvas = drawModelToCanvas(model);
+                const filename = `${model.pricingModelName}.png`;
+                await downloadOrShareCanvas(canvas, filename, 'تم تصدير الصورة بنجاح');
             } catch (err) {
                 console.error('Image export error:', err);
                 showToast('حدث خطأ أثناء تصدير الصورة: ' + err.message, 'error');
@@ -2558,57 +2735,10 @@
             }
         
             try {
-                await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-                if (typeof html2canvas !== 'function') throw new Error('html2canvas not available');
-        
-                const tableEl = document.getElementById('vm-spreadsheet-' + modelId);
-                if (!tableEl) { showToast('تعذر العثور على الجدول', 'error'); return; }
-        
-                const canvas = await html2canvas(tableEl, {
-                    scale: 3,
-                    backgroundColor: '#ffffff',
-                    useCORS: true,
-                    allowTaint: false,
-                    logging: false,
-                    onclone: (clonedDoc) => {
-                        const el = clonedDoc.getElementById('vm-spreadsheet-' + modelId);
-                        if (!el) return;
-        
-                        // Strip any box-shadow / border-radius that leaks
-                        el.style.boxShadow = 'none';
-                        el.style.borderRadius = '0';
-        
-                        // Inject a stylesheet that forces center alignment
-                        // on all td/th — this is the most reliable way for html2canvas
-                        const s = clonedDoc.createElement('style');
-                        s.textContent = `
-                            #vm-spreadsheet-${modelId} td,
-                            #vm-spreadsheet-${modelId} th {
-                                text-align: center !important;
-                                vertical-align: middle !important;
-                                line-height: 1.3 !important;
-                            }
-                            #vm-spreadsheet-${modelId} * {
-                                font-family: 'Cairo', Arial, sans-serif !important;
-                                box-sizing: border-box !important;
-                            }
-                        `;
-                        clonedDoc.head.appendChild(s);
-        
-                        // Also set inline style on every cell as belt-and-suspenders
-                        el.querySelectorAll('td, th').forEach(cell => {
-                            cell.style.textAlign    = 'center';
-                            cell.style.verticalAlign = 'middle';
-                        });
-                    }
-                });
-        
-                const blob = await new Promise((resolve, reject) => {
-                    canvas.toBlob(b => { if (b) resolve(b); else reject(new Error('toBlob null')); }, 'image/png', 1.0);
-                });
-                if (!blob || blob.size === 0) { showToast('فشل إنشاء الصورة', 'error'); return; }
-        
-                // Build filename from meta
+                // Direct Canvas API — no CDN, no DOM screenshotting, no RTL bugs
+                const canvas = drawModelToCanvas(model);
+
+                // Build filename from meta (same logic as before)
                 const meta = getModelMeta(modelId);
                 const rawDate = (meta.dateLabel || getTodayArabicDate())
                     .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
@@ -2616,29 +2746,8 @@
                 const tag2part = meta.tag2 ? '_' + meta.tag2 : '';
                 const letter   = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
                 const filename  = `${letter}${tag2part}_${rawDate}.png`;
-        
-                const file = new File([blob], filename, { type: 'image/png' });
-                const canShare = navigator.share &&
-                    typeof navigator.canShare === 'function' &&
-                    navigator.canShare({ files: [file] });
-        
-                if (canShare) {
-                    try {
-                        await Promise.race([
-                            navigator.share({ files: [file], title: model.pricingModelName }),
-                            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 120000))
-                        ]);
-                        showToast('تم فتح نافذة المشاركة', 'success');
-                    } catch (err) {
-                        if (err.name === 'AbortError') return;
-                    }
-                }
-                // Always also offer download (mobile keeps both share + download)
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = filename;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                if (!canShare) showToast('تم تنزيل صورة النموذج', 'success');
+
+                await downloadOrShareCanvas(canvas, filename, 'تم تنزيل صورة النموذج');
         
             } catch (err) {
                 console.error('[exportViewModelAsImage]', err);
@@ -3051,66 +3160,33 @@
             const { container, element } = getBillPdfElements();
             if (!container || !element) { setLoading('sharingImage', false); showToast('تعذر العثور على محتوى الفاتورة للتصدير', 'error'); return; }
             try {
-                await ensureHtml2Pdf();
-                await ensureHtml2Canvas(); // html2pdf.bundle does NOT expose html2canvas as a global
-                const pdfOpt = buildBillPdfOptions(filename);
+                // ── modern-screenshot (replaces html2canvas) ──
+                // Better RTL/Arabic support, no vertical-align bugs, smaller bundle,
+                // and scale:2 produces quality equivalent to html2canvas scale:5.
+                await ensureModernScreenshot();
+                const { domToPng } = window.modernScreenshot;
 
-                // Use html2canvas directly for a reliable PNG capture.
-                // html2pdf().output('img') goes through the PDF pipeline first and can produce
-                // an empty/invalid image (the 214B bug).  html2canvas gives us a real Canvas.
-                // Use a compact width for the shared image (similar to print/A4 layout)
-                // so columns stay close together and the bill is easy to read.
-                // The PDF onclone sets 1100px which is too wide for a share image.
                 const IMAGE_BILL_WIDTH = 500;
-                const h2cOpts = {
-                    ...pdfOpt.html2canvas,
-                    scale: 5,
-                    useCORS: pdfOpt.html2canvas.useCORS,
-                    allowTaint: false,
-                    logging: false,
-                    onclone: (clonedDoc) => {
-                        const bill = clonedDoc.getElementById('printable-bill');
-                        if (bill) {
-                            bill.style.setProperty('width', IMAGE_BILL_WIDTH + 'px', 'important');
-                            bill.style.setProperty('min-width', IMAGE_BILL_WIDTH + 'px', 'important');
-                            bill.style.setProperty('max-width', 'none', 'important');
-                            bill.style.setProperty('margin', '0 auto', 'important');
-                            bill.style.setProperty('padding', '32px', 'important');
-                            bill.style.setProperty('display', 'block', 'important');
-                        }
-                        // Fix html2canvas vertical-align bug on inline-block category badges
-                        bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
-                            td.style.verticalAlign = 'middle';
-                        });
-                        bill?.querySelectorAll('.bill-table span[style*="background-color"], .bill-table span[style*="background-color"]').forEach(span => {
-                            span.style.display = 'inline-flex';
-                            span.style.alignItems = 'center';
-                            span.style.lineHeight = '1';
-                        });
-                        const cloneApp = clonedDoc.getElementById('app');
-                        if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
-                    }
-                };
-
-                let canvas;
-                try {
-                    canvas = await html2canvas(element, h2cOpts);
-                } catch (canvasErr) {
-                    if (isCanvasSecurityError(canvasErr)) {
-                        canvas = await withPdfSafeElement(element, async (safeEl) => {
-                            return await html2canvas(safeEl, h2cOpts);
-                        });
-                    } else {
-                        throw canvasErr;
-                    }
-                }
-
-                // Convert canvas to PNG blob directly (no data-URL round-trip)
-                const blob = await new Promise((resolve, reject) => {
-                    canvas.toBlob((b) => {
-                        if (b) resolve(b); else reject(new Error('canvas.toBlob returned null'));
-                    }, 'image/png', 1.0);
+                const dataUrl = await domToPng(element, {
+                    scale: 2,
+                    backgroundColor: '#ffffff',
+                    fetchOptions: { mode: 'cors' },
+                    style: {
+                        width: IMAGE_BILL_WIDTH + 'px',
+                        minWidth: IMAGE_BILL_WIDTH + 'px',
+                        maxWidth: 'none',
+                        margin: '0 auto',
+                        padding: '32px',
+                        display: 'block',
+                    },
+                    features: {
+                        removeControlCharacter: true,
+                    },
                 });
+
+                // Convert dataURL to blob
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
 
                 if (!blob || blob.size === 0) {
                     showToast('فشل إنشاء صورة الفاتورة', 'error');
@@ -3171,37 +3247,25 @@
                 const msg = String(error.message || '');
                 if (error.name === 'NotAllowedError' || msg.includes('user gesture') || msg.includes('Must be handling') || msg.includes('NotAllowedError')) {
                     showToast('جاري التنزيل بدلاً من المشاركة (انتهت صلاحية الإجراء)', 'info');
+                    // Fallback: try modern-screenshot with wider width
                     try {
-                        const fbH2cOpts = {
-                            ...buildBillPdfOptions(filename).html2canvas,
-                            scale: 3,
-                            onclone: (clonedDoc) => {
-                                const bill = clonedDoc.getElementById('printable-bill');
-                                if (bill) {
-                                    bill.style.setProperty('width', '800px', 'important');
-                                    bill.style.setProperty('min-width', '800px', 'important');
-                                    bill.style.setProperty('max-width', 'none', 'important');
-                                    bill.style.setProperty('margin', '0 auto', 'important');
-                                    bill.style.setProperty('padding', '32px', 'important');
-                                    bill.style.setProperty('display', 'block', 'important');
-                                }
-                                // Fix html2canvas vertical-align bug on inline-block category badges
-                                bill?.querySelectorAll('.bill-table tbody td').forEach(td => {
-                                    td.style.verticalAlign = 'middle';
-                                });
-                                bill?.querySelectorAll('.bill-table span[style*="background-color"]').forEach(span => {
-                                    span.style.display = 'inline-flex';
-                                    span.style.alignItems = 'center';
-                                    span.style.lineHeight = '1';
-                                });
-                                const cloneApp = clonedDoc.getElementById('app');
-                                if (cloneApp) cloneApp.classList.add('pdf-capture-mode');
-                            }
-                        };
-                        const fbCanvas = await html2canvas(element, fbH2cOpts);
-                        const fbBlob = await new Promise((resolve, reject) => {
-                            fbCanvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob null')); }, 'image/png', 1.0);
+                        const { domToPng } = window.modernScreenshot;
+                        const fbDataUrl = await domToPng(element, {
+                            scale: 2,
+                            backgroundColor: '#ffffff',
+                            fetchOptions: { mode: 'cors' },
+                            style: {
+                                width: '800px',
+                                minWidth: '800px',
+                                maxWidth: 'none',
+                                margin: '0 auto',
+                                padding: '32px',
+                                display: 'block',
+                            },
+                            features: { removeControlCharacter: true },
                         });
+                        const fbRes = await fetch(fbDataUrl);
+                        const fbBlob = await fbRes.blob();
                         if (fbBlob && fbBlob.size > 0) {
                             const url = URL.createObjectURL(fbBlob);
                             const a = document.createElement('a'); a.href = url; a.download = filename;
