@@ -1246,7 +1246,7 @@
             const tag1       = meta.tag1 || '';
             const tag2       = meta.tag2 || '';
             const dateLabel  = meta.dateLabel || getTodayArabicDate();
-            const fontSize   = parseFloat(meta.fontSize) || 0.9;
+            const fontSize   = parseFloat(meta.fontSize) || 1.7;
             const firstLetter = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
             const displayName = tag2 ? firstLetter + ' ' + tag2 : firstLetter;
 
@@ -3756,7 +3756,7 @@
             const tag1       = meta.tag1 || '';
             const tag2       = meta.tag2 || '';
             const dateLabel  = meta.dateLabel || getTodayArabicDate();
-            const fontSize   = meta.fontSize || '0.9';
+            const fontSize   = meta.fontSize || '1.7';
             const displayName = tag2 ? `${firstLetter} ${escapeHtml(tag2)}` : firstLetter;
         
             const lightFills = ['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5',
