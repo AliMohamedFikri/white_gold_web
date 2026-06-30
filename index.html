@@ -2168,7 +2168,7 @@
                     return { n: item.category, s: sizeVal, q: item.quantity, p: item.unitPrice };
                 } else {
                     const catIndex = selectedModel ? selectedModel.data.findIndex(c => c.name === item.category) : -1;
-                    return { c: catIndex >= 0 ? catIndex : 0, s: typeof item.size === 'number' ? item.size : parseInt(item.size), q: item.quantity, p: item.unitPrice };
+                    return { n: item.category, c: catIndex >= 0 ? catIndex : 0, s: typeof item.size === 'number' ? item.size : parseInt(item.size), q: item.quantity, p: item.unitPrice };
                 }
             });
         }
@@ -2176,8 +2176,9 @@
         function expandBillItems(items, allModels) {
             return items.map(item => {
                 if (item.c !== undefined && item.c !== null) {
-                    let catName = 'غير معروف';
-                    if (allModels && allModels.length > 0) catName = allModels[0].data[item.c]?.name || catName;
+                    let catName = item.n || '';
+                    if (!catName && allModels && allModels.length > 0) catName = allModels[0].data[item.c]?.name || '';
+                    if (!catName) catName = 'غير معروف';
                     return { category: catName, size: item.s, quantity: item.q, unitPrice: item.p, total: item.q * item.p, isCustom: false };
                 } else {
                     return { category: item.n || '', size: item.s === -1 ? '—' : item.s, quantity: item.q, unitPrice: item.p, total: item.q * item.p, isCustom: true };
@@ -2246,6 +2247,7 @@
 
                 appState.bills = data.filter(d => d.type === 'bill').map(b => {
                     const modelName = b.mn || b.billModelName || '';
+                    const modelId = b.mi || b.billModelId || '';
                     const rawItems = b.bi || b.billItems || [];
                     const items = Array.isArray(rawItems) ? rawItems : (rawItems?.value || []);
                     let expandedItems;
@@ -2259,8 +2261,12 @@
                             isCustom: !!i.isCustom
                         }));
                     } else {
-                        const modelVersions = appState.allPricingModels.filter(m => m.pricingModelName === modelName);
-                        expandedItems = expandBillItems(items, modelVersions);
+                        const model = appState.allPricingModels.find(m => m.__backendId === modelId)
+                            || appState.allPricingModels.find(m => m.pricingModelName === modelName)
+                            || appState.pricingModels.find(m => m.__backendId === modelId)
+                            || appState.pricingModels.find(m => m.pricingModelName === modelName)
+                            || null;
+                        expandedItems = expandBillItems(items, model ? [model] : []);
                     }
                     return {
                         ...b,
@@ -4233,7 +4239,7 @@
                             <div class="space-y-4">
                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <select id="billCategory" onchange="onBillCategoryChange()" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
-                                        ${appState.selectedModel.data.map(cat => `<option value="${escapeHtml(cat.name)}" ${(lastInput.category === cat.name || (!lastInput.category && cat.name === 'حماله')) ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('')}
+                                        ${appState.selectedModel.data.map((cat, index) => `<option value="${escapeHtml(cat.name)}" ${(lastInput.category === cat.name || (!lastInput.category && index === 0)) ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`).join('')}
                                         <option value="مخصص" ${lastInput.category === 'مخصص' ? 'selected' : ''}>مخصص</option>
                                     </select>
                                 </div>
