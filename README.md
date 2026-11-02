@@ -78,6 +78,7 @@ Full CRUD management for pricing matrices used in bill generation.
 - Model view header layout controls: set the table width and the relative date, tag, and name column widths; long header text shrinks to fit without increasing the configured font size
 - Model themes are selected by the first letter of the model name and support configurable accent, header, row, number, and size-tag colors
 - Size tags share the model theme and divide their cell space evenly between the numeric size and its standard tag
+- Model size-tag text colors are applied consistently in model views, editing and adjustment previews, settings previews, and shared model images; legacy light badge colors are migrated to readable theme colors
 - Price matrix editor with inline number inputs
 - Bulk operations: fill all prices, clear all prices
 - Duplicate model functionality
@@ -97,6 +98,7 @@ Complete billing workflow from creation to delivery.
 - Print via native browser print with print-optimized CSS
 - Download PDF via html2pdf.js
 - Share PDF via Web Share API (mobile) or clipboard/download fallback
+- Invoice size tags retain their invoice-specific text styling without a background or border; model theme colors do not alter invoice rendering or sharing structure
 - Auto-generated bill numbers and date tracking
 - Sync status badges per bill
 
@@ -168,6 +170,8 @@ Security has been hardened across three rounds of work. See `SECURITY.md` for th
 ### 12. Performance Optimizations
 
 - **Lazy-loaded heavy libraries** — html2pdf (~800 KB) and SheetJS (~550 KB) load only on first use
+- **Deferred invoice rendering** — PDF generation starts only when the user requests download or sharing, while generated invoice blobs remain cached for subsequent actions
+- **Render-side caching** — model metadata and theme configuration are cached during the session, and pricing payloads are parsed once per data update
 - **Debounced rendering** — all `render()` calls batched into a single DOM update per animation frame
 - **Guard on `render()`** — skipped until all bill templates are fully loaded (`_appReady` flag)
 - **Resource hints** — `dns-prefetch` for CDNs, `preconnect` for Google Fonts

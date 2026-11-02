@@ -1405,7 +1405,14 @@
                         ctx.font         = `800 ${dataFontSize}px ${FONT}`;
                         ctx.textAlign    = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.fillText(formatSizeLabel(size, ' '), x + col.width / 2, y + cellH / 2);
+                        const sizeTag = getSizeTag(size);
+                        if (sizeTag) {
+                            ctx.fillText(String(size), x + col.width * 0.25, y + cellH / 2);
+                            ctx.fillStyle = getSizeTagTextColor(theme);
+                            ctx.fillText(sizeTag, x + col.width * 0.75, y + cellH / 2);
+                        } else {
+                            ctx.fillText(String(size), x + col.width / 2, y + cellH / 2);
+                        }
                     } else {
                         const p = (col.data.prices || []).find(pr => parseInt(pr.size) === size);
                         const price = p ? p.price : 0;
@@ -1480,10 +1487,18 @@
         }
 
         function getModelMeta(backendId) {
+            if (!window._modelMetaCache) window._modelMetaCache = {};
+            if (window._modelMetaCache[backendId]) return window._modelMetaCache[backendId];
             try {
                 const all = JSON.parse(storageGet('wg_model_meta') || '{}');
-                return all[backendId] || { dateLabel: '' };
-            } catch (e) { return { dateLabel: '' }; }
+                const meta = all[backendId] || { dateLabel: '' };
+                window._modelMetaCache[backendId] = meta;
+                return meta;
+            } catch (e) {
+                const meta = { dateLabel: '' };
+                window._modelMetaCache[backendId] = meta;
+                return meta;
+            }
         }
         
         function saveModelMeta(backendId, meta) {
@@ -1491,6 +1506,8 @@
                 const all = JSON.parse(storageGet('wg_model_meta') || '{}');
                 all[backendId] = { ...(all[backendId] || {}), ...meta };
                 storageSet('wg_model_meta', JSON.stringify(all));
+                if (!window._modelMetaCache) window._modelMetaCache = {};
+                window._modelMetaCache[backendId] = all[backendId];
             } catch (e) { console.error('saveModelMeta', e); }
         }
 
@@ -1601,13 +1618,6 @@
                 attachEventListeners();
             }
 
-            if (appState.currentView === 'viewBill') {
-                setTimeout(() => {
-                    if (appState.currentView === 'viewBill' && !appState.currentBillPdfBlob) {
-                        requestAnimationFrame(() => preGenerateBillPdf());
-                    }
-                });
-            }
         }
 
         function setupImageFallback(imgElement, productName) {
@@ -1646,29 +1656,40 @@
         }
 
         const MODEL_THEME_DEFAULTS = {
-            A: { header: '#118EFF', accent: '#ED7D31', tagColor: '#FFF0E6', row1: '#F7CAAC', row2: '#FBE4D5', text: '#000000', label: 'A — برتقالي' },
-            B: { header: '#118EFF', accent: '#70AD47', tagColor: '#EAF6E3', row1: '#E2EFD9', row2: '#C5E0B3', text: '#000000', label: 'B — أخضر' },
-            C: { header: '#118EFF', accent: '#FFED59', tagColor: '#FFFBD0', row1: '#FFF3C3', row2: '#FFD9C2', text: '#000000', label: 'C — أصفر' },
-            D: { header: '#118EFF', accent: '#4472C4', tagColor: '#E8F0FF', row1: '#B4C6E7', row2: '#D9E2F3', text: '#000000', label: 'D — أزرق' },
-            DEFAULT: { header: '#1d4ed8', accent: '#ea580c', tagColor: '#FFF0E6', row1: '#FEF3C7', row2: '#FDE8D8', text: '#000000', label: 'افتراضي' }
+            A: { header: '#118EFF', accent: '#ED7D31', tagColor: '#7C2D12', row1: '#F7CAAC', row2: '#FBE4D5', text: '#000000', label: 'A — برتقالي' },
+            B: { header: '#118EFF', accent: '#70AD47', tagColor: '#14532D', row1: '#E2EFD9', row2: '#C5E0B3', text: '#000000', label: 'B — أخضر' },
+            C: { header: '#118EFF', accent: '#FFED59', tagColor: '#713F12', row1: '#FFF3C3', row2: '#FFD9C2', text: '#000000', label: 'C — أصفر' },
+            D: { header: '#118EFF', accent: '#4472C4', tagColor: '#1E3A8A', row1: '#B4C6E7', row2: '#D9E2F3', text: '#000000', label: 'D — أزرق' },
+            DEFAULT: { header: '#1d4ed8', accent: '#ea580c', tagColor: '#9A3412', row1: '#FEF3C7', row2: '#FDE8D8', text: '#000000', label: 'افتراضي' }
         };
         
         // Load saved overrides from localStorage, fall back to defaults
         function getModelThemeConfig() {
+            if (window._modelThemeConfigCache) return window._modelThemeConfigCache;
             try {
                 const saved = JSON.parse(storageGet('wg_model_themes') || '{}');
                 const result = {};
                 for (const key of Object.keys(MODEL_THEME_DEFAULTS)) {
-                    result[key] = { ...MODEL_THEME_DEFAULTS[key], ...(saved[key] || {}) };
+                    const defaults = MODEL_THEME_DEFAULTS[key];
+                    const overrides = saved[key] || {};
+                    const legacyTagColors = ['#FFF0E6', '#EAF6E3', '#FFFBD0', '#E8F0FF'];
+                    const storedTagColor = String(overrides.tagColor || '').toUpperCase();
+                    const tagColor = storedTagColor && !legacyTagColors.includes(storedTagColor)
+                        ? overrides.tagColor
+                        : defaults.tagColor;
+                    result[key] = { ...defaults, ...overrides, tagColor };
                 }
+                window._modelThemeConfigCache = result;
                 return result;
             } catch (e) {
-                return { ...MODEL_THEME_DEFAULTS };
+                window._modelThemeConfigCache = { ...MODEL_THEME_DEFAULTS };
+                return window._modelThemeConfigCache;
             }
         }
         
         function saveModelThemeConfig(themes) {
             storageSet('wg_model_themes', JSON.stringify(themes));
+            window._modelThemeConfigCache = null;
         }
         
         // Get theme for a model by checking the first letter of its name
@@ -2283,15 +2304,19 @@
             return (r * 299 + g * 587 + b * 114) >= 150000 ? '#000000' : '#ffffff';
         }
 
+        function getSizeTagTextColor(theme) {
+            if (!theme) return '#4338ca';
+            return theme.tagColor || theme.accent || theme.text || '#1e3a8a';
+        }
+
         /** HTML label for a size with a small tag badge, e.g. 44 [M]. */
         function formatSizeBadge(size, theme = null) {
             if (size === null || size === undefined || size === '' || size === '—') return '—';
             const tag = getSizeTag(size);
             const label = escapeHtml(String(size));
-            const tagColor = theme?.tagColor || '#e0e7ff';
-            const tagText = getContrastTextColor(tagColor);
+            const tagText = getSizeTagTextColor(theme);
             return tag
-                ? `<span class="size-with-tag"><span>${label}</span><span class="size-tag" style="background:${tagColor};color:${tagText};">${escapeHtml(tag)}</span></span>`
+                ? `<span class="size-with-tag"><span>${label}</span><span class="size-tag" style="color:${tagText};">${escapeHtml(tag)}</span></span>`
                 : label;
         }
 
@@ -2472,21 +2497,7 @@
                     };
                 }
 
-                appState.pricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
-                    const versions = Array.isArray(group.data) ? group.data : [];
-                    return versions.filter(version => !version.isDeleted).map(version => {
-                        const parsed = parseModelPayload(version.pricingModelData, version.data);
-                        return {
-                            ...version,
-                            type: 'pricingModel',
-                            pricingModelName: group.pricingModelName,
-                            data: parsed.data,
-                            sizes: parsed.sizes
-                        };
-                    });
-                });
-
-                appState.allPricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
+                const allPricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
                     const versions = Array.isArray(group.data) ? group.data : [];
                     return versions.map(version => {
                         const parsed = parseModelPayload(version.pricingModelData, version.data);
@@ -2499,6 +2510,9 @@
                         };
                     });
                 });
+
+                appState.allPricingModels = allPricingModels;
+                appState.pricingModels = allPricingModels.filter(version => !version.isDeleted);
 
                 appState.bills = data.filter(d => d.type === 'bill').map(b => {
                     const modelName = b.mn || b.billModelName || '';
@@ -3501,21 +3515,6 @@
             }
         }
 
-        async function preGenerateBillPdf() {
-            if (!appState.currentBill) return;
-            if (appState.currentBillPdfBlob && appState.currentBillPdfBlob.size > 0) return;
-            if (appState.loadingStates.sharing) return;
-            const { container, element } = getBillPdfElements();
-            if (!container || !element) return;
-            const filename = `invoice_${appState.currentBill.billNumber}.pdf`;
-            const opt = buildBillPdfOptions(filename);
-            try {
-                const blob = await runHtml2PdfWithFallback(element, opt, 'blob');
-                if (blob && blob.size > 0) { appState.currentBillPdfBlob = blob; console.log('[preGenerateBillPdf] cached:', blob.size, 'bytes'); }
-                else console.warn('[preGenerateBillPdf] empty blob generated');
-            } catch (e) { console.warn('[preGenerateBillPdf] failed:', e); }
-        }
-
         async function shareBill() {
             console.log('[shareBill] started');
             if (!appState.currentBill) { showToast('لا توجد فاتورة نشطة', 'error'); return; }
@@ -4403,6 +4402,7 @@
             if (appState.editingModel) {
                 const editSizes = getModelSizes(appState.editingModel);
                 const missingSizes = SIZES.filter(s => !editSizes.includes(s));
+                const editTheme = getModelTheme(appState.editingModel.pricingModelName);
                 return `
                     ${adjustModalHtml}
                     <div class="fade-in">
@@ -4452,7 +4452,7 @@
                                 <thead>
                                     <tr class="border-b-2" style="border-color: ${config.primary_color};">
                                         <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>
-                                        ${editSizes.map(s => `<th class="text-center py-3 px-3 font-bold"><div class="flex flex-col items-center gap-1">${formatSizeBadge(s)}<button type="button" onclick="removeEditModelSize(${s});" class="text-[10px] font-semibold text-red-500 hover:text-red-700">حذف</button></div></th>`).join('')}
+                                        ${editSizes.map(s => `<th class="text-center py-3 px-3 font-bold"><div class="flex flex-col items-center gap-1">${formatSizeBadge(s, editTheme)}<button type="button" onclick="removeEditModelSize(${s});" class="text-[10px] font-semibold text-red-500 hover:text-red-700">حذف</button></div></th>`).join('')}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4533,6 +4533,7 @@
                         ${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center" style="background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(217,119,6,0.08));">${WGIcon('pricing', 40, '#f59e0b')}</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3><p class="text-lg opacity-75">قم بإنشاء نموذج التسعير الأول الخاص بك</p></div>` :
                     appState.pricingModels.map(model => {
                         const modelSizes = getModelSizes(model);
+                        const modelTheme = getModelTheme(model.pricingModelName);
                         const totalPrices = model.data.reduce((sum, cat) => sum + (cat.prices || []).filter(p => p.price > 0).length, 0);
                         const totalPossible = model.data.length * modelSizes.length;
                         const percent = totalPossible > 0 ? Math.round((totalPrices / totalPossible) * 100) : 0;
@@ -4570,7 +4571,7 @@
                                     <div class="flex flex-wrap gap-2 mb-3">
                                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">${model.data.length} أعمدة</span>
                                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">${modelSizes.length} مقاس</span>
-                                        ${modelSizes.map(s => `<span class="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">${formatSizeBadge(s)}</span>`).join('')}
+                                        ${modelSizes.map(s => `<span class="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">${formatSizeBadge(s, modelTheme)}</span>`).join('')}
                                     </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg relative" style="background-color: ${config.background_color};"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn absolute top-2 left-2" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${(cat.prices || []).filter(p => p.price > 0).length}/${modelSizes.length} مقاسات مسعرة</p></div>`).join('')}
@@ -4593,6 +4594,7 @@
             const modelSizes = getModelSizes(model);
             const firstSize = modelSizes[0] || 22;
             const lastSize = modelSizes[modelSizes.length - 1] || 56;
+            const modelTheme = getModelTheme(model.pricingModelName);
 
             return `
             <div class="modal-overlay" onclick="if(event.target===this)closeAdjustModal();">
@@ -4684,7 +4686,7 @@
                                     <thead class="sticky top-0 bg-slate-50 z-10">
                                         <tr class="border-b-2 border-slate-200">
                                             <th class="text-right py-2 px-3 font-bold sticky right-0 bg-slate-50 z-20">الفئة</th>
-                                            ${modelSizes.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${formatSizeBadge(s)}</th>`).join('')}
+                                            ${modelSizes.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${formatSizeBadge(s, modelTheme)}</th>`).join('')}
                                         </tr>
                                     </thead>
                                     <tbody>
