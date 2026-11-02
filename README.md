@@ -71,8 +71,13 @@ The landing page is the first thing visitors see. It is fully public — no logi
 Full CRUD management for pricing matrices used in bill generation.
 
 - Create, view, edit, and delete pricing models
-- Size range: 22 to 56 (step 2) covering all standard clothing sizes
-- Category management with configurable product categories
+- Each model stores its own size range (created via from/to, or imported from Excel), so a 44–54 model is never padded with 22–42 or 56
+- Size labels include standard tags where applicable: 42 = S, 44 = M, 46 = L, 48 = XL, 50 = XXL, 52 = 3XL, 54 = 4XL, 56 = 5XL
+- Edit existing model names directly, with duplicate-name validation
+- Fully flexible model headers: add, rename, or remove category columns when creating or editing a model
+- Model view header layout controls: set the table width and the relative date, tag, and name column widths; long header text shrinks to fit without increasing the configured font size
+- Model themes are selected by the first letter of the model name and support configurable accent, header, row, number, and size-tag colors
+- Size tags share the model theme and divide their cell space evenly between the numeric size and its standard tag
 - Price matrix editor with inline number inputs
 - Bulk operations: fill all prices, clear all prices
 - Duplicate model functionality
@@ -203,17 +208,11 @@ white_gold_web/
   "type": "pricingModel",
   "pricingModelName": "نموذج التسعير الأساسي",
   "__backendId": "1714000000000",
-  "data": [
-    {
-      "name": "سليب",
-      "prices": [
-        { "size": 22, "price": 45.00 },
-        { "size": 24, "price": 50.00 }
-      ]
-    }
-  ]
+  "pricingModelData": "{\"sizes\":[44,46,48,50,52,54],\"categories\":[{\"name\":\"سليب\",\"prices\":[{\"size\":44,\"price\":45},{\"size\":46,\"price\":50}]}]}"
 }
 ```
+
+`pricingModelData` is a JSON string containing the model's explicit `sizes` list and its `categories`. Older models that stored a plain JSON array of categories are still supported and have their size range derived from the stored prices.
 
 ### Bill
 

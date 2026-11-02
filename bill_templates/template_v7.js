@@ -202,7 +202,7 @@
                                                 <td class="text-center">
                                                     <span class="inline-block px-1 rounded-md text-base font-bold" style="color: ${config.primary_color};">${escapeHtml(item.category)}</span>
                                                 </td>
-                                                <td class="text-center font-bold">${item.size}</td>
+                                                <td class="text-center font-bold">${formatSizeBadge(item.size)}</td>
                                             </tr>
                                         `).join('')}
                                     </tbody>

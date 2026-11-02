@@ -611,6 +611,34 @@
             font-weight: 800;
         }
 
+        /* Size + tag display (e.g. 42 S) */
+        .size-with-tag {
+            display: flex;
+            align-items: center;
+            justify-content: stretch;
+            width: 100%;
+            gap: 0;
+            white-space: nowrap;
+        }
+
+        .size-with-tag > span {
+            flex: 1 1 50%;
+            min-width: 0;
+            text-align: center;
+        }
+
+        .size-tag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 3px;
+            border-radius: 9999px;
+            font-size: 0.68em;
+            font-weight: 800;
+            line-height: 1.55;
+            vertical-align: middle;
+        }
+
         @keyframes glowPulse {
 
             0%,
@@ -1243,12 +1271,13 @@
          * ─────────────────────────────────────────────────────────── */
         function drawModelToCanvas(model, opts = {}) {
             const meta       = getModelMeta(model.__backendId);
-            const tag1       = meta.tag1 || '';
-            const tag2       = meta.tag2 || '';
+            const tag        = Object.prototype.hasOwnProperty.call(meta, 'tag') ? meta.tag : (meta.tag1 || '');
             const dateLabel  = meta.dateLabel || getTodayArabicDate();
             const fontSize   = parseFloat(meta.fontSize) || 1.7;
             const firstLetter = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
-            const displayName = tag2 ? firstLetter + ' ' + tag2 : firstLetter;
+            const displayName = Object.prototype.hasOwnProperty.call(meta, 'name')
+                ? meta.name
+                : (meta.tag2 ? firstLetter + ' ' + meta.tag2 : firstLetter);
 
             const theme = getModelTheme(model.pricingModelName);
             const lightFills = ['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5',
@@ -1261,7 +1290,7 @@
             const headerH    = 120;                           // top banner row
             const colHeaderH = 80;                           // category-name row
             const cellH      = Math.round(44 * fontSize / 0.9); // data rows
-            const sizeColW   = 150;                           // size column
+            const sizeColW   = 170;                           // size column (size + tag)
             const catColW    = 150;                           // each category column
             const borderW    = 3;                            // outer border
 
@@ -1279,7 +1308,8 @@
             // If you want the "Size" column on the far right for RTL:
             cols.reverse();
 
-            const numSizes = SIZES.length;
+            const modelSizes = getModelSizes(model);
+            const numSizes = modelSizes.length;
             const totalW   = borderW * 2 + cols.reduce((sum, c) => sum + c.width, 0);
             const totalH   = borderW * 2 + headerH + colHeaderH + numSizes * cellH;
 
@@ -1315,7 +1345,7 @@
             ctx.font         = `800 ${headerFontSize}px ${FONT}`;
             ctx.textAlign    = 'right';
             ctx.textBaseline = 'middle';
-            ctx.fillText(tag1, totalW - borderW - 12, y + headerH / 2);
+            ctx.fillText(tag, totalW - borderW - 12, y + headerH / 2);
 
             // displayName — center
             ctx.font      = `800 ${nameFontSize}px ${FONT}`;
@@ -1363,7 +1393,7 @@
             // ── data rows ──
             const dataFontSize = Math.round(14 * fontSize / 0.6);
 
-            SIZES.forEach((size, rowIdx) => {
+            modelSizes.forEach((size, rowIdx) => {
                 const rowBg = rowIdx % 2 === 1 ? theme.row2 : theme.row1;
                 x = borderW;
 
@@ -1375,9 +1405,9 @@
                         ctx.font         = `800 ${dataFontSize}px ${FONT}`;
                         ctx.textAlign    = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.fillText(String(size), x + col.width / 2, y + cellH / 2);
+                        ctx.fillText(formatSizeLabel(size, ' '), x + col.width / 2, y + cellH / 2);
                     } else {
-                        const p = col.data.prices.find(pr => pr.size === size);
+                        const p = (col.data.prices || []).find(pr => parseInt(pr.size) === size);
                         const price = p ? p.price : 0;
                         ctx.fillStyle = rowBg;
                         ctx.fillRect(x, y, col.width, cellH);
@@ -1452,8 +1482,8 @@
         function getModelMeta(backendId) {
             try {
                 const all = JSON.parse(storageGet('wg_model_meta') || '{}');
-                return all[backendId] || { tag1: '', tag2: '', dateLabel: '' };
-            } catch (e) { return { tag1: '', tag2: '', dateLabel: '' }; }
+                return all[backendId] || { dateLabel: '' };
+            } catch (e) { return { dateLabel: '' }; }
         }
         
         function saveModelMeta(backendId, meta) {
@@ -1462,6 +1492,63 @@
                 all[backendId] = { ...(all[backendId] || {}), ...meta };
                 storageSet('wg_model_meta', JSON.stringify(all));
             } catch (e) { console.error('saveModelMeta', e); }
+        }
+
+        function getModelHeaderWidths(meta) {
+            const raw = {
+                tag: Math.max(10, parseFloat(meta.headerTagWidth) || 30),
+                name: Math.max(10, parseFloat(meta.headerNameWidth) || 40),
+                date: Math.max(10, parseFloat(meta.headerDateWidth) || 30)
+            };
+            const total = raw.tag + raw.name + raw.date;
+            return {
+                tag: (raw.tag / total * 100).toFixed(2),
+                name: (raw.name / total * 100).toFixed(2),
+                date: (raw.date / total * 100).toFixed(2)
+            };
+        }
+
+        function updateModelHeaderWidth(modelId, field, value) {
+            const width = Math.max(10, Math.min(80, parseFloat(value) || 10));
+            saveModelMeta(modelId, { [field]: String(width) });
+            const widths = getModelHeaderWidths(getModelMeta(modelId));
+            ['tag', 'name', 'date'].forEach(name => {
+                const cell = document.getElementById(`vm-header-${name}-${modelId}`);
+                if (cell) cell.style.width = `${widths[name]}%`;
+            });
+            const table = document.getElementById(`vm-header-table-${modelId}`);
+            if (table) table.style.tableLayout = 'fixed';
+            fitModelHeaderText(modelId);
+        }
+
+        function updateModelTableWidth(modelId, value) {
+            const width = Math.max(320, Math.min(1200, parseFloat(value) || 750));
+            saveModelMeta(modelId, { headerTableWidth: String(width) });
+            const container = document.getElementById(`vm-spreadsheet-${modelId}`);
+            if (container) {
+                container.style.width = `${width}px`;
+                container.style.maxWidth = '100%';
+            }
+            fitModelHeaderText(modelId);
+        }
+
+        function fitModelHeaderText(modelId) {
+            ['tag', 'name', 'date'].forEach(field => {
+                const cell = document.getElementById(`vm-header-${field}-${modelId}`);
+                const text = document.getElementById(`vm-h${field}-${modelId}`);
+                if (!cell || !text) return;
+                const baseSize = parseFloat(text.dataset.baseFontSize || getComputedStyle(text).fontSize);
+                let size = baseSize;
+                text.style.whiteSpace = 'nowrap';
+                text.style.overflow = 'hidden';
+                text.style.textOverflow = 'ellipsis';
+                text.style.fontSize = `${size}px`;
+                while (text.scrollWidth > cell.clientWidth - 12 && size > 10) {
+                    size -= 0.5;
+                    text.style.fontSize = `${size}px`;
+                }
+                text.dataset.baseFontSize = String(baseSize);
+            });
         }
         
         function getTodayArabicDate() {
@@ -1559,11 +1646,11 @@
         }
 
         const MODEL_THEME_DEFAULTS = {
-            A: { header: '#118EFF', accent: '#ED7D31', row1: '#F7CAAC', row2: '#FBE4D5', text: '#000000', label: 'A — برتقالي' },
-            B: { header: '#118EFF', accent: '#70AD47', row1: '#E2EFD9', row2: '#C5E0B3', text: '#000000', label: 'B — أخضر' },
-            C: { header: '#118EFF', accent: '#FFED59', row1: '#FFF3C3', row2: '#FFD9C2', text: '#000000', label: 'C — أصفر' },
-            D: { header: '#118EFF', accent: '#4472C4', row1: '#B4C6E7', row2: '#D9E2F3', text: '#000000', label: 'D — أزرق' },
-            DEFAULT: { header: '#1d4ed8', accent: '#ea580c', row1: '#FEF3C7', row2: '#FDE8D8', text: '#000000', label: 'افتراضي' }
+            A: { header: '#118EFF', accent: '#ED7D31', tagColor: '#FFF0E6', row1: '#F7CAAC', row2: '#FBE4D5', text: '#000000', label: 'A — برتقالي' },
+            B: { header: '#118EFF', accent: '#70AD47', tagColor: '#EAF6E3', row1: '#E2EFD9', row2: '#C5E0B3', text: '#000000', label: 'B — أخضر' },
+            C: { header: '#118EFF', accent: '#FFED59', tagColor: '#FFFBD0', row1: '#FFF3C3', row2: '#FFD9C2', text: '#000000', label: 'C — أصفر' },
+            D: { header: '#118EFF', accent: '#4472C4', tagColor: '#E8F0FF', row1: '#B4C6E7', row2: '#D9E2F3', text: '#000000', label: 'D — أزرق' },
+            DEFAULT: { header: '#1d4ed8', accent: '#ea580c', tagColor: '#FFF0E6', row1: '#FEF3C7', row2: '#FDE8D8', text: '#000000', label: 'افتراضي' }
         };
         
         // Load saved overrides from localStorage, fall back to defaults
@@ -1921,11 +2008,15 @@
                     const data = await readDriveFile();
                     const now = new Date().toISOString();
                     if (item.type === 'pricingModel') {
-                        const group = data.find(d => d.type === 'pricingModel' && d.pricingModelName === item.pricingModelName);
+                        const previousName = item.previousPricingModelName || item.pricingModelName;
+                        const group = data.find(d => d.type === 'pricingModel' && d.pricingModelName === previousName);
                         if (group) {
                             const vIdx = group.data.findIndex(v => v.__backendId === item.__backendId);
                             if (vIdx >= 0) {
                                 group.data[vIdx] = { ...group.data[vIdx], pricingModelData: item.pricingModelData, updatedAt: now };
+                                if (item.pricingModelName !== previousName) {
+                                    group.pricingModelName = item.pricingModelName;
+                                }
                                 await writeDriveFile(data);
                                 if (window._dataHandler) window._dataHandler.onDataChanged(data);
                                 return { isOk: true };
@@ -2022,11 +2113,15 @@
                     const data = JSON.parse(storageGet('app_data') || '[]');
                     const now = new Date().toISOString();
                     if (item.type === 'pricingModel') {
-                        const group = data.find(d => d.type === 'pricingModel' && d.pricingModelName === item.pricingModelName);
+                        const previousName = item.previousPricingModelName || item.pricingModelName;
+                        const group = data.find(d => d.type === 'pricingModel' && d.pricingModelName === previousName);
                         if (group) {
                             const vIdx = group.data.findIndex(v => v.__backendId === item.__backendId);
                             if (vIdx >= 0) {
                                 group.data[vIdx] = { ...group.data[vIdx], pricingModelData: item.pricingModelData, updatedAt: now };
+                                if (item.pricingModelName !== previousName) {
+                                    group.pricingModelName = item.pricingModelName;
+                                }
                                 storageSet('app_data', JSON.stringify(data));
                                 if (window._dataHandler) window._dataHandler.onDataChanged(data);
                                 return { isOk: true };
@@ -2131,6 +2226,10 @@
             selectedModel: null,
             editingModel: null,
             viewingModel: null,
+            newModelName: '',
+            newModelHeaders: null,
+            newModelSizeFrom: 22,
+            newModelSizeTo: 56,
             billItems: [],
             currentBill: null,
             loadingStates: {},
@@ -2151,6 +2250,158 @@
         }
 
         const SIZES = generateSizes();
+
+        // Size tags for the larger standard sizes (42 → S ... 56 → 5XL)
+        const SIZE_TAGS = {
+            42: 'S',
+            44: 'M',
+            46: 'L',
+            48: 'XL',
+            50: 'XXL',
+            52: '3XL',
+            54: '4XL',
+            56: '5XL'
+        };
+
+        /** Return the tag for a size (e.g. 44 → M), or '' when the size has no tag. */
+        function getSizeTag(size) {
+            const n = parseInt(size);
+            return Number.isFinite(n) ? (SIZE_TAGS[n] || '') : '';
+        }
+
+        /** Text label for a size, e.g. "44 - M". Works for custom text sizes too. */
+        function formatSizeLabel(size, separator = ' - ') {
+            if (size === null || size === undefined || size === '' || size === '—') return '—';
+            const tag = getSizeTag(size);
+            return tag ? `${size}${separator}${tag}` : String(size);
+        }
+
+        function getContrastTextColor(hexColor) {
+            const hex = String(hexColor || '').replace('#', '');
+            if (!/^[0-9a-f]{6}$/i.test(hex)) return '#000000';
+            const [r, g, b] = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16));
+            return (r * 299 + g * 587 + b * 114) >= 150000 ? '#000000' : '#ffffff';
+        }
+
+        /** HTML label for a size with a small tag badge, e.g. 44 [M]. */
+        function formatSizeBadge(size, theme = null) {
+            if (size === null || size === undefined || size === '' || size === '—') return '—';
+            const tag = getSizeTag(size);
+            const label = escapeHtml(String(size));
+            const tagColor = theme?.tagColor || '#e0e7ff';
+            const tagText = getContrastTextColor(tagColor);
+            return tag
+                ? `<span class="size-with-tag"><span>${label}</span><span class="size-tag" style="background:${tagColor};color:${tagText};">${escapeHtml(tag)}</span></span>`
+                : label;
+        }
+
+        /** Raw union of all size entries in model data (no trimming). */
+        function collectDataSizes(data) {
+            if (!Array.isArray(data)) return [];
+            const sizeSet = new Set();
+            data.forEach(cat => {
+                (cat.prices || []).forEach(p => {
+                    const n = parseInt(p.size);
+                    if (Number.isFinite(n)) sizeSet.add(n);
+                });
+            });
+            return Array.from(sizeSet).sort((a, b) => a - b);
+        }
+
+        /**
+         * Derive sizes for legacy models that have no explicit size list.
+         * For legacy models that stored all 22–56 sizes, empty leading/trailing
+         * sizes are trimmed so a model with prices only at 44–54 displays 44–54.
+         */
+        function getModelSizesFromData(data) {
+            const sizes = collectDataSizes(data);
+            if (sizes.length === 0) return sizes;
+
+            const priceFor = (cat, size) => {
+                const entry = (cat.prices || []).find(p => parseInt(p.size) === size);
+                return entry ? (parseFloat(entry.price) || 0) : 0;
+            };
+            const hasAnyPrice = data.some(cat => (cat.prices || []).some(p => (parseFloat(p.price) || 0) > 0));
+
+            if (hasAnyPrice) {
+                while (sizes.length > 1 && !data.some(cat => priceFor(cat, sizes[0]) > 0)) sizes.shift();
+                while (sizes.length > 1 && !data.some(cat => priceFor(cat, sizes[sizes.length - 1]) > 0)) sizes.pop();
+            }
+            return sizes;
+        }
+
+        /**
+         * New models store an explicit size list, so empty/zero-price sizes that
+         * the user deliberately added are kept. Legacy array payloads have no
+         * size list and are trimmed for backwards compatibility.
+         */
+        function getModelSizes(model) {
+            if (!model) return [];
+            if (Array.isArray(model.sizes) && model.sizes.length > 0) {
+                const explicitSizes = Array.from(new Set(
+                    model.sizes.map(s => parseInt(s)).filter(Number.isFinite)
+                )).sort((a, b) => a - b);
+                if (explicitSizes.length > 0) return explicitSizes;
+            }
+            return getModelSizesFromData(model.data);
+        }
+
+        /** Rebuild model data so every category has exactly the target sizes, in order. */
+        function normalizeModelData(data, sizes) {
+            if (!Array.isArray(data)) return [];
+            const target = (Array.isArray(sizes) && sizes.length > 0)
+                ? sizes
+                : getModelSizesFromData(data);
+            const sortedSizes = Array.from(new Set(
+                target.map(s => parseInt(s)).filter(Number.isFinite)
+            )).sort((a, b) => a - b);
+
+            return data.map(cat => {
+                const prices = sortedSizes.map(size => {
+                    const entry = (cat.prices || []).find(p => parseInt(p.size) === size);
+                    return { size, price: entry ? (parseFloat(entry.price) || 0) : 0 };
+                });
+                return { ...cat, name: cat.name || '', prices };
+            });
+        }
+
+        function buildModelData(headers, sizes) {
+            return headers.map(name => ({
+                name,
+                prices: sizes.map(size => ({ size, price: 0 }))
+            }));
+        }
+
+        /** Parse both the old array payload and the new { sizes, categories } payload. */
+        function parseModelPayload(raw, fallbackData) {
+            let parsed = raw;
+            if (typeof raw === 'string') {
+                try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+            }
+            if (Array.isArray(parsed)) {
+                return { data: parsed, sizes: null };
+            }
+            if (parsed && Array.isArray(parsed.categories)) {
+                return {
+                    data: parsed.categories,
+                    sizes: Array.isArray(parsed.sizes)
+                        ? parsed.sizes.map(s => parseInt(s)).filter(Number.isFinite)
+                        : null
+                };
+            }
+            return { data: Array.isArray(fallbackData) ? fallbackData : [], sizes: null };
+        }
+
+        /** Persist the explicit size list together with the category data. */
+        function serializeModelPayload(data, sizes) {
+            const finalSizes = (Array.isArray(sizes) && sizes.length > 0)
+                ? sizes
+                : getModelSizesFromData(data);
+            const normalizedSizes = Array.from(new Set(
+                finalSizes.map(s => parseInt(s)).filter(Number.isFinite)
+            )).sort((a, b) => a - b);
+            return JSON.stringify({ sizes: normalizedSizes, categories: data });
+        }
 
         function getLogoSource() {
             return appState.companySettings.logo || appState.logoDataUri || window.__WHITE_GOLD_LOGO_DATA_URI__ || FALLBACK_LOGO_DATA_URI;
@@ -2223,26 +2474,30 @@
 
                 appState.pricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
                     const versions = Array.isArray(group.data) ? group.data : [];
-                    return versions.filter(version => !version.isDeleted).map(version => ({
-                        ...version,
-                        type: 'pricingModel',
-                        pricingModelName: group.pricingModelName,
-                        data: version.pricingModelData
-                            ? JSON.parse(version.pricingModelData)
-                            : (Array.isArray(version.data) ? version.data : [])
-                    }));
+                    return versions.filter(version => !version.isDeleted).map(version => {
+                        const parsed = parseModelPayload(version.pricingModelData, version.data);
+                        return {
+                            ...version,
+                            type: 'pricingModel',
+                            pricingModelName: group.pricingModelName,
+                            data: parsed.data,
+                            sizes: parsed.sizes
+                        };
+                    });
                 });
 
                 appState.allPricingModels = data.filter(d => d.type === 'pricingModel').flatMap(group => {
                     const versions = Array.isArray(group.data) ? group.data : [];
-                    return versions.map(version => ({
-                        ...version,
-                        type: 'pricingModel',
-                        pricingModelName: group.pricingModelName,
-                        data: version.pricingModelData
-                            ? JSON.parse(version.pricingModelData)
-                            : (Array.isArray(version.data) ? version.data : [])
-                    }));
+                    return versions.map(version => {
+                        const parsed = parseModelPayload(version.pricingModelData, version.data);
+                        return {
+                            ...version,
+                            type: 'pricingModel',
+                            pricingModelName: group.pricingModelName,
+                            data: parsed.data,
+                            sizes: parsed.sizes
+                        };
+                    });
                 });
 
                 appState.bills = data.filter(d => d.type === 'bill').map(b => {
@@ -2493,25 +2748,102 @@
         }
 
         // Pricing Model Management
+        function syncNewModelFormState() {
+            const nameEl = document.getElementById('modelName');
+            if (nameEl) appState.newModelName = nameEl.value;
+            const fromEl = document.getElementById('newModelSizeFrom');
+            const toEl = document.getElementById('newModelSizeTo');
+            if (fromEl) appState.newModelSizeFrom = parseInt(fromEl.value) || 22;
+            if (toEl) appState.newModelSizeTo = parseInt(toEl.value) || 56;
+        }
+
+        function addNewModelHeader() {
+            syncNewModelFormState();
+            const input = document.getElementById('newModelHeaderInput');
+            const name = sanitizeTextInput(input ? input.value.trim() : '');
+            if (!name) return showToast('الرجاء إدخال اسم العمود', 'error');
+            if (!Array.isArray(appState.newModelHeaders)) appState.newModelHeaders = [];
+            if (appState.newModelHeaders.includes(name)) return showToast('هذا العمود موجود بالفعل', 'error');
+            appState.newModelHeaders.push(name);
+            if (input) input.value = '';
+            render();
+        }
+
+        function removeNewModelHeader(index) {
+            syncNewModelFormState();
+            if (!Array.isArray(appState.newModelHeaders)) return;
+            appState.newModelHeaders.splice(index, 1);
+            render();
+        }
+
+        function resetNewModelHeaders() {
+            syncNewModelFormState();
+            appState.newModelHeaders = [...appState.categories];
+            render();
+        }
+
+        function clearNewModelHeaders() {
+            syncNewModelFormState();
+            appState.newModelHeaders = [];
+            render();
+        }
+
+        function onNewModelSizeRangeChange() {
+            syncNewModelFormState();
+            render();
+        }
+
         async function createPricingModel(e) {
             e.preventDefault();
-            const name = document.getElementById('modelName').value;
-            if (!name.trim()) return showToast('الرجاء إدخال اسم النموذج', 'error');
+            syncNewModelFormState();
+            const name = (document.getElementById('modelName')?.value || appState.newModelName || '').trim();
+            if (!name) return showToast('الرجاء إدخال اسم النموذج', 'error');
+
+            const headers = Array.from(new Set(
+                (appState.newModelHeaders || [])
+                    .map(h => sanitizeTextInput(String(h || '').trim()))
+                    .filter(Boolean)
+            ));
+            if (headers.length === 0) return showToast('أضف عموداً واحداً على الأقل للنموذج', 'error');
+
+            const from = Math.min(appState.newModelSizeFrom, appState.newModelSizeTo);
+            const to = Math.max(appState.newModelSizeFrom, appState.newModelSizeTo);
+            const sizes = SIZES.filter(s => s >= from && s <= to);
+            if (sizes.length === 0) return showToast('نطاق المقاسات غير صحيح', 'error');
+
             setLoading('createModel', true);
-            const modelData = appState.categories.map(category => ({ name: category, prices: SIZES.map(size => ({ size, price: 0 })) }));
-            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: name, pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
-            if (result.isOk) { document.getElementById('modelName').value = ''; showToast('تم إنشاء النموذج بنجاح', 'success'); }
+            const modelData = buildModelData(headers, sizes);
+            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: name, pricingModelData: serializeModelPayload(modelData, sizes), createdAt: new Date().toISOString() });
+            if (result.isOk) {
+                appState.newModelName = '';
+                appState.newModelHeaders = [...appState.categories];
+                appState.newModelSizeFrom = 22;
+                appState.newModelSizeTo = 56;
+                showToast('تم إنشاء النموذج بنجاح', 'success');
+            }
             else showToast('حدث خطأ أثناء الإنشاء', 'error');
             setLoading('createModel', false);
         }
 
         async function updatePricingModel(model) {
+            const modelName = sanitizeTextInput(String(model.pricingModelName || '').trim());
+            if (!modelName) {
+                showToast('الرجاء إدخال اسم النموذج', 'error');
+                return;
+            }
+            if (appState.pricingModels.some(item => item.__backendId !== model.__backendId && item.pricingModelName === modelName)) {
+                showToast('اسم النموذج مستخدم بالفعل', 'error');
+                return;
+            }
+            model.pricingModelName = modelName;
             setLoading('updateModel', true);
+            const modelSizes = getModelSizes(model);
             const result = await window.dataSdk.update({
                 type: 'pricingModel',
                 __backendId: model.__backendId,
-                pricingModelName: model.pricingModelName,
-                pricingModelData: JSON.stringify(model.data),
+                pricingModelName: modelName,
+                previousPricingModelName: model._previousPricingModelName,
+                pricingModelData: serializeModelPayload(normalizeModelData(model.data, modelSizes), modelSizes),
                 createdAt: model.createdAt,
                 updatedAt: new Date().toISOString()
             });
@@ -2536,10 +2868,89 @@
             }
         }
 
-        function editModel(model) { appState.editingModel = JSON.parse(JSON.stringify(model)); render(); }
+        function editModel(model) {
+            const clone = JSON.parse(JSON.stringify(model));
+            const sizes = getModelSizes(model);
+            clone.data = normalizeModelData(clone.data, sizes);
+            clone.sizes = sizes;
+            clone._previousPricingModelName = model.pricingModelName;
+            appState.editingModel = clone;
+            render();
+        }
         function updatePrice(categoryIndex, sizeIndex, price) { if (appState.editingModel) appState.editingModel.data[categoryIndex].prices[sizeIndex].price = parseFloat(price) || 0; }
+        function updatePriceBySize(categoryIndex, size, price) {
+            if (!appState.editingModel) return;
+            const cat = appState.editingModel.data[categoryIndex];
+            if (!cat) return;
+            const n = parseInt(size);
+            if (!cat.prices) cat.prices = [];
+            let entry = cat.prices.find(p => parseInt(p.size) === n);
+            if (!entry) {
+                entry = { size: n, price: 0 };
+                cat.prices.push(entry);
+                cat.prices.sort((a, b) => parseInt(a.size) - parseInt(b.size));
+            }
+            entry.price = parseFloat(price) || 0;
+        }
         async function saveModelEdits() { if (appState.editingModel) updatePricingModel(appState.editingModel); }
         function cancelEdit() { appState.editingModel = null; render(); }
+
+        function addEditModelHeader() {
+            if (!appState.editingModel) return;
+            const input = document.getElementById('editNewHeaderInput');
+            const name = sanitizeTextInput(input ? input.value.trim() : '');
+            if (!name) return showToast('الرجاء إدخال اسم العمود', 'error');
+            if (appState.editingModel.data.some(c => c.name === name)) return showToast('هذا العمود موجود بالفعل', 'error');
+            const sizes = getModelSizes(appState.editingModel);
+            appState.editingModel.data.push({ name, prices: sizes.map(size => ({ size, price: 0 })) });
+            render();
+        }
+
+        function renameEditModelHeader(index, value) {
+            if (!appState.editingModel) return;
+            const name = sanitizeTextInput(String(value || '').trim());
+            if (!name) { showToast('اسم العمود مطلوب', 'error'); render(); return; }
+            if (appState.editingModel.data.some((c, i) => i !== index && c.name === name)) {
+                showToast('هذا العمود موجود بالفعل', 'error');
+                render();
+                return;
+            }
+            appState.editingModel.data[index].name = name;
+            render();
+        }
+
+        function removeEditModelHeader(index) {
+            if (!appState.editingModel) return;
+            if (appState.editingModel.data.length <= 1) return showToast('لا يمكن حذف آخر عمود', 'error');
+            appState.editingModel.data.splice(index, 1);
+            render();
+        }
+
+        function addEditModelSize() {
+            if (!appState.editingModel) return;
+            const select = document.getElementById('editNewSize');
+            const size = parseInt(select ? select.value : '');
+            if (!Number.isFinite(size)) return showToast('اختر مقاساً صالحاً', 'error');
+            if (getModelSizes(appState.editingModel).includes(size)) return showToast('هذا المقاس موجود بالفعل', 'error');
+            appState.editingModel.data.forEach(cat => {
+                if (!cat.prices) cat.prices = [];
+                cat.prices.push({ size, price: 0 });
+                cat.prices.sort((a, b) => parseInt(a.size) - parseInt(b.size));
+            });
+            appState.editingModel.sizes = collectDataSizes(appState.editingModel.data);
+            render();
+        }
+
+        function removeEditModelSize(size) {
+            if (!appState.editingModel) return;
+            if (getModelSizes(appState.editingModel).length <= 1) return showToast('لا يمكن حذف آخر مقاس', 'error');
+            const n = parseInt(size);
+            appState.editingModel.data.forEach(cat => {
+                cat.prices = (cat.prices || []).filter(p => parseInt(p.size) !== n);
+            });
+            appState.editingModel.sizes = collectDataSizes(appState.editingModel.data);
+            render();
+        }
 
         function fillAllPrices() {
             const price = parseFloat(document.getElementById('quickFillPrice').value);
@@ -2553,7 +2964,9 @@
             const model = appState.pricingModels.find(m => m.__backendId === modelId);
             if (!model) return;
             setLoading('duplicateModel', true);
-            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: `${model.pricingModelName} (نسخة)`, pricingModelData: model.pricingModelData, createdAt: new Date().toISOString() });
+            const duplicateSizes = getModelSizes(model);
+            const duplicateData = normalizeModelData(JSON.parse(JSON.stringify(model.data)), duplicateSizes);
+            const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: `${model.pricingModelName} (نسخة)`, pricingModelData: serializeModelPayload(duplicateData, duplicateSizes), createdAt: new Date().toISOString() });
             showToast(result.isOk ? 'تم نسخ النموذج بنجاح' : 'حدث خطأ أثناء النسخ', result.isOk ? 'success' : 'error');
             setLoading('duplicateModel', false);
         }
@@ -2616,27 +3029,31 @@
         function previewSectionAdjust() {
             const catSelect = document.getElementById('adj-section-cat');
             const catName = catSelect?.value || '';
-            const sizeFrom = parseInt(document.getElementById('adj-section-from')?.value) || 22;
-            const sizeTo = parseInt(document.getElementById('adj-section-to')?.value) || 56;
-            const adjType = document.getElementById('adj-section-type')?.value || 'amount';
-            const adjValue = parseFloat(document.getElementById('adj-section-value')?.value) || 0;
-
-            if (adjValue === 0 || !catName) return;
-
             const model = appState._adjustModalModel;
             if (!model) return;
+            const modelSizes = getModelSizes(model);
+            const sizeFrom = parseInt(document.getElementById('adj-section-from')?.value) || modelSizes[0] || 22;
+            const sizeTo = parseInt(document.getElementById('adj-section-to')?.value) || modelSizes[modelSizes.length - 1] || 56;
+            const adjType = document.getElementById('adj-section-type')?.value || 'amount';
+            const adjValue = Number.parseFloat(document.getElementById('adj-section-value')?.value);
+
+            if (!Number.isFinite(adjValue) || adjValue === 0 || !catName) {
+                return showToast('اختر الفئة وأدخل قيمة تعديل صحيحة', 'error');
+            }
 
             const preview = cloneModelData(model.data);
             const cat = preview.find(c => c.name === catName);
             if (!cat) return;
 
             let affectedCount = 0;
-            cat.prices.forEach(p => {
-                if (p.size >= sizeFrom && p.size <= sizeTo && p.price > 0) {
+            (cat.prices || []).forEach(p => {
+                const price = Number(p.price);
+                const size = Number(p.size);
+                if (size >= sizeFrom && size <= sizeTo && price > 0) {
                     if (adjType === 'amount') {
-                        p.price = Math.round(p.price + adjValue);
+                        p.price = Math.round(price + adjValue);
                     } else {
-                        p.price = Math.round(p.price * (1 + adjValue / 100));
+                        p.price = Math.round(price * (1 + adjValue / 100));
                     }
                     if (p.price < 0) p.price = 0;
                     affectedCount++;
@@ -2660,10 +3077,12 @@
 
             setLoading('saveAdjustedModel', true);
             try {
+                const adjustModel = appState._adjustModalModel;
+                const adjustSizes = adjustModel ? getModelSizes(adjustModel) : getModelSizesFromData(preview);
                 const result = await window.dataSdk.create({
                     type: 'pricingModel',
                     pricingModelName: newName,
-                    pricingModelData: JSON.stringify(preview),
+                    pricingModelData: serializeModelPayload(normalizeModelData(preview, adjustSizes), adjustSizes),
                     createdAt: new Date().toISOString()
                 });
                 if (result.isOk) {
@@ -2690,14 +3109,15 @@
             try {
                 await ensureSheetJS();
                 const wsData = [];
+                const modelSizes = getModelSizes(model);
                 // Header row: category names
                 const header = ['المقاس', ...model.data.map(c => c.name)];
                 wsData.push(header);
-                // Data rows: one per size
-                SIZES.forEach(size => {
+                // Data rows: one per size that actually belongs to this model
+                modelSizes.forEach(size => {
                     const row = [size];
                     model.data.forEach(cat => {
-                        const p = cat.prices.find(pr => pr.size === size);
+                        const p = (cat.prices || []).find(pr => parseInt(pr.size) === size);
                         row.push(p && p.price > 0 ? p.price : '');
                     });
                     wsData.push(row);
@@ -2749,7 +3169,7 @@
                 const rawDate = (meta.dateLabel || getTodayArabicDate())
                     .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
                     .replace(/\//g, '-');
-                const tag2part = meta.tag2 ? '_' + meta.tag2 : '';
+                const tag2part = (meta.tag || meta.tag1 || meta.tag2) ? '_' + (meta.tag || meta.tag1 || meta.tag2) : '';
                 const letter   = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
                 const filename  = `${letter}${tag2part}_${rawDate}.png`;
 
@@ -2772,8 +3192,10 @@
             if (!cat) return;
 
             const lines = [];
-            cat.prices.forEach(p => {
-                const price = p.price > 0 ? Math.round(p.price) : '------';
+            const modelSizes = getModelSizes(model);
+            modelSizes.forEach(size => {
+                const p = (cat.prices || []).find(pr => parseInt(pr.size) === size);
+                const price = p && p.price > 0 ? Math.round(p.price) : '------';
                 lines.push(price);
             });
             const text = lines.join('\n');
@@ -2801,11 +3223,12 @@
             if (!model) return;
 
             const lines = [];
-            
+            const modelSizes = getModelSizes(model);
+
             // Data rows: one row per size, tab-separated prices
-            SIZES.forEach(size => {
+            modelSizes.forEach(size => {
                 const row = model.data.map(cat => {
-                    const p = cat.prices.find(pr => pr.size === size);
+                    const p = (cat.prices || []).find(pr => parseInt(pr.size) === size);
                     const price = p && p.price > 0 ? Math.round(p.price) : '------';
                     return price;
                 }).join('\t');
@@ -2889,7 +3312,7 @@
                 if (!size) return showToast('الرجاء اختيار المقاس', 'error');
                 const categoryData = appState.selectedModel.data.find(c => c.name === category);
                 if (!categoryData) return showToast('الفئة غير موجودة', 'error');
-                const priceData = categoryData.prices.find(p => p.size === size);
+                const priceData = (categoryData.prices || []).find(p => parseInt(p.size) === size);
                 unitPrice = priceData ? priceData.price : 0;
                 displayCategory = sanitizeTextInput(category);
                 displaySize = size;
@@ -2897,17 +3320,19 @@
 
             // IMPROVED #5: Warn if unit price is zero (missing from pricing model)
             if (unitPrice === 0 && !isCustom) {
-                showToast(`تنبيه: سعر "${displayCategory}" مقاس ${displaySize} غير محدد في النموذج (سيُحفظ بسعر صفر)`, 'error');
+                showToast(`تنبيه: سعر "${displayCategory}" مقاس ${formatSizeLabel(displaySize)} غير محدد في النموذج (سيُحفظ بسعر صفر)`, 'error');
                 // Still allow adding — user may intentionally want a zero-price line
             }
 
             const total = unitPrice * quantity;
             appState.billItems.push({ category: displayCategory, size: displaySize, quantity, unitPrice, total, isCustom });
 
-            let nextSize;
-            const parsedSize = parseInt(displaySize);
-            if (!isNaN(parsedSize) && parsedSize + 2 <= 56) nextSize = parsedSize + 2;
-            else nextSize = displaySize;
+            let nextSize = displaySize;
+            if (!isCustom && appState.selectedModel) {
+                const modelSizes = getModelSizes(appState.selectedModel);
+                const currentIdx = modelSizes.indexOf(parseInt(displaySize));
+                if (currentIdx >= 0 && currentIdx < modelSizes.length - 1) nextSize = modelSizes[currentIdx + 1];
+            }
             const customNamePersist = isCustom ? sanitizeTextInput(document.getElementById('billCustomName')?.value?.trim() || '') : '';
             appState.lastBillInput = { category, size: nextSize, quantity, customName: customNamePersist };
             render();
@@ -3802,24 +4227,29 @@
             const mid = escapeHtml(model.__backendId);
             const theme = getModelTheme(model.pricingModelName);
             const firstLetter = (model.pricingModelName || '').trim().charAt(0).toUpperCase();
+            const modelSizes = getModelSizes(model);
         
             const meta       = getModelMeta(model.__backendId);
-            const tag1       = meta.tag1 || '';
-            const tag2       = meta.tag2 || '';
+            const tag        = Object.prototype.hasOwnProperty.call(meta, 'tag') ? meta.tag : (meta.tag1 || '');
             const dateLabel  = meta.dateLabel || getTodayArabicDate();
             const fontSize   = meta.fontSize || '1.7';
-            const displayName = tag2 ? `${firstLetter} ${escapeHtml(tag2)}` : firstLetter;
+            const headerWidths = getModelHeaderWidths(meta);
+            const headerTableWidth = Math.max(320, Math.min(1200, parseFloat(meta.headerTableWidth) || 750));
+            const displayName = Object.prototype.hasOwnProperty.call(meta, 'name')
+                ? meta.name
+                : (meta.tag2 ? `${firstLetter} ${meta.tag2}` : firstLetter);
         
             const lightFills = ['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5',
                                 '#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].map(c => c.toUpperCase());
             const accentIsLight = lightFills.includes(theme.accent.toUpperCase());
             const accentText    = accentIsLight ? '#000000' : '#ffffff';
+            requestAnimationFrame(() => fitModelHeaderText(model.__backendId));
         
             return `
                 <div class="fade-in">
                     <!-- toolbar -->
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-                        <h1 class="text-3xl font-bold" style="color:${config.text_color};">عرض: ${escapeHtml(model.pricingModelName)}${tag2 ? ' — ' + escapeHtml(tag2) : ''}</h1>
+                        <h1 class="text-3xl font-bold" style="color:${config.text_color};">عرض: ${escapeHtml(model.pricingModelName)}</h1>
                         <div class="flex flex-wrap gap-2">
                             <button onclick="appState.currentView='pricing';render();" class="px-4 py-2 bg-gray-200 rounded-xl font-semibold hover:bg-gray-300 text-sm">رجوع</button>
                             <button onclick="openAdjustModal('${mid}');" class="px-4 py-2 rounded-xl font-semibold text-white text-sm" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
@@ -3846,24 +4276,24 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div>
-                                <label class="text-xs font-semibold text-slate-500 block mb-1">التاريخ (يسار)</label>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">التاريخ</label>
                                 <input type="text" id="vm-date-${mid}" value="${escapeHtml(dateLabel)}"
                                     placeholder="${getTodayArabicDate()}"
                                     oninput="saveModelMeta('${mid}',{dateLabel:this.value});document.getElementById('vm-hdate-${mid}').textContent=this.value||'${escapeHtml(getTodayArabicDate())}';"
                                     class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;direction:rtl;">
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-500 block mb-1">وسم الاسم (بعد الحرف)</label>
-                                <input type="text" id="vm-tag2-${mid}" value="${escapeHtml(tag2)}"
-                                    placeholder="مثال: سوبر"
-                                    oninput="saveModelMeta('${mid}',{tag2:this.value});document.getElementById('vm-hname-${mid}').textContent=this.value?'${firstLetter} '+this.value:'${firstLetter}';"
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">الوسم</label>
+                                <input type="text" id="vm-tag-${mid}" value="${escapeHtml(tag)}"
+                                    placeholder="مثال: VIP"
+                                    oninput="saveModelMeta('${mid}',{tag:this.value});document.getElementById('vm-htag-${mid}').textContent=this.value;"
                                     class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;">
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-500 block mb-1">وسم الزاوية (يمين)</label>
-                                <input type="text" id="vm-tag1-${mid}" value="${escapeHtml(tag1)}"
-                                    placeholder="مثال: VIP"
-                                    oninput="saveModelMeta('${mid}',{tag1:this.value});document.getElementById('vm-htag1-${mid}').textContent=this.value;"
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">الاسم</label>
+                                <input type="text" id="vm-name-${mid}" value="${escapeHtml(displayName)}"
+                                    placeholder="اسم الرأس"
+                                    oninput="saveModelMeta('${mid}',{name:this.value});document.getElementById('vm-hname-${mid}').textContent=this.value;"
                                     class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;font-family:'Cairo',sans-serif;">
                             </div>
                             <div>
@@ -3874,21 +4304,54 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="card-shadow rounded-xl p-4 bg-white mb-4 max-w-lg">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="font-bold text-slate-700 text-sm">تنسيق عرض الرأس</span>
+                            <span class="text-xs text-slate-400">(النسب المئوية للأعمدة)</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">عرض الجدول (بكسل)</label>
+                                <input type="number" value="${headerTableWidth}" min="320" max="1200" step="10"
+                                    oninput="updateModelTableWidth('${mid}',this.value)"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">عرض الاسم %</label>
+                                <input type="number" value="${escapeHtml(headerWidths.name)}" min="10" max="80" step="1"
+                                    oninput="updateModelHeaderWidth('${mid}','headerNameWidth',this.value)"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">عرض الوسم %</label>
+                                <input type="number" value="${escapeHtml(headerWidths.tag)}" min="10" max="80" step="1"
+                                    oninput="updateModelHeaderWidth('${mid}','headerTagWidth',this.value)"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500 block mb-1">عرض التاريخ %</label>
+                                <input type="number" value="${escapeHtml(headerWidths.date)}" min="10" max="80" step="1"
+                                    oninput="updateModelHeaderWidth('${mid}','headerDateWidth',this.value)"
+                                    class="w-full px-3 py-1.5 border-2 rounded-lg text-sm" style="border-color:#e2e8f0;">
+                            </div>
+                        </div>
+                    </div>
         
                     <!-- ═══ CAPTURED AREA ═══ -->
                     <div id="vm-spreadsheet-${mid}"
-                        style="display:inline-block;max-width:750px;width:100%;border:3px solid #1e3a8a;border-radius:6px;overflow:hidden;font-family:'Cairo',sans-serif;background:#ffffff;">
+                        style="display:inline-block;width:${headerTableWidth}px;max-width:100%;border:3px solid #1e3a8a;border-radius:6px;overflow:hidden;font-family:'Cairo',sans-serif;background:#ffffff;">
         
-                        <!-- header row: tag1 right | name center | date left -->
-                        <table style="width:100%;border-collapse:collapse;background:${theme.header};border-bottom:2px solid #1e3a8a;">
+                        <!-- header row: tag right | name center | date left -->
+                        <table id="vm-header-table-${mid}" style="width:100%;table-layout:fixed;border-collapse:collapse;background:${theme.header};border-bottom:2px solid #1e3a8a;">
                             <tr>
-                                <td style="width:30%;padding:7px 10px;text-align:right;color:#ffffff;font-weight:800;font-size:${fontSize*1.5}rem;vertical-align:middle;">
-                                    <span id="vm-htag1-${mid}">${escapeHtml(tag1)}</span>
+                                <td id="vm-header-tag-${mid}" style="width:${headerWidths.tag}%;padding:7px 10px;text-align:right;color:#ffffff;font-weight:800;font-size:${fontSize*1.5}rem;vertical-align:middle;">
+                                    <span id="vm-htag-${mid}">${escapeHtml(tag)}</span>
                                 </td>
-                                <td style="width:40%;padding:10px 6px;text-align:center;color:#ffffff;font-weight:800;font-size:${fontSize*2}rem;letter-spacing:0.04em;vertical-align:middle;word-break:break-word;line-height:1.3;">
-                                    <span id="vm-hname-${mid}" style="display:block;">${displayName}</span>
+                                <td id="vm-header-name-${mid}" style="width:${headerWidths.name}%;padding:10px 6px;text-align:center;color:#ffffff;font-weight:800;font-size:${fontSize*2}rem;letter-spacing:0.04em;vertical-align:middle;word-break:break-word;line-height:1.3;">
+                                    <span id="vm-hname-${mid}" style="display:block;">${escapeHtml(displayName)}</span>
                                 </td>
-                                <td style="width:30%;padding:7px 10px;text-align:left;color:#ffffff;font-weight:700;font-size:${fontSize*1.5}rem;vertical-align:middle;">
+                                <td id="vm-header-date-${mid}" style="width:${headerWidths.date}%;padding:7px 10px;text-align:left;color:#ffffff;font-weight:700;font-size:${fontSize*1.5}rem;vertical-align:middle;">
                                     <span id="vm-hdate-${mid}">${escapeHtml(dateLabel)}</span>
                                 </td>
                             </tr>
@@ -3897,7 +4360,7 @@
                         <!-- data table -->
                         <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
                             <colgroup>
-                                <col style="width:80px;">
+                                <col style="width:105px;">
                                 ${model.data.map(() => '<col>').join('')}
                             </colgroup>
                             <thead>
@@ -3909,12 +4372,12 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${SIZES.map((size, rowIdx) => {
+                                ${modelSizes.map((size, rowIdx) => {
                                     const rowBg = rowIdx % 2 === 1 ? theme.row2 : theme.row1;
                                     return `<tr>
-                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${size}</td>
+                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${formatSizeBadge(size, theme)}</td>
                                         ${[...model.data].reverse().map(cat => {
-                                            const p = cat.prices.find(pr => pr.size === size);
+                                            const p = (cat.prices || []).find(pr => parseInt(pr.size) === size);
                                             const price = p ? p.price : 0;
                                             return `<td style="background:${rowBg};color:${theme.text};font-weight:700;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${price === 0 ? '------' : price}</td>`;
                                         }).join('')}
@@ -3932,17 +4395,83 @@
             // Adjustment modal (rendered as overlay when open)
             const adjustModalHtml = appState._adjustModalOpen ? renderAdjustModal() : '';
 
+            if (!Array.isArray(appState.newModelHeaders)) appState.newModelHeaders = [...appState.categories];
+            const newModelFrom = Math.min(appState.newModelSizeFrom, appState.newModelSizeTo);
+            const newModelTo = Math.max(appState.newModelSizeFrom, appState.newModelSizeTo);
+            const newModelSizes = SIZES.filter(s => s >= newModelFrom && s <= newModelTo);
+
             if (appState.editingModel) {
+                const editSizes = getModelSizes(appState.editingModel);
+                const missingSizes = SIZES.filter(s => !editSizes.includes(s));
                 return `
                     ${adjustModalHtml}
                     <div class="fade-in">
-                        <div class="flex justify-between items-center mb-8"><h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج: ${escapeHtml(appState.editingModel.pricingModelName)}</h1><div class="flex gap-3"><button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button><button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button></div></div>
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+                            <h1 class="text-4xl font-bold" style="color: ${config.text_color};">تعديل نموذج</h1>
+                            <div class="flex gap-3">
+                                <button onclick="cancelEdit();" class="px-6 py-3 bg-gray-300 rounded-lg font-semibold hover:bg-gray-400">إلغاء</button>
+                                <button onclick="saveModelEdits();" ${isLoading('updateModel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: ${config.accent_color};">${isLoading('updateModel') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ التعديلات</span></button>
+                            </div>
+                        </div>
+
+                        <div class="card-shadow rounded-xl p-6 bg-white mb-4">
+                            <label for="editModelName" class="block text-sm font-bold mb-2">اسم النموذج</label>
+                            <input type="text" id="editModelName" value="${escapeHtml(appState.editingModel.pricingModelName || '')}"
+                                oninput="if(appState.editingModel) appState.editingModel.pricingModelName=this.value;"
+                                class="w-full px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};" required>
+                        </div>
+
+                        <div class="card-shadow rounded-xl p-6 bg-white mb-4">
+                            <div class="flex flex-col md:flex-row md:items-end gap-4 mb-4">
+                                <div class="flex-1">
+                                    <label class="block text-sm font-bold mb-2">إضافة عمود (فئة) جديد</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="editNewHeaderInput" placeholder="اسم العمود..." onkeydown="if(event.key==='Enter'){event.preventDefault();addEditModelHeader();}" class="flex-1 px-4 py-2 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                        <button type="button" onclick="addEditModelHeader();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إضافة عمود</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold mb-2">إضافة مقاس</label>
+                                    <div class="flex gap-2">
+                                        <select id="editNewSize" class="px-4 py-2 border-2 rounded-lg" style="border-color: ${config.primary_color};" ${missingSizes.length === 0 ? 'disabled' : ''}>
+                                            ${missingSizes.length === 0 ? '<option value="">كل المقاسات مضافة</option>' : missingSizes.map(s => `<option value="${s}">${formatSizeLabel(s)}</option>`).join('')}
+                                        </select>
+                                        <button type="button" onclick="addEditModelSize();" ${missingSizes.length === 0 ? 'disabled' : ''} class="px-4 py-2 rounded-lg font-semibold text-white ${missingSizes.length === 0 ? 'opacity-50' : ''}" style="background-color: ${config.primary_color};">إضافة مقاس</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap gap-3 items-end">
+                                <button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعبئة سريعة</button>
+                                <button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white">مسح الكل</button>
+                                <input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32" style="border-color: ${config.primary_color};">
+                            </div>
+                        </div>
+
                         <div class="card-shadow rounded-xl p-6 bg-white overflow-x-auto">
-                            <div class="mb-4 flex flex-wrap gap-3"><button onclick="fillAllPrices();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">تعبئة سريعة</button><button onclick="clearAllPrices();" class="px-4 py-2 bg-gray-500 rounded-lg font-semibold text-white">مسح الكل</button><input type="number" id="quickFillPrice" placeholder="السعر" min="0" step="0.01" class="px-4 py-2 border-2 rounded-lg w-32" style="border-color: ${config.primary_color};"></div>
                             <table class="w-full border-collapse">
-                                <thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>${SIZES.map(s => `<th class="text-center py-3 px-4 font-bold">${s}</th>`).join('')}</tr></thead>
-                                <tbody>${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b"><td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10"><div class="flex items-center gap-2">${getCategoryIcon(cat.name)}<span>${escapeHtml(cat.name)}</span></div></td>${cat.prices.map((p, sizeIdx) => `<td class="py-3 px-4"><input type="number" min="0" step="0.01" value="${p.price}" onchange="updatePrice(${catIdx}, ${sizeIdx}, this.value);" class="w-20 px-2 py-1 border rounded text-center" style="border-color: ${config.primary_color};"></td>`).join('')}</tr>`).join('')}</tbody>
+                                <thead>
+                                    <tr class="border-b-2" style="border-color: ${config.primary_color};">
+                                        <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>
+                                        ${editSizes.map(s => `<th class="text-center py-3 px-3 font-bold"><div class="flex flex-col items-center gap-1">${formatSizeBadge(s)}<button type="button" onclick="removeEditModelSize(${s});" class="text-[10px] font-semibold text-red-500 hover:text-red-700">حذف</button></div></th>`).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${appState.editingModel.data.map((cat, catIdx) => `<tr class="border-b">
+                                        <td class="py-3 px-4 font-semibold sticky right-0 bg-white z-10">
+                                            <div class="flex items-center gap-2">
+                                                ${getCategoryIcon(cat.name)}
+                                                <input type="text" value="${escapeHtml(cat.name)}" onchange="renameEditModelHeader(${catIdx}, this.value);" class="px-2 py-1 border rounded w-32" style="border-color: ${config.primary_color};">
+                                                <button type="button" onclick="removeEditModelHeader(${catIdx});" class="w-6 h-6 rounded-full bg-red-100 text-red-600 font-bold hover:bg-red-200" title="حذف العمود">×</button>
+                                            </div>
+                                        </td>
+                                        ${editSizes.map(size => {
+                                            const entry = (cat.prices || []).find(p => parseInt(p.size) === size);
+                                            return `<td class="py-3 px-3"><input type="number" min="0" step="0.01" value="${entry ? entry.price : 0}" onchange="updatePriceBySize(${catIdx}, ${size}, this.value);" class="w-20 px-2 py-1 border rounded text-center" style="border-color: ${config.primary_color};"></td>`;
+                                        }).join('')}
+                                    </tr>`).join('')}
+                                </tbody>
                             </table>
+                            ${editSizes.length === 0 ? '<p class="text-center text-slate-400 py-6">لا توجد مقاسات في هذا النموذج بعد.</p>' : ''}
                         </div>
                     </div>`;
             }
@@ -3952,23 +4481,61 @@
                     <h1 class="text-4xl font-bold mb-8 flex items-center gap-3" style="color: ${config.text_color};"><span class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(217,119,6,0.08));">${WGIcon('pricing', 24, '#f59e0b')}</span>إدارة الأسعار</h1>
                     <div class="card-shadow rounded-xl p-6 bg-white mb-8">
                         <h2 class="text-2xl font-bold mb-4" style="color: ${config.text_color};">إنشاء نموذج تسعير جديد</h2>
-                        <div class="flex flex-col md:flex-row gap-3">
-                            <form onsubmit="createPricingModel(event);" class="flex-1 flex flex-col md:flex-row gap-3">
-                                <input type="text" id="modelName" required placeholder="اسم النموذج" class="flex-1 px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                        <form onsubmit="createPricingModel(event);" class="space-y-4">
+                            <div class="flex flex-col md:flex-row gap-3">
+                                <input type="text" id="modelName" required value="${escapeHtml(appState.newModelName || '')}" oninput="appState.newModelName=this.value;" placeholder="اسم النموذج" class="flex-1 px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
                                 <button type="submit" ${isLoading('createModel') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2" style="background-color: ${config.primary_color};">${isLoading('createModel') ? '<div class="loading-spinner"></div>' : ''}<span>إنشاء</span></button>
-                            </form>
-                            <div class="flex gap-2">
-                                <input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="importFromExcel(event)" class="hidden">
-                                <button onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : WGIcon('dashboard')}<span>استيراد من Excel</span></button>
                             </div>
+
+                            <div class="rounded-xl border-2 p-4" style="border-color: #e2e8f0;">
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                    <label class="text-sm font-bold">أعمدة النموذج (الفئات)</label>
+                                    <div class="flex gap-2">
+                                        <button type="button" onclick="resetNewModelHeaders();" class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-semibold hover:bg-slate-200">الفئات الافتراضية</button>
+                                        <button type="button" onclick="clearNewModelHeaders();" class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-100">تفريغ</button>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    ${appState.newModelHeaders.length > 0 ? appState.newModelHeaders.map((header, index) => `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-semibold border border-indigo-200">${escapeHtml(header)}<button type="button" onclick="removeNewModelHeader(${index});" class="w-5 h-5 rounded-full bg-indigo-100 hover:bg-red-100 hover:text-red-600 font-bold leading-none" title="حذف">×</button></span>`).join('') : '<span class="text-sm text-slate-400">لا توجد أعمدة بعد — أضف عموداً أو استخدم الفئات الافتراضية</span>'}
+                                </div>
+                                <div class="flex gap-2">
+                                    <input type="text" id="newModelHeaderInput" placeholder="اسم عمود جديد..." onkeydown="if(event.key==='Enter'){event.preventDefault();addNewModelHeader();}" class="flex-1 px-4 py-2 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                    <button type="button" onclick="addNewModelHeader();" class="px-4 py-2 rounded-lg font-semibold text-white" style="background-color: ${config.primary_color};">إضافة عمود</button>
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border-2 p-4" style="border-color: #e2e8f0;">
+                                <label class="text-sm font-bold block mb-2">نطاق المقاسات</label>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-semibold">من</span>
+                                        <select id="newModelSizeFrom" onchange="onNewModelSizeRangeChange();" class="px-3 py-2 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                            ${SIZES.map(s => `<option value="${s}" ${s === appState.newModelSizeFrom ? 'selected' : ''}>${formatSizeLabel(s)}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-semibold">إلى</span>
+                                        <select id="newModelSizeTo" onchange="onNewModelSizeRangeChange();" class="px-3 py-2 border-2 rounded-lg" style="border-color: ${config.primary_color};">
+                                            ${SIZES.map(s => `<option value="${s}" ${s === appState.newModelSizeTo ? 'selected' : ''}>${formatSizeLabel(s)}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                    <span class="text-xs text-slate-500">سيتم إنشاء ${newModelSizes.length} مقاس فقط (${newModelSizes.length ? formatSizeLabel(newModelSizes[0]) + ' → ' + formatSizeLabel(newModelSizes[newModelSizes.length - 1]) : 'نطاق غير صحيح'})</span>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t" style="border-color: #e2e8f0;">
+                            <input type="file" id="excelFileInput" accept=".xlsx, .xls" onchange="importFromExcel(event)" class="hidden">
+                            <button type="button" onclick="triggerFileInput()" ${isLoading('importExcel') ? 'disabled' : ''} class="px-6 py-3 rounded-lg font-semibold text-white flex items-center gap-2" style="background-color: #10b981;">${isLoading('importExcel') ? '<div class="loading-spinner"></div>' : WGIcon('dashboard')}<span>استيراد من Excel (أعمدة ومقاسات من الملف)</span></button>
                         </div>
                     </div>
                     <div class="space-y-6">
                         ${appState.pricingModels.length === 0 ? `<div class="card-shadow rounded-xl p-12 bg-white text-center"><div class="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center" style="background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(217,119,6,0.08));">${WGIcon('pricing', 40, '#f59e0b')}</div><h3 class="text-2xl font-bold mb-2">لا توجد نماذج تسعير</h3><p class="text-lg opacity-75">قم بإنشاء نموذج التسعير الأول الخاص بك</p></div>` :
                     appState.pricingModels.map(model => {
-                        const totalPrices = model.data.reduce((sum, cat) => sum + cat.prices.filter(p => p.price > 0).length, 0);
-                        const totalPossible = model.data.length * SIZES.length;
-                        const percent = Math.round((totalPrices / totalPossible) * 100);
+                        const modelSizes = getModelSizes(model);
+                        const totalPrices = model.data.reduce((sum, cat) => sum + (cat.prices || []).filter(p => p.price > 0).length, 0);
+                        const totalPossible = model.data.length * modelSizes.length;
+                        const percent = totalPossible > 0 ? Math.round((totalPrices / totalPossible) * 100) : 0;
                         const mid = escapeHtml(model.__backendId);
                         return `
                                 <div class="card-shadow rounded-xl p-6 bg-white hover-scale">
@@ -4000,8 +4567,13 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="flex flex-wrap gap-2 mb-3">
+                                        <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">${model.data.length} أعمدة</span>
+                                        <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">${modelSizes.length} مقاس</span>
+                                        ${modelSizes.map(s => `<span class="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">${formatSizeBadge(s)}</span>`).join('')}
+                                    </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg relative" style="background-color: ${config.background_color};"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn absolute top-2 left-2" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${cat.prices.filter(p => p.price > 0).length}/${SIZES.length} مقاسات مسعرة</p></div>`).join('')}
+                                        ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg relative" style="background-color: ${config.background_color};"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn absolute top-2 left-2" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${(cat.prices || []).filter(p => p.price > 0).length}/${modelSizes.length} مقاسات مسعرة</p></div>`).join('')}
                                         ${model.data.length > 4 ? `<div class="p-3 rounded-lg flex items-center justify-center" style="background-color: ${config.background_color};"><p class="font-semibold text-sm" style="color: ${config.primary_color};">+${model.data.length - 4} فئات</p></div>` : ''}
                                     </div>
                                 </div>`;
@@ -4018,6 +4590,9 @@
             const preview = appState._adjustPreview;
             const previewLabel = appState._adjustPreviewLabel || '';
             const mid = escapeHtml(model.__backendId);
+            const modelSizes = getModelSizes(model);
+            const firstSize = modelSizes[0] || 22;
+            const lastSize = modelSizes[modelSizes.length - 1] || 56;
 
             return `
             <div class="modal-overlay" onclick="if(event.target===this)closeAdjustModal();">
@@ -4069,13 +4644,13 @@
                                 <div class="adjust-field">
                                     <label>من مقاس</label>
                                     <select id="adj-section-from">
-                                        ${SIZES.map(s => `<option value="${s}" ${s === 22 ? 'selected' : ''}>${s}</option>`).join('')}
+                                        ${modelSizes.map(s => `<option value="${s}" ${s === firstSize ? 'selected' : ''}>${formatSizeLabel(s)}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="adjust-field">
                                     <label>إلى مقاس</label>
                                     <select id="adj-section-to">
-                                        ${SIZES.map(s => `<option value="${s}" ${s === 56 ? 'selected' : ''}>${s}</option>`).join('')}
+                                        ${modelSizes.map(s => `<option value="${s}" ${s === lastSize ? 'selected' : ''}>${formatSizeLabel(s)}</option>`).join('')}
                                     </select>
                                 </div>
                                 <div class="adjust-field">
@@ -4089,7 +4664,7 @@
                                     <label>القيمة</label>
                                     <input type="number" id="adj-section-value" placeholder="مثال: 20 أو 5" step="0.1">
                                 </div>
-                                <button onclick="previewSectionAdjust();" class="px-5 py-2 rounded-xl font-bold text-white text-sm" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: auto;">معاينة</button>
+                                <button type="button" onclick="previewSectionAdjust();" class="px-5 py-2 rounded-xl font-bold text-white text-sm" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: auto;">معاينة</button>
                             </div>
                             <p class="text-xs text-slate-400 mt-2">مثال: فئة "شورت" من مقاس 42 إلى 56 بنسبة 5% — أو جميع الفئات من مقاس 22 إلى 40 بمبلغ +20</p>
                         </div>
@@ -4109,7 +4684,7 @@
                                     <thead class="sticky top-0 bg-slate-50 z-10">
                                         <tr class="border-b-2 border-slate-200">
                                             <th class="text-right py-2 px-3 font-bold sticky right-0 bg-slate-50 z-20">الفئة</th>
-                                            ${SIZES.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${s}</th>`).join('')}
+                                            ${modelSizes.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${formatSizeBadge(s)}</th>`).join('')}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -4119,8 +4694,10 @@
                                                 <td class="py-2 px-3 font-semibold sticky right-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} z-10">
                                                     <div class="flex items-center gap-1">${getCategoryIcon(cat.name)}<span class="text-xs">${escapeHtml(cat.name)}</span></div>
                                                 </td>
-                                                ${cat.prices.map((p, pi) => {
-                                                    const orig = origCat.prices[pi]?.price || 0;
+                                                ${modelSizes.map(size => {
+                                                    const p = (cat.prices || []).find(pr => parseInt(pr.size) === size) || { price: 0 };
+                                                    const origP = (origCat.prices || []).find(pr => parseInt(pr.size) === size) || { price: 0 };
+                                                    const orig = origP.price || 0;
                                                     const changed = p.price !== orig && orig > 0;
                                                     return `<td class="text-center py-1 px-1 text-xs ${changed ? 'font-bold' : ''}" style="color: ${p.price > 0 ? (changed ? '#b45309' : '#16a34a') : '#cbd5e0'}; ${changed ? 'background:#fef3c7;' : ''}">${p.price > 0 ? p.price.toFixed(2) : '-'}</td>`;
                                                 }).join('')}
@@ -4185,6 +4762,8 @@
             const config = window.elementSdk?.config || defaultConfig;
             const lastInput = appState.lastBillInput || {};
             const isEditing = !!appState.editingBillId;
+            const billSizes = appState.selectedModel ? getModelSizes(appState.selectedModel) : SIZES;
+            const customSizeOptions = Array.from(new Set([...SIZES, ...billSizes])).sort((a, b) => a - b);
 
             const stepsBar = `
                 <div class="flex items-center justify-center gap-2 md:gap-4 mb-8 no-print">
@@ -4244,14 +4823,14 @@
                                     </select>
                                 </div>
                                 <div id="billNormalRow" class="grid grid-cols-1 md:grid-cols-3 gap-4 ${lastInput.category === 'مخصص' ? 'hidden' : ''}">
-                                    <select id="billSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+                                    <select id="billSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">${billSizes.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${formatSizeLabel(s)}</option>`).join('')}</select>
                                     <input type="number" id="billQuantity" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
                                     <button onclick="addBillItem();" class="px-8 py-3 rounded-lg font-semibold text-white text-lg" style="background-color: ${config.accent_color};">إضافة</button>
                                 </div>
                                 <div id="billCustomRow" class="grid grid-cols-1 md:grid-cols-3 gap-4 ${lastInput.category === 'مخصص' ? '' : 'hidden'}">
                                     <select id="billCustomSize" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
                                         <option value="" ${lastInput.size === '' ? 'selected' : ''}>—</option>
-                                        ${SIZES.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                        ${customSizeOptions.map(s => `<option value="${s}" ${lastInput.size === s ? 'selected' : ''}>${formatSizeLabel(s)}</option>`).join('')}
                                     </select>
                                     <input type="number" id="billQuantityCustom" min="0.01" step="0.01" placeholder="الكمية" value="${lastInput.quantity || ''}" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
                                     <input type="number" id="billCustomPrice" min="0.01" step="0.01" placeholder="سعر الوحدة" class="px-4 py-3 border-2 rounded-lg" style="border-color: ${config.primary_color};">
@@ -4262,7 +4841,7 @@
                                 </div>
                             </div>
                         </div>
-                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-center py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b ${item.unitPrice === 0 && !item.isCustom ? 'bg-yellow-50' : ''}"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${formatBillNumber(item.total)}</td><td class="text-center">${item.unitPrice === 0 && !item.isCustom ? `<span class="zero-price-warning">${WGIcon('warning', 12, '#92400e')} سعر غير محدد</span>` : formatBillNumber(item.unitPrice)}</td><td class="text-center">${formatBillNumber(item.quantity)}</td><td class="text-center">${item.size}</td><td class="text-center">${escapeHtml(item.category)}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
+                        ${appState.billItems.length > 0 ? `<div class="card-shadow rounded-xl p-6 bg-white"><h2 class="text-2xl font-bold mb-4">عناصر الفاتورة</h2><div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b-2" style="border-color: ${config.primary_color};"><th class="text-center py-3 px-4">إجراء</th><th class="text-center py-3 px-4">الاجمالي</th><th class="text-center py-3 px-4">السعر</th><th class="text-center py-3 px-4">الكمية</th><th class="text-center py-3 px-4">المقاس</th><th class="text-center py-3 px-4">الفئة</th></tr></thead><tbody>${appState.billItems.map((item, idx) => `<tr class="border-b ${item.unitPrice === 0 && !item.isCustom ? 'bg-yellow-50' : ''}"><td class="text-center"><button onclick="removeBillItem(${idx});" class="px-3 py-1 bg-red-500 rounded text-white text-sm">حذف</button></td><td class="text-center font-bold" style="color: ${config.accent_color};">${formatBillNumber(item.total)}</td><td class="text-center">${item.unitPrice === 0 && !item.isCustom ? `<span class="zero-price-warning">${WGIcon('warning', 12, '#92400e')} سعر غير محدد</span>` : formatBillNumber(item.unitPrice)}</td><td class="text-center">${formatBillNumber(item.quantity)}</td><td class="text-center">${formatSizeBadge(item.size)}</td><td class="text-center">${escapeHtml(item.category)}</td></tr>`).join('')}</tbody><tfoot><tr class="border-t-2" style="border-color: ${config.primary_color};"><td colspan="5" class="py-4 px-4 text-left font-bold text-xl">الإجمالي الكلي:</td><td class="py-4 px-4 text-center font-bold text-2xl" style="color: ${config.accent_color};">${appState.billItems.reduce((s, i) => s + i.total, 0).toFixed(2)} جنية</td></tr></tfoot></table></div><div class="mt-6 flex justify-end"><button onclick="saveBill();" ${isLoading('saveBill') ? 'disabled' : ''} class="px-8 py-3 rounded-lg font-bold text-white text-lg flex items-center gap-2" style="background-color: ${config.primary_color};">${isLoading('saveBill') ? '<div class="loading-spinner"></div>' : ''}<span>حفظ الفاتورة</span></button></div></div>` : ''}
                     </div>`;
             }
 
@@ -4331,7 +4910,7 @@
                                 <div class="mb-2 overflow-x-auto rounded-xl border" style="border-color: #e2e8f0;">
                                     <table class="bill-table min-w-[520px]">
                                         <thead><tr><th class="text-center" style="color:${config.text_color};">الإجمالي</th><th class="text-center" style="color:${config.text_color};">الكمية</th><th class="text-center" style="color:${config.text_color};">سعر الوحدة</th><th class="text-center" style="color:${config.text_color};">الفئة</th><th class="text-center" style="color:${config.text_color};">المقاس</th></tr></thead>
-                                        <tbody>${bill.items.map((item) => `<tr><td class="text-center font-bold" style="color: ${config.accent_color};">${formatBillNumber(item.total)}</td><td class="text-center font-semibold">${formatBillNumber(item.quantity)}</td><td class="text-center">${formatBillNumber(item.unitPrice)}</td><td class="text-center" style="vertical-align:middle;"><span style="display:inline-flex;align-items:center;line-height:1;padding:2px 8px;border-radius:0.375rem;font-size:0.75rem;font-weight:600;color:#fff;background-color:${config.primary_color};">${escapeHtml(item.category)}</span></td><td class="text-center font-semibold">${item.size}</td></tr>`).join('')}</tbody>
+                                        <tbody>${bill.items.map((item) => `<tr><td class="text-center font-bold" style="color: ${config.accent_color};">${formatBillNumber(item.total)}</td><td class="text-center font-semibold">${formatBillNumber(item.quantity)}</td><td class="text-center">${formatBillNumber(item.unitPrice)}</td><td class="text-center" style="vertical-align:middle;"><span style="display:inline-flex;align-items:center;line-height:1;padding:2px 8px;border-radius:0.375rem;font-size:0.75rem;font-weight:600;color:#fff;background-color:${config.primary_color};">${escapeHtml(item.category)}</span></td><td class="text-center font-semibold">${formatSizeBadge(item.size)}</td></tr>`).join('')}</tbody>
                                     </table>
                                 </div>
                                 <div class="bill-total-box"><div class="flex justify-between items-center"><div><h3 class="bill-total-label">الإجمالي الكلي</h3></div><div class="text-left"><p class="bill-total-value">${formatBillNumber(bill.billTotal)}</p><p class="bill-total-currency">جنيه مصري</p></div></div></div>
@@ -4681,8 +5260,9 @@
                                 ${versions.map((v, vIdx) => {
                     const isExpanded = _storageExpandedItem === v.__backendId;
                     const isActive = !v.isDeleted;
-                    const catCount = Array.isArray(v.data) ? v.data.length : 0;
-                    const pricedCount = Array.isArray(v.data) ? v.data.reduce((s, c) => s + (Array.isArray(c.prices) ? c.prices.filter(p => p.price > 0).length : 0), 0) : 0;
+                    const parsedVersion = parseModelPayload(v.pricingModelData, v.data);
+                    const catCount = Array.isArray(parsedVersion.data) ? parsedVersion.data.length : 0;
+                    const pricedCount = Array.isArray(parsedVersion.data) ? parsedVersion.data.reduce((s, c) => s + (Array.isArray(c.prices) ? c.prices.filter(p => p.price > 0).length : 0), 0) : 0;
                     const vDate = v.updatedAt || v.createdAt || '';
                     const dateStr = vDate ? new Date(vDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                     const jStr2 = JSON.stringify(v, null, 2);
@@ -4763,7 +5343,7 @@
                                     <span class="font-bold text-slate-700">${label}</span>
                                     <button onclick="resetModelTheme('${key}');" class="text-xs px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">إعادة تعيين</button>
                                 </div>
-                                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                                <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
                                     <div class="flex flex-col gap-1">
                                         <label class="text-xs font-semibold text-slate-500">شريط العنوان</label>
                                         <div class="flex items-center gap-2">
@@ -4776,6 +5356,13 @@
                                         <div class="flex items-center gap-2">
                                             <input type="color" value="${t.accent}" onchange="updateModelThemeColor('${key}','accent',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
                                             <span class="text-xs font-mono" style="color: #64748b;">${t.accent}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-xs font-semibold text-slate-500">لون وسم المقاس</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="color" value="${t.tagColor || t.accent}" onchange="updateModelThemeColor('${key}','tagColor',this.value);" class="w-8 h-8 rounded cursor-pointer border-0 p-0" style="border: 2px solid #e2e8f0;">
+                                            <span class="text-xs font-mono" style="color: #64748b;">${t.tagColor || t.accent}</span>
                                         </div>
                                     </div>
                                     <div class="flex flex-col gap-1">
@@ -4809,7 +5396,7 @@
                                             <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">فئة</td>
                                         </tr>
                                         <tr>
-                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">22</td>
+                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">${formatSizeBadge(44, t)}</td>
                                             <td style="background: ${t.row1}; color: ${t.text}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">215</td>
                                         </tr>
                                         <tr>
@@ -4935,28 +5522,59 @@
                     }
                 }
                 if (headerRowIndex === -1) throw new Error('لم يتم العثور على صف الرأس الذي يحتوي على "المقاس"');
-                const modelData = [];
-                for (let catName of categoryMap.values()) modelData.push({ name: catName, prices: SIZES.map(s => ({ size: s, price: 0 })) });
+                if (categoryMap.size === 0) throw new Error('لم يتم العثور على أي أعمدة (فئات) في الملف');
+
+                // Collect only the sizes that really exist in the file.
+                // A size row is kept when at least one of its price cells is a
+                // number (including 0). Empty/placeholder rows are ignored so a
+                // 44–54 file never gets padded with 22–42 or 56.
+                const sizeRows = [];
+                const sizesWithPrices = new Set();
                 for (let i = headerRowIndex + 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || row.length === 0) continue;
                     const sizeCell = row[sizeColIndex];
                     if (sizeCell === undefined || sizeCell === null) continue;
                     const size = parseInt(sizeCell);
-                    if (isNaN(size) || !SIZES.includes(size)) continue;
+                    if (!Number.isFinite(size) || size <= 0) continue;
+                    sizeRows.push({ size, row });
+                    for (const colIdx of categoryMap.keys()) {
+                        const priceCell = row[colIdx];
+                        if (priceCell === undefined || priceCell === null || priceCell === '' || priceCell === '------') continue;
+                        const price = parseFloat(priceCell);
+                        if (!isNaN(price)) sizesWithPrices.add(size);
+                    }
+                }
+
+                const allSizes = Array.from(new Set(sizeRows.map(r => r.size))).sort((a, b) => a - b);
+                const importedSizes = sizesWithPrices.size > 0
+                    ? allSizes.filter(size => sizesWithPrices.has(size))
+                    : allSizes;
+                if (importedSizes.length === 0) throw new Error('لم يتم العثور على أي مقاسات في الملف');
+
+                const modelData = Array.from(categoryMap.values()).map(catName => ({
+                    name: catName,
+                    prices: importedSizes.map(size => ({ size, price: 0 }))
+                }));
+
+                sizeRows.forEach(({ size, row }) => {
+                    if (!importedSizes.includes(size)) return;
                     for (let [colIdx, catName] of categoryMap.entries()) {
                         const priceCell = row[colIdx];
                         if (priceCell === undefined || priceCell === null || priceCell === '------' || priceCell === '') continue;
                         const price = parseFloat(priceCell);
                         if (isNaN(price)) continue;
                         const catData = modelData.find(c => c.name === catName);
-                        if (catData) { const priceEntry = catData.prices.find(p => p.size === size); if (priceEntry) priceEntry.price = price; }
+                        if (catData) {
+                            const priceEntry = catData.prices.find(p => p.size === size);
+                            if (priceEntry) priceEntry.price = price;
+                        }
                     }
-                }
+                });
                 let modelName = file.name.replace(/\.[^/.]+$/, "");
                 modelName = prompt("أدخل اسم النموذج:", modelName);
                 if (!modelName || !modelName.trim()) { setLoading('importExcel', false); return; }
-                const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: modelName.trim(), pricingModelData: JSON.stringify(modelData), createdAt: new Date().toISOString() });
+                const result = await window.dataSdk.create({ type: 'pricingModel', pricingModelName: modelName.trim(), pricingModelData: serializeModelPayload(modelData, importedSizes), createdAt: new Date().toISOString() });
                 showToast(result.isOk ? 'تم استيراد النموذج بنجاح' : 'حدث خطأ أثناء حفظ النموذج', result.isOk ? 'success' : 'error');
             } catch (err) {
                 console.error(err);

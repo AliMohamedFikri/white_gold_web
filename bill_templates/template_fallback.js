@@ -87,7 +87,7 @@
                                             <td class="py-2 px-2 text-center">${formatBillNumber(item.quantity)}</td>
                                             <td class="py-2 px-2 text-center">${formatBillNumber(item.unitPrice)}</td>
                                             <td class="py-2 px-2 text-center">${escapeHtml(item.category)}</td>
-                                            <td class="py-2 px-2 text-center">${item.size}</td>
+                                            <td class="py-2 px-2 text-center">${formatSizeBadge(item.size)}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
