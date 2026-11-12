@@ -2309,15 +2309,16 @@
             return theme.tagColor || theme.accent || theme.text || '#1e3a8a';
         }
 
-        /** HTML label for a size with a small tag badge, e.g. 44 [M]. */
-        function formatSizeBadge(size, theme = null) {
+        /** HTML label for a size with a small tag badge, e.g. 44 [M]. Pass tagFirst=true to render the tag before the size. */
+        function formatSizeBadge(size, theme = null, tagFirst = false) {
             if (size === null || size === undefined || size === '' || size === '—') return '—';
             const tag = getSizeTag(size);
             const label = escapeHtml(String(size));
+            if (!tag) return label;
             const tagText = getSizeTagTextColor(theme);
-            return tag
-                ? `<span class="size-with-tag"><span>${label}</span><span class="size-tag" style="color:${tagText};">${escapeHtml(tag)}</span></span>`
-                : label;
+            const sizeSpan = `<span>${label}</span>`;
+            const tagSpan = `<span class="size-tag" style="color:${tagText};">${escapeHtml(tag)}</span>`;
+            return `<span class="size-with-tag">${tagFirst ? tagSpan + sizeSpan : sizeSpan + tagSpan}</span>`;
         }
 
         /** Raw union of all size entries in model data (no trimming). */
@@ -4374,7 +4375,7 @@
                                 ${modelSizes.map((size, rowIdx) => {
                                     const rowBg = rowIdx % 2 === 1 ? theme.row2 : theme.row1;
                                     return `<tr>
-                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${formatSizeBadge(size, theme)}</td>
+                                        <td style="background:${theme.accent};color:${accentText};font-weight:800;font-size:${fontSize}rem;padding:12px 6px;border:2px solid #1e3a8a;text-align:center;vertical-align:middle;min-height:44px;line-height:1.4;">${formatSizeBadge(size, theme, true)}</td>
                                         ${[...model.data].reverse().map(cat => {
                                             const p = (cat.prices || []).find(pr => parseInt(pr.size) === size);
                                             const price = p ? p.price : 0;
