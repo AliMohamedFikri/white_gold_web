@@ -611,7 +611,7 @@
             font-weight: 800;
         }
 
-        /* Size + tag display (e.g. 42 S) */
+        /* Size + tag display (e.g. S 42) */
         .size-with-tag {
             display: flex;
             align-items: center;
@@ -619,6 +619,7 @@
             width: 100%;
             gap: 0;
             white-space: nowrap;
+            direction: ltr;
         }
 
         .size-with-tag > span {
@@ -1407,9 +1408,9 @@
                         ctx.textBaseline = 'middle';
                         const sizeTag = getSizeTag(size);
                         if (sizeTag) {
-                            ctx.fillText(String(size), x + col.width * 0.25, y + cellH / 2);
+                            ctx.fillText(String(size), x + col.width * 0.75, y + cellH / 2);
                             ctx.fillStyle = getSizeTagTextColor(theme);
-                            ctx.fillText(sizeTag, x + col.width * 0.75, y + cellH / 2);
+                            ctx.fillText(sizeTag, x + col.width * 0.25, y + cellH / 2);
                         } else {
                             ctx.fillText(String(size), x + col.width / 2, y + cellH / 2);
                         }
@@ -4453,7 +4454,7 @@
                                 <thead>
                                     <tr class="border-b-2" style="border-color: ${config.primary_color};">
                                         <th class="text-right py-3 px-4 font-bold sticky right-0 bg-white z-10">الفئة</th>
-                                        ${editSizes.map(s => `<th class="text-center py-3 px-3 font-bold"><div class="flex flex-col items-center gap-1">${formatSizeBadge(s, editTheme)}<button type="button" onclick="removeEditModelSize(${s});" class="text-[10px] font-semibold text-red-500 hover:text-red-700">حذف</button></div></th>`).join('')}
+                                        ${editSizes.map(s => `<th class="text-center py-3 px-3 font-bold"><div class="flex flex-col items-center gap-1">${formatSizeBadge(s, editTheme, true)}<button type="button" onclick="removeEditModelSize(${s});" class="text-[10px] font-semibold text-red-500 hover:text-red-700">حذف</button></div></th>`).join('')}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4572,7 +4573,7 @@
                                     <div class="flex flex-wrap gap-2 mb-3">
                                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">${model.data.length} أعمدة</span>
                                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">${modelSizes.length} مقاس</span>
-                                        ${modelSizes.map(s => `<span class="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">${formatSizeBadge(s, modelTheme)}</span>`).join('')}
+                                        ${modelSizes.map(s => `<span class="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">${formatSizeBadge(s, modelTheme, true)}</span>`).join('')}
                                     </div>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         ${model.data.slice(0, 4).map(cat => `<div class="p-3 rounded-lg relative" style="background-color: ${config.background_color};"><button id="copy-cat-${cat.name.replace(/\s+/g, '-')}-${model.__backendId}" onclick="copyCategoryPrices('${mid}', '${escapeHtml(cat.name)}');" class="copy-btn absolute top-2 left-2" title="نسخ أسعار ${escapeHtml(cat.name)}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><div class="flex items-center gap-2 mb-1"><span>${getCategoryIcon(cat.name)}</span><p class="font-semibold text-sm">${escapeHtml(cat.name)}</p></div><p class="text-xs opacity-75">${(cat.prices || []).filter(p => p.price > 0).length}/${modelSizes.length} مقاسات مسعرة</p></div>`).join('')}
@@ -4687,7 +4688,7 @@
                                     <thead class="sticky top-0 bg-slate-50 z-10">
                                         <tr class="border-b-2 border-slate-200">
                                             <th class="text-right py-2 px-3 font-bold sticky right-0 bg-slate-50 z-20">الفئة</th>
-                                            ${modelSizes.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${formatSizeBadge(s, modelTheme)}</th>`).join('')}
+                                            ${modelSizes.map(s => `<th class="text-center py-2 px-2 font-bold text-xs">${formatSizeBadge(s, modelTheme, true)}</th>`).join('')}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -5399,7 +5400,7 @@
                                             <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#C5E0B3','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">فئة</td>
                                         </tr>
                                         <tr>
-                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">${formatSizeBadge(44, t)}</td>
+                                            <td style="background: ${t.accent}; color: ${(['#FFED59','#FFD9C2','#FFF3C3','#F7CAAC','#FBE4D5','#E2EFD9','#B4C6E7','#D9E2F3'].includes(t.accent.toUpperCase())) ? '#000' : '#fff'}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">${formatSizeBadge(44, t, true)}</td>
                                             <td style="background: ${t.row1}; color: ${t.text}; padding: 3px 8px; border: 1px solid #1e3a8a; text-align: center;">215</td>
                                         </tr>
                                         <tr>

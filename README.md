@@ -72,7 +72,7 @@ Full CRUD management for pricing matrices used in bill generation.
 
 - Create, view, edit, and delete pricing models
 - Each model stores its own size range (created via from/to, or imported from Excel), so a 44–54 model is never padded with 22–42 or 56
-- Size labels include standard tags where applicable: 42 = S, 44 = M, 46 = L, 48 = XL, 50 = XXL, 52 = 3XL, 54 = 4XL, 56 = 5XL
+- Price-model size labels show the standard tag before the numeric size: S 42, M 44, L 46, XL 48, XXL 50, 3XL 52, 4XL 54, 5XL 56
 - Edit existing model names directly, with duplicate-name validation
 - Fully flexible model headers: add, rename, or remove category columns when creating or editing a model
 - Model view header layout controls: set the table width and the relative date, tag, and name column widths; long header text shrinks to fit without increasing the configured font size
